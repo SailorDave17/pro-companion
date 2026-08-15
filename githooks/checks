@@ -1,0 +1,6 @@
+# One shell command per line, run from the repo root before any direct push to
+# a branch listed in githooks/direct-push-ok. That file is deliberately ABSENT
+# in pro-companion - no branch may be pushed directly; develop/main are entered
+# by PR only. This list exists so that if a direct-ok branch is ever added, the
+# push is gated on the suite rather than on nothing.
+flutter test
