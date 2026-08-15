@@ -13,7 +13,7 @@ class ProCompanionApp extends StatelessWidget {
       title: 'PRO Companion',
       home: Scaffold(
         body: Center(
-          child: Text('MUTATED'),
+          child: Text('PRO Companion'),
         ),
       ),
     );
