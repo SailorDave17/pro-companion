@@ -1,2 +1,15 @@
 # pro-companion
-App that can be used as standalone or with companion apps to make the pros life easier on race day
+
+App that can be used as standalone or with companion apps to make the pros life easier on race day.
+
+The race committee's companion — the whole team, not just the PRO: role-scoped views for the
+signal boat, recorder, mark boats and safety boats, an append-only protest-ready log (the US
+Sailing paper forms, digitized), finish capture, GPS course setting (templates by fleet and
+conditions, mark coordinates pushed to the mark boats), and live results to shore when a burgee
+event sits behind it. Flutter, Android-first; iOS follows post-pilot. Start signals stay with
+race-timer for the pilot — this app records them.
+
+Scope of record: the tiered feature scope and the owner decisions behind it live in
+`cairn/memory/projects/pro-companion-scope-2026-08-14.md`; the product charter is
+`burgee/docs/charter.md` (this app is burgee's RC companion, ADR 004, standalone-capable by
+design).
