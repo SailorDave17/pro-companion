@@ -1,0 +1,62 @@
+{
+  "events_per_day": 3028,
+  "days_retained": 3,
+  "events_retained": 9084,
+  "platform": "sdk_gphone64_x86_64-userdebug 16 BE2A.250530.026.F3 13894323 dev-keys",
+  "results": {
+    "sqlite3": {
+      "events_after_fill": 9084,
+      "fill_ms": 11474,
+      "timed_appends": 1000,
+      "p50_ms": 0.898,
+      "p95_ms": 2.454,
+      "max_ms": 6.508,
+      "passes_100ms_p95": true,
+      "bytes_on_disk": 5238784,
+      "update": {
+        "refused_natively": true,
+        "detail": "SqliteException: events is append-only"
+      },
+      "delete": {
+        "refused_natively": true,
+        "detail": "SqliteException: events is append-only"
+      }
+    },
+    "sembast": {
+      "events_after_fill": 9084,
+      "fill_ms": 34574,
+      "timed_appends": 1000,
+      "p50_ms": 3.532,
+      "p95_ms": 6.251,
+      "max_ms": 9.8,
+      "passes_100ms_p95": true,
+      "bytes_on_disk": 4466647,
+      "update": {
+        "refused_natively": false,
+        "detail": "update succeeded; no engine-level refusal exists"
+      },
+      "delete": {
+        "refused_natively": false,
+        "detail": "delete succeeded; no engine-level refusal exists"
+      }
+    },
+    "hive_ce": {
+      "events_after_fill": 9084,
+      "fill_ms": 10576,
+      "timed_appends": 1000,
+      "p50_ms": 0.945,
+      "p95_ms": 2.697,
+      "max_ms": 6.033,
+      "passes_100ms_p95": true,
+      "bytes_on_disk": 4244373,
+      "update": {
+        "refused_natively": false,
+        "detail": "put over an existing key succeeded; no engine-level refusal exists"
+      },
+      "delete": {
+        "refused_natively": false,
+        "detail": "delete succeeded; no engine-level refusal exists"
+      }
+    }
+  }
+}

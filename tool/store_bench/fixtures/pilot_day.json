@@ -1,0 +1,68 @@
+{
+  "_about": "Synthetic race-day volume for the pro-companion #13 local-store benchmark. Every parameter carries its justification from the pilot scope (cairn memory projects/pro-companion-scope-2026-08-14.md, decisions 1, 6 and 8; pro-companion ADR 001). Every phone holds the whole event's log, not only its own entries, because ADR 001 pulls other phones' events down to each phone. So one store is sized for the whole committee.",
+  "seed": 20260923,
+  "devices": {
+    "value": 5,
+    "why": "Scope decision 1: the full committee. PRO/signal boat, recorder, two mark boats, safety."
+  },
+  "fleets": {
+    "value": 3,
+    "why": "Scope decision 8: multiple fleets per day. Three is a typical club day: a spinnaker, a non-spinnaker and a dinghy fleet."
+  },
+  "boatsPerFleet": {
+    "value": 20,
+    "why": "Upper end of a club fleet. Overestimating is the safe side of a latency bar."
+  },
+  "racesPerFleet": {
+    "value": 4,
+    "why": "A full club race day. More than most, which keeps the estimate conservative."
+  },
+  "roundingsPerBoatPerRace": {
+    "value": 3,
+    "why": "Mark rounding capture (pilot tier): a two-lap windward-leeward logs three roundings per boat before the finish."
+  },
+  "sequenceEventsPerStart": {
+    "value": 8,
+    "why": "Scope decision 2: race-timer's signals are logged. Warning, preparatory, one-minute and start, plus allowance for a postponement and recalls."
+  },
+  "finishEventsPerBoatPerRace": {
+    "value": 2,
+    "why": "#4: a finish tap and a separate sail-number assignment, because an assignment appends and never edits the tap."
+  },
+  "correctionRate": {
+    "value": 0.05,
+    "why": "Scope decision 8: undo instead of confirm popups, where an undo is a new correction event. 5% of finishes and roundings."
+  },
+  "notesPerDay": {
+    "value": 30,
+    "why": "The automatic log (pilot tier): free-text and voice-note events. The audio itself is not in the store."
+  },
+  "windReadingsPerDay": {
+    "value": 72,
+    "why": "Wind log (pilot tier): one reading every 5 minutes over a 6-hour day."
+  },
+  "gpsTrackSamplesPerMarkBoat": {
+    "value": 720,
+    "why": "GPS course module (scope decision 6): drive-to-here guidance may keep a track. One sample every 30 s for 6 h. An upper bound; the pilot may store fewer."
+  },
+  "markBoats": {
+    "value": 2,
+    "why": "The mark-boat devices within 'devices'."
+  },
+  "safetyEventsPerBoat": {
+    "value": 2,
+    "why": "Safety/support (pilot tier): a check-out and a check-in per boat per day."
+  },
+  "assistFlagsPerDay": {
+    "value": 10,
+    "why": "Safety/support: assist flags raised and cleared."
+  },
+  "daysRetained": {
+    "value": 3,
+    "why": "A three-day regatta with no purge in between. The store must meet the bar at the end of the last day, not the first."
+  },
+  "timedAppends": {
+    "value": 1000,
+    "why": "#13 criterion 2: 1,000 further appends are timed once the store is full."
+  }
+}
