@@ -12,6 +12,10 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local credentials (#39): .env.example names them, values never enter git.
+.env.local
+.env.*.local
+
 # IntelliJ related
 *.iml
 *.ipr
