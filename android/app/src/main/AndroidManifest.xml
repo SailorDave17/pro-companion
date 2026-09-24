@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The confirmation buzz on every logged race-time action (#4). -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="pro_companion"
         android:name="${applicationName}"
