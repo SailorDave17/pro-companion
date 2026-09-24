@@ -97,6 +97,16 @@ should be able to operate stand alone, especially in the beginning stages."*
   anon key as Actions secrets (#39's external criterion). Until then #39 is blocked and nothing on
   the server path starts — **not** by borrowing burgee's project as a stopgap, which recreates the
   dependency this ADR removes.
+  - *State on 2026-09-24 (UTC), hours after the gate*: the project exists — `pxywvqhdywgrysmwvbxy`,
+    named "pro-companion dB", `us-east-1`, Postgres 17, in organisation `udzpivncwztgwvhpnabb`.
+    *Measured* through the Management API with the owner's personal access token, which lists
+    **only this project** — so it sits in a different account from Tender and Taskr, not in a second
+    organisation under the existing one as the gate wording said. The plan could not be read
+    (the organisation endpoints returned nothing to that token); **Pro before any multi-phone field
+    test** stands whichever account holds it. The token itself (`sbp_…`) is an account-wide
+    Management API credential, not the key the app needs: #39 wants the project URL and the
+    publishable key, and the token belongs in the CLI login or a secret store, never in the repo —
+    it is git-ignored at `.env.local` and was never committed (*measured*, all branches).
 
 ## Kill conditions
 
