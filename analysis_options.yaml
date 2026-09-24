@@ -1,1 +1,10 @@
 include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  # tool/ holds the spikes and benches behind ADRs 002 and 003. Each is its own
+  # Flutter project with its own pubspec, and CI never resolves their packages,
+  # so analysing them from the root reports every import as missing (#16:
+  # 51 errors on a fresh checkout, all in tool/store_bench). They are evidence
+  # for decisions already taken, not app code, and CI gates the app only.
+  exclude:
+    - tool/**

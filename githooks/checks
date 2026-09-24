@@ -3,4 +3,8 @@
 # in pro-companion - no branch may be pushed directly; develop/main are entered
 # by PR only. This list exists so that if a direct-ok branch is ever added, the
 # push is gated on the suite rather than on nothing.
+#
+# It mirrors the CI job's host-side steps (#16). The emulator job is not here:
+# it needs a device, so run it by hand with flutter test integration_test.
+flutter analyze
 flutter test
