@@ -15,6 +15,11 @@ migrate_working_dir/
 # Local credentials (#39): .env.example names them, values never enter git.
 .env.local
 .env.*.local
+# Local secrets. .env.local holds the owner's Supabase Management API token,
+# an account-wide credential that must never reach GitHub. Every .env* file is
+# ignored at any depth; only the names-only template is tracked.
+.env*
+!.env.example
 
 # IntelliJ related
 *.iml
@@ -34,8 +39,21 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+build/
 /coverage/
+
+# Nested Flutter projects (spikes and benches under tool/) carry their own
+# .gitignore, but it is a tracked file: checking out a branch without the
+# project removes it and leaves the ignored build output behind, unignored.
+# These rules cover that output from the root so it never floods git status.
+.gradle/
+.kotlin/
+.cxx/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/gradle/wrapper/gradle-wrapper.jar
+GeneratedPluginRegistrant.java
 
 # Symbolication related
 app.*.symbols
