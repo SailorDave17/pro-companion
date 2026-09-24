@@ -68,8 +68,9 @@ Latency does not decide it, since all three pass. Two things do:
 1. **Only SQLite can refuse an edit or a delete itself.** hive_ce and sembast accept both, so the
    core would have to be the only guard. For a log whose value is being protest-grade, a guard the
    engine enforces is worth more than a guard every future code path must remember. It is also
-   the same shape as the server's append-only rule (burgee#7), which keeps the two halves of ADR
-   001 speaking one language.
+   the same shape as the server's append-only rule (pro-companion #40), which keeps the two halves
+   of ADR 001 speaking one language. *(Amended 2026-09-24: this named burgee#7 until ADR 005 moved
+   the server's event log into the companion's own Supabase project on 2026-09-23.)*
 2. **SQL answers the reads the pilot needs** without a second index layer: per-device chain order,
    per-fleet standings, and "what has not reached shore". Both key-value stores would need hand-kept
    secondary keys for these.
