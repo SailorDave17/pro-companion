@@ -21,6 +21,10 @@ jobs:
       # Fatal on errors, warnings and infos (flutter analyze's defaults).
       - run: flutter analyze
       - run: flutter test
+      # The local core (#24) is a pure-Dart workspace package; the root's
+      # flutter test does not run its tests.
+      - run: dart test
+        working-directory: packages/core
       - run: flutter build apk --debug
 
   # On-device tests (#16): force-kill, headless-core and manifest criteria can
@@ -55,4 +59,9 @@ jobs:
           api-level: 34
           target: google_apis
           arch: x86_64
-          script: flutter test integration_test -d emulator-5554
+          # Each line runs as its own `sh -c`. The force-kill criterion (#24)
+          # needs two app processes and a kill between them, so a script
+          # drives it rather than the plain sweep.
+          script: |
+            flutter test integration_test -d emulator-5554
+            sh integration_test/force_kill.sh emulator-5554
