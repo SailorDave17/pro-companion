@@ -6,9 +6,18 @@ version: 0.1.0+1
 environment:
   sdk: ^3.12.2
 
+# One resolution for the app and the local core (#24), so a single
+# `flutter pub get` at the root resolves both and root `flutter analyze` sees
+# the core's dev dependencies on a fresh checkout.
+workspace:
+  - packages/core
+
 dependencies:
   flutter:
     sdk: flutter
+  path: any
+  path_provider: 2.1.6
+  pro_companion_core: any
 
 dev_dependencies:
   flutter_test:
