@@ -7,4 +7,5 @@ library;
 
 export 'src/client.dart' show CoreClient;
 export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isUlid;
+export 'src/finishes.dart' show FinishEntry, FinishEvents, FinishKinds, finishOrder, lastUndoable;
 export 'src/wire.dart' show CoreException, isWireSafe;
