@@ -1,0 +1,38 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a8-2-next-to-last-race",
+  "description": "A tie that A8.1 and the last race both leave standing (both boats DNF there) is broken by the next-to-last race.",
+  "rules": ["A8.2", "A8.1", "A5.2"],
+  "citation": "RRS 2025-2028 A8.1: counted scores best to worst, first difference wins. A8.2: 'they shall be ranked in order of their scores in the last race. Any remaining ties shall be broken by using the tied boats' scores in the next-to-last race and so on until all ties are broken.' A5.2 gives both DNF boats the same score, one more than the boats entered.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D"],
+    "discards": { "count": 0 },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["A", "C", "B", "D"], "codes": {} },
+    { "finishes": ["B", "C", "A", "D"], "codes": {} },
+    {
+      "finishes": ["C", "D"],
+      "codes": {
+        "A": { "code": "DNF" },
+        "B": { "code": "DNF" }
+      }
+    }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "C", "races": [{ "points": 2, "excluded": false }, { "points": 2, "excluded": false }, { "points": 1, "excluded": false }], "gross": 5, "net": 5 },
+    { "rank": 2, "boat": "B", "races": [{ "points": 3, "excluded": false }, { "points": 1, "excluded": false }, { "code": "DNF", "points": 5, "excluded": false }], "gross": 9, "net": 9 },
+    { "rank": 3, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 3, "excluded": false }, { "code": "DNF", "points": 5, "excluded": false }], "gross": 9, "net": 9 },
+    { "rank": 4, "boat": "D", "races": [{ "points": 4, "excluded": false }, { "points": 4, "excluded": false }, { "points": 2, "excluded": false }], "gross": 10, "net": 10 }
+  ],
+  "working": [
+    "4 boats entered, so DNF scores 5. No score is excluded.",
+    "R1: A 1, C 2, B 3, D 4. R2: B 1, C 2, A 3, D 4. R3: C 1, D 2; A DNF 5, B DNF 5.",
+    "A 1+3+5 = 9. B 3+1+5 = 9. C 2+2+1 = 5. D 4+4+2 = 10.",
+    "A and B tie on 9. A8.1: A [1, 3, 5], B [1, 3, 5], identical.",
+    "A8.2, last race R3: A 5, B 5, still tied. Next-to-last race R2: A 3, B 1. B is ahead.",
+    "Standings: C 5, B 9, A 9, D 10."
+  ]
+}

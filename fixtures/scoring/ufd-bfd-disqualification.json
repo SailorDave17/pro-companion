@@ -1,0 +1,41 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "ufd-bfd-disqualification",
+  "description": "UFD and BFD are disqualifications: each scores one more than the boats entered, vacates her place if she finished, and may be excluded like any other score.",
+  "rules": ["30.3", "30.4", "A5.2", "A6.1", "A2.1"],
+  "citation": "RRS 2025-2028 30.3 (U flag) and 30.4 (black flag): a boat that breaks the rule 'shall be disqualified without a hearing'. A10: 'UFD Disqualification under rule 30.3', 'BFD Disqualification under rule 30.4'. A5.2 scores a disqualified boat one more than the boats entered; A6.1 moves the boats behind her up one place. A2.1 excludes each boat's worst score (one discard). Only a BFD boat that sails in the restart has a disqualification that 'shall not be excluded' (30.4), and that is DNE.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E", "F"],
+    "discards": { "count": 1 },
+    "a5_3": false
+  },
+  "races": [
+    {
+      "finishes": ["B", "A", "C", "D", "E", "F"],
+      "codes": { "B": { "code": "UFD" } }
+    },
+    {
+      "finishes": ["B", "A", "E", "D", "F", "C"],
+      "codes": { "E": { "code": "BFD" } }
+    },
+    { "finishes": ["A", "B", "C", "F", "E", "D"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 2, "excluded": true }, { "points": 1, "excluded": false }], "gross": 4, "net": 2 },
+    { "rank": 2, "boat": "B", "races": [{ "code": "UFD", "points": 7, "excluded": true }, { "points": 1, "excluded": false }, { "points": 2, "excluded": false }], "gross": 10, "net": 3 },
+    { "rank": 3, "boat": "C", "races": [{ "points": 2, "excluded": false }, { "points": 5, "excluded": true }, { "points": 3, "excluded": false }], "gross": 10, "net": 5 },
+    { "rank": 4, "boat": "D", "races": [{ "points": 3, "excluded": false }, { "points": 3, "excluded": false }, { "points": 6, "excluded": true }], "gross": 12, "net": 6 },
+    { "rank": 5, "boat": "F", "races": [{ "points": 5, "excluded": true }, { "points": 4, "excluded": false }, { "points": 4, "excluded": false }], "gross": 13, "net": 8 },
+    { "rank": 6, "boat": "E", "races": [{ "points": 4, "excluded": false }, { "code": "BFD", "points": 7, "excluded": true }, { "points": 5, "excluded": false }], "gross": 16, "net": 9 }
+  ],
+  "working": [
+    "6 boats entered, so UFD and BFD score 7. One score is excluded per boat.",
+    "R1 crossing order B A C D E F; B is UFD, so her place is vacated: A 1, C 2, D 3, E 4, F 5; B UFD 7.",
+    "R2 crossing order B A E D F C; E is BFD, so her place is vacated: B 1, A 2, D 3, F 4, C 5; E BFD 7.",
+    "R3: A 1, B 2, C 3, F 4, E 5, D 6.",
+    "A 1,2,1: gross 4, worst 2 (R2) excluded, net 2. B 7,1,2: gross 10, the UFD 7 (R1) excluded, net 3. C 2,5,3: gross 10, 5 (R2) excluded, net 5.",
+    "D 3,3,6: gross 12, 6 (R3) excluded, net 6. F 5,4,4: gross 13, 5 (R1) excluded, net 8. E 4,7,5: gross 16, the BFD 7 (R2) excluded, net 9.",
+    "Every boat's worst score is unique, so A2.1's equal-worst rule is not reached. No two nets are equal: A, B, C, D, F, E."
+  ]
+}

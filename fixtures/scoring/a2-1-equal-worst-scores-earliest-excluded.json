@@ -1,0 +1,34 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a2-1-equal-worst-scores-earliest-excluded",
+  "description": "Two scores excluded when a boat has more equal worst scores than discards: the ones from the races sailed earliest are excluded.",
+  "rules": ["A2.1"],
+  "citation": "RRS 2025-2028 A2.1: 'If a boat has two or more equal worst scores, the score(s) for the race(s) sailed earliest in the series shall be excluded.' The notice of race may provide 'that two or more scores will be excluded'; this vector excludes two.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D"],
+    "discards": { "count": 2 },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["B", "C", "A", "D"], "codes": {} },
+    { "finishes": ["A", "B", "C", "D"], "codes": {} },
+    { "finishes": ["B", "C", "A", "D"], "codes": {} },
+    { "finishes": ["B", "A", "C", "D"], "codes": {} },
+    { "finishes": ["C", "D", "A", "B"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "B", "races": [{ "points": 1, "excluded": false }, { "points": 2, "excluded": true }, { "points": 1, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }], "gross": 9, "net": 3 },
+    { "rank": 2, "boat": "C", "races": [{ "points": 2, "excluded": false }, { "points": 3, "excluded": true }, { "points": 2, "excluded": false }, { "points": 3, "excluded": true }, { "points": 1, "excluded": false }], "gross": 11, "net": 5 },
+    { "rank": 3, "boat": "A", "races": [{ "points": 3, "excluded": true }, { "points": 1, "excluded": false }, { "points": 3, "excluded": true }, { "points": 2, "excluded": false }, { "points": 3, "excluded": false }], "gross": 12, "net": 6 },
+    { "rank": 4, "boat": "D", "races": [{ "points": 4, "excluded": true }, { "points": 4, "excluded": true }, { "points": 4, "excluded": false }, { "points": 4, "excluded": false }, { "points": 2, "excluded": false }], "gross": 18, "net": 10 }
+  ],
+  "working": [
+    "R1: B 1, C 2, A 3, D 4. R2: A 1, B 2, C 3, D 4. R3: B 1, C 2, A 3, D 4. R4: B 1, A 2, C 3, D 4. R5: C 1, D 2, A 3, B 4.",
+    "A 3,1,3,2,3: gross 12. Her worst is 3, in R1, R3 and R5, one more than the two discards. The two sailed earliest, R1 and R3, are excluded; R5's 3 counts. Net 6.",
+    "D 4,4,4,4,2: gross 18. Four equal worst 4s; the two earliest, R1 and R2, are excluded. Net 10.",
+    "B 1,2,1,1,4: gross 9; 4 (R5) and 2 (R2) are her two worst and unambiguous; net 3. C 2,3,2,3,1: gross 11; her two 3s (R2, R4) are excluded; net 5.",
+    "No two nets are equal: B, C, A, D.",
+    "Totals do not depend on which equal score is excluded. The excluded flags do, and a scorer that excludes the latest equal scores fails this vector on A's R3 and R5 and on D's R1 to R4 flags."
+  ]
+}

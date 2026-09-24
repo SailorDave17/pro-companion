@@ -1,0 +1,4 @@
+# fixtures/scoring/ is hashed byte for byte (SHA256SUMS, #83), and burgee
+# vendors those bytes. Keep LF on every checkout whatever core.autocrlf says,
+# or a Windows checkout and the Linux CI runner hash different files.
+fixtures/scoring/** text eol=lf

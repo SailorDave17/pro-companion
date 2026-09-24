@@ -1,0 +1,42 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a5-2-codes-score-entries-plus-one",
+  "description": "DNS, OCS, DNF, RET and DNC each score one more than the number of boats entered in the series, not in the race.",
+  "rules": ["A5.2", "A10", "A4"],
+  "citation": "RRS 2025-2028 A5.2: 'A boat that did not sail the course, retired or was disqualified shall be scored points for the finishing place one more than the number of boats entered in the series.' A10 names the codes, and its NSC line, 'Did not sail the course (other than DNC, DNS, OCS and DNF)', places those four under 'did not sail the course'. A4 scores the finishers.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E", "F", "G", "H"],
+    "discards": { "count": 0 },
+    "a5_3": false
+  },
+  "races": [
+    {
+      "finishes": ["A", "B", "C"],
+      "codes": {
+        "D": { "code": "DNS" },
+        "E": { "code": "OCS" },
+        "F": { "code": "DNF" },
+        "G": { "code": "RET" },
+        "H": { "code": "DNC" }
+      }
+    },
+    { "finishes": ["A", "B", "C", "H", "G", "F", "E", "D"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 1, "excluded": false }], "gross": 2, "net": 2 },
+    { "rank": 2, "boat": "B", "races": [{ "points": 2, "excluded": false }, { "points": 2, "excluded": false }], "gross": 4, "net": 4 },
+    { "rank": 3, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 3, "excluded": false }], "gross": 6, "net": 6 },
+    { "rank": 4, "boat": "H", "races": [{ "code": "DNC", "points": 9, "excluded": false }, { "points": 4, "excluded": false }], "gross": 13, "net": 13 },
+    { "rank": 5, "boat": "G", "races": [{ "code": "RET", "points": 9, "excluded": false }, { "points": 5, "excluded": false }], "gross": 14, "net": 14 },
+    { "rank": 6, "boat": "F", "races": [{ "code": "DNF", "points": 9, "excluded": false }, { "points": 6, "excluded": false }], "gross": 15, "net": 15 },
+    { "rank": 7, "boat": "E", "races": [{ "code": "OCS", "points": 9, "excluded": false }, { "points": 7, "excluded": false }], "gross": 16, "net": 16 },
+    { "rank": 8, "boat": "D", "races": [{ "code": "DNS", "points": 9, "excluded": false }, { "points": 8, "excluded": false }], "gross": 17, "net": 17 }
+  ],
+  "working": [
+    "8 boats entered in the series, so every A5.2 code scores 8 + 1 = 9, although only 3 boats finished R1.",
+    "R1: A 1, B 2, C 3; D DNS 9, E OCS 9, F DNF 9, G RET 9, H DNC 9. R2: A 1, B 2, C 3, H 4, G 5, F 6, E 7, D 8.",
+    "No score is excluded. A 1+1 = 2. B 2+2 = 4. C 3+3 = 6. H 9+4 = 13. G 9+5 = 14. F 9+6 = 15. E 9+7 = 16. D 9+8 = 17.",
+    "No two nets are equal: A, B, C, H, G, F, E, D."
+  ]
+}

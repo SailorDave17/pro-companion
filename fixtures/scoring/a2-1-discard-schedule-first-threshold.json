@@ -1,0 +1,32 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a2-1-discard-schedule-first-threshold",
+  "description": "Discard schedule 'one from four races scored, two from eight': with four races scored, each boat's worst score is excluded, and the lead changes.",
+  "rules": ["A2.1", "A4"],
+  "citation": "RRS 2025-2028 A2.1: 'Each boat's series score shall, subject to rule 90.3(b), be the total of her race scores excluding her worst score', and the notice of race may provide 'that a specified number of scores will be excluded if a specified number of races are scored'. Four races reaches this schedule's first threshold, so one score is excluded. A4 scores the places.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D"],
+    "discards": { "schedule": [{ "races": 4, "count": 1 }, { "races": 8, "count": 2 }] },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["A", "B", "C", "D"], "codes": {} },
+    { "finishes": ["B", "D", "A", "C"], "codes": {} },
+    { "finishes": ["A", "D", "C", "B"], "codes": {} },
+    { "finishes": ["B", "D", "C", "A"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "B", "races": [{ "points": 2, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }, { "points": 1, "excluded": false }], "gross": 8, "net": 4 },
+    { "rank": 2, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 3, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }], "gross": 9, "net": 5 },
+    { "rank": 3, "boat": "D", "races": [{ "points": 4, "excluded": true }, { "points": 2, "excluded": false }, { "points": 2, "excluded": false }, { "points": 2, "excluded": false }], "gross": 10, "net": 6 },
+    { "rank": 4, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 4, "excluded": true }, { "points": 3, "excluded": false }, { "points": 3, "excluded": false }], "gross": 13, "net": 9 }
+  ],
+  "working": [
+    "Four races scored reaches the first threshold, so the discard count is 1.",
+    "R1-R3 as in the below-threshold vector. R4: B 1, D 2, C 3, A 4.",
+    "A 1,3,1,4: gross 9, worst 4 (R4) excluded, net 5. B 2,1,4,1: gross 8, 4 (R3) excluded, net 4.",
+    "C 3,4,3,3: gross 13, 4 (R2) excluded, net 9. D 4,2,2,2: gross 10, 4 (R1) excluded, net 6.",
+    "Every boat's worst score is unique. No two nets are equal: B, A, D, C. At three races A led; the first discard puts B ahead."
+  ]
+}

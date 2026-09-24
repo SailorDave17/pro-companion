@@ -1,0 +1,42 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a5-3-starting-area",
+  "description": "With A5.3 in force, a boat that came to the starting area and then did not finish, retired or did not start scores one more than the boats that came; a DNC still scores one more than the boats entered.",
+  "rules": ["A5.3", "A5.2", "A2.2"],
+  "citation": "RRS 2025-2028 A5.3: 'If the notice of race or sailing instructions state that rule A5.3 will apply, rule A5.2 is changed so that a boat that came to the starting area but did not sail the course, retired or was disqualified shall be scored points for the finishing place one more than the number of boats that came to the starting area, and a boat that did not come to the starting area shall be scored points for the finishing place one more than the number of boats entered in the series.' A2.2 scores a boat with nothing recorded as DNC.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E", "F", "G", "H"],
+    "discards": { "count": 0 },
+    "a5_3": true
+  },
+  "races": [
+    {
+      "finishes": ["A", "B", "C"],
+      "codes": {
+        "D": { "code": "DNF" },
+        "E": { "code": "RET" },
+        "F": { "code": "DNS" },
+        "G": { "code": "DNC" }
+      }
+    },
+    { "finishes": ["A", "B", "C", "D", "E", "F", "G", "H"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 1, "excluded": false }], "gross": 2, "net": 2 },
+    { "rank": 2, "boat": "B", "races": [{ "points": 2, "excluded": false }, { "points": 2, "excluded": false }], "gross": 4, "net": 4 },
+    { "rank": 3, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 3, "excluded": false }], "gross": 6, "net": 6 },
+    { "rank": 4, "boat": "D", "races": [{ "code": "DNF", "points": 7, "excluded": false }, { "points": 4, "excluded": false }], "gross": 11, "net": 11 },
+    { "rank": 5, "boat": "E", "races": [{ "code": "RET", "points": 7, "excluded": false }, { "points": 5, "excluded": false }], "gross": 12, "net": 12 },
+    { "rank": 6, "boat": "F", "races": [{ "code": "DNS", "points": 7, "excluded": false }, { "points": 6, "excluded": false }], "gross": 13, "net": 13 },
+    { "rank": 7, "boat": "G", "races": [{ "code": "DNC", "points": 9, "excluded": false }, { "points": 7, "excluded": false }], "gross": 16, "net": 16 },
+    { "rank": 8, "boat": "H", "races": [{ "code": "DNC", "points": 9, "excluded": false }, { "points": 8, "excluded": false }], "gross": 17, "net": 17 }
+  ],
+  "working": [
+    "8 boats entered. In R1, A, B and C finished and D (DNF), E (RET) and F (DNS) came to the starting area: 6 came. G is DNC and H has nothing recorded, so H is DNC too; neither came.",
+    "R1 under A5.3: A 1, B 2, C 3; D, E and F score 6 + 1 = 7; G and H score 8 + 1 = 9.",
+    "R2: A 1, B 2, C 3, D 4, E 5, F 6, G 7, H 8.",
+    "No score is excluded. A 2. B 4. C 6. D 7+4 = 11. E 7+5 = 12. F 7+6 = 13. G 9+7 = 16. H 9+8 = 17.",
+    "Without A5.3, D, E and F would each score 9 in R1 (A5.2). No two nets are equal: A to H in order."
+  ]
+}

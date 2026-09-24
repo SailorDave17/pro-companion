@@ -1,0 +1,38 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "dne-not-excludable",
+  "description": "A DNE is kept in the series score even when it is the boat's worst; her next worst score is excluded instead, and discarding the DNE would change the standings.",
+  "rules": ["90.3(b)", "A2.1", "A5.2", "A6.1"],
+  "citation": "RRS 2025-2028 90.3(b): 'When a scoring system provides for excluding one or more race scores, any score that is a Disqualification Not Excludable (DNE) shall be included in a boat's series score.' A2.1 is subject to rule 90.3(b). A10: 'DNE Disqualification that is not excludable'. A5.2 scores it one more than the boats entered, and A6.1 moves the boats behind her up.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E"],
+    "discards": { "count": 1 },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["A", "B", "C", "D", "E"], "codes": {} },
+    {
+      "finishes": ["A", "B", "C", "E", "D"],
+      "codes": { "A": { "code": "DNE" } }
+    },
+    { "finishes": ["B", "A", "E", "C", "D"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "B", "races": [{ "points": 2, "excluded": true }, { "points": 1, "excluded": false }, { "points": 1, "excluded": false }], "gross": 4, "net": 2 },
+    { "rank": 2, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 2, "excluded": false }, { "points": 4, "excluded": true }], "gross": 9, "net": 5 },
+    { "rank": 3, "boat": "E", "races": [{ "points": 5, "excluded": true }, { "points": 3, "excluded": false }, { "points": 3, "excluded": false }], "gross": 11, "net": 6 },
+    { "rank": 4, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "code": "DNE", "points": 6, "excluded": false }, { "points": 2, "excluded": true }], "gross": 9, "net": 7 },
+    { "rank": 5, "boat": "D", "races": [{ "points": 4, "excluded": false }, { "points": 4, "excluded": false }, { "points": 5, "excluded": true }], "gross": 13, "net": 8 }
+  ],
+  "working": [
+    "5 boats entered, so DNE scores 6. One score is excluded per boat.",
+    "R1: A 1, B 2, C 3, D 4, E 5.",
+    "R2 crossing order A B C E D; A is DNE, so her place is vacated: B 1, C 2, E 3, D 4; A DNE 6.",
+    "R3: B 1, A 2, E 3, C 4, D 5.",
+    "A 1,6,2: gross 9. The DNE 6 is her worst but may not be excluded (90.3(b)), so her next worst, 2 (R3), is excluded: net 7.",
+    "B 2,1,1: gross 4, 2 (R1) excluded, net 2. C 3,2,4: gross 9, 4 (R3) excluded, net 5. E 5,3,3: gross 11, 5 (R1) excluded, net 6. D 4,4,5: gross 13, 5 (R3) excluded, net 8.",
+    "Standings: B 2, C 5, E 6, A 7, D 8.",
+    "Counterfactual: had A's DNE been excluded, she would net 1+2 = 3 and rank second, ahead of C, E and D. So a scorer that discards a DNE fails this vector on A's net and rank, not only on the excluded flag."
+  ]
+}

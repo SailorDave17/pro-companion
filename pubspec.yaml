@@ -25,6 +25,9 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # SHA256SUMS over fixtures/scoring/ (#83); pinned to the version already
+  # resolved transitively, so the lockfile only changes its dependency kind.
+  crypto: 3.0.7
 
 flutter:
   uses-material-design: true
