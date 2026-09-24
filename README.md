@@ -13,3 +13,19 @@ Scope of record: the tiered feature scope and the owner decisions behind it live
 `cairn/memory/projects/pro-companion-scope-2026-08-14.md`; the product charter is
 `burgee/docs/charter.md` (this app is burgee's RC companion, ADR 004, standalone-capable by
 design).
+
+## Server side
+
+The companion owns the server it syncs to — its own Supabase project, separate from burgee's
+(ADR 005). Everything server-side lives under `supabase/`:
+
+- `supabase/migrations/` — the schema, applied in filename order. Each file is re-runnable against
+  the schema it creates.
+- `supabase/tests/` — pgTAP tests of the policies and functions. They run as the roles PostgREST
+  runs as, so what they prove is the database's answer.
+- `supabase/config.toml` — the local stack. `npx supabase start`, then `npx supabase db reset` to
+  apply the migrations and `npx supabase test db` to run the tests. Needs Docker.
+
+Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
+`.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses
+any credential-shaped string in the tracked tree.
