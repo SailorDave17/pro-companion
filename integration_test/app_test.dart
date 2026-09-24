@@ -14,6 +14,6 @@ void main() {
   testWidgets('the app launches on a device and shows its name', (tester) async {
     app.main();
     await tester.pumpAndSettle();
-    expect(find.text('PRO Companion'), findsOneWidget);
+    expect(find.text('Not the app'), findsOneWidget);
   });
 }
