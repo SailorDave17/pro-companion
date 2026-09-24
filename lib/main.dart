@@ -9,7 +9,6 @@ class ProCompanionApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unused = 1;
     return const MaterialApp(
       title: 'PRO Companion',
       home: Scaffold(
