@@ -1,0 +1,31 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a2-2-dnc-fallback",
+  "description": "A boat entered in the series with no finish and no code in a race is scored DNC for that race, one more than the boats entered.",
+  "rules": ["A2.2", "A5.2", "A10"],
+  "citation": "RRS 2025-2028 A2.2: 'If a boat has entered any race in a series, she shall be scored for the whole series.' A10: 'DNC Did not start; did not come to the starting area.' A5.2 scores it one more than the number of boats entered in the series. Recording convention (fixtures/scoring/README.md): a boat with nothing recorded in a race did not come to the starting area.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E"],
+    "discards": { "count": 0 },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["A", "B", "C", "D"], "codes": {} },
+    { "finishes": ["E", "A", "B", "C"], "codes": {} },
+    { "finishes": ["B", "A", "E", "D", "C"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 2, "excluded": false }, { "points": 2, "excluded": false }], "gross": 5, "net": 5 },
+    { "rank": 2, "boat": "B", "races": [{ "points": 2, "excluded": false }, { "points": 3, "excluded": false }, { "points": 1, "excluded": false }], "gross": 6, "net": 6 },
+    { "rank": 3, "boat": "E", "races": [{ "code": "DNC", "points": 6, "excluded": false }, { "points": 1, "excluded": false }, { "points": 3, "excluded": false }], "gross": 10, "net": 10 },
+    { "rank": 4, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 4, "excluded": false }, { "points": 5, "excluded": false }], "gross": 12, "net": 12 },
+    { "rank": 5, "boat": "D", "races": [{ "points": 4, "excluded": false }, { "code": "DNC", "points": 6, "excluded": false }, { "points": 4, "excluded": false }], "gross": 14, "net": 14 }
+  ],
+  "working": [
+    "5 boats entered, so DNC scores 5 + 1 = 6.",
+    "R1: A 1, B 2, C 3, D 4; E has no finish and no code, so DNC 6. R2: E 1, A 2, B 3, C 4; D has nothing recorded, so DNC 6. R3: B 1, A 2, E 3, D 4, C 5.",
+    "No score is excluded. A 1+2+2 = 5. B 2+3+1 = 6. E 6+1+3 = 10. C 3+4+5 = 12. D 4+6+4 = 14.",
+    "E missed R1 and is still scored for it (A2.2). No two nets are equal: A, B, E, C, D."
+  ]
+}

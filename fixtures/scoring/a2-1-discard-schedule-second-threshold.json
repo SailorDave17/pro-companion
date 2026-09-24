@@ -1,0 +1,38 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a2-1-discard-schedule-second-threshold",
+  "description": "Discard schedule 'one from four races scored, two from eight': with eight races scored, each boat's two worst scores are excluded.",
+  "rules": ["A2.1", "A4"],
+  "citation": "RRS 2025-2028 A2.1: the notice of race may provide 'that two or more scores will be excluded, or that a specified number of scores will be excluded if a specified number of races are scored'. Eight races reaches this schedule's second threshold, so two scores are excluded. A4 scores the places.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D"],
+    "discards": { "schedule": [{ "races": 4, "count": 1 }, { "races": 8, "count": 2 }] },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["A", "B", "C", "D"], "codes": {} },
+    { "finishes": ["B", "D", "A", "C"], "codes": {} },
+    { "finishes": ["A", "D", "C", "B"], "codes": {} },
+    { "finishes": ["B", "D", "C", "A"], "codes": {} },
+    { "finishes": ["A", "B", "C", "D"], "codes": {} },
+    { "finishes": ["B", "C", "D", "A"], "codes": {} },
+    { "finishes": ["C", "D", "A", "B"], "codes": {} },
+    { "finishes": ["D", "A", "B", "C"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "B", "races": [{ "points": 2, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }, { "points": 1, "excluded": false }, { "points": 2, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }, { "points": 3, "excluded": false }], "gross": 18, "net": 10 },
+    { "rank": 2, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 3, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }, { "points": 3, "excluded": false }, { "points": 2, "excluded": false }], "gross": 19, "net": 11 },
+    { "rank": 3, "boat": "D", "races": [{ "points": 4, "excluded": true }, { "points": 2, "excluded": false }, { "points": 2, "excluded": false }, { "points": 2, "excluded": false }, { "points": 4, "excluded": true }, { "points": 3, "excluded": false }, { "points": 2, "excluded": false }, { "points": 1, "excluded": false }], "gross": 20, "net": 12 },
+    { "rank": 4, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 4, "excluded": true }, { "points": 3, "excluded": false }, { "points": 3, "excluded": false }, { "points": 3, "excluded": false }, { "points": 2, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": true }], "gross": 23, "net": 15 }
+  ],
+  "working": [
+    "Eight races scored reaches the second threshold, so the discard count is 2.",
+    "R1-R4 as in the first-threshold vector. R5: A 1, B 2, C 3, D 4. R6: B 1, C 2, D 3, A 4. R7: C 1, D 2, A 3, B 4. R8: D 1, A 2, B 3, C 4.",
+    "A 1,3,1,4,1,4,3,2: gross 19; her two 4s (R4, R6) are excluded; net 11.",
+    "B 2,1,4,1,2,1,4,3: gross 18; her two 4s (R3, R7) are excluded; net 10.",
+    "C 3,4,3,3,3,2,1,4: gross 23; her two 4s (R2, R8) are excluded; net 15.",
+    "D 4,2,2,2,4,3,2,1: gross 20; her two 4s (R1, R5) are excluded; net 12.",
+    "Each boat has exactly two 4s and nothing else as bad, so which scores are excluded is never in doubt. No two nets are equal: B, A, D, C."
+  ]
+}

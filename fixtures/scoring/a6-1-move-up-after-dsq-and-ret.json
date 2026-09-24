@@ -1,0 +1,39 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a6-1-move-up-after-dsq-and-ret",
+  "description": "A boat that finished and was then disqualified, and one that retired after finishing, vacate their places: every boat behind each moves up one place.",
+  "rules": ["A6.1", "A5.2", "A4"],
+  "citation": "RRS 2025-2028 A6.1: 'If a boat is disqualified from a race, or retires after finishing, or is scored Did not sail the course, each boat with a worse finishing place shall be moved up one place.' A5.2 scores DSQ and RET one more than the boats entered; A4 scores the remaining finishers by their places after the move-up.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E", "F"],
+    "discards": { "count": 0 },
+    "a5_3": false
+  },
+  "races": [
+    {
+      "finishes": ["A", "B", "C", "D", "E", "F"],
+      "codes": {
+        "A": { "code": "DSQ" },
+        "D": { "code": "RET" }
+      }
+    },
+    { "finishes": ["C", "E", "B", "F", "A", "D"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "C", "races": [{ "points": 2, "excluded": false }, { "points": 1, "excluded": false }], "gross": 3, "net": 3 },
+    { "rank": 2, "boat": "B", "races": [{ "points": 1, "excluded": false }, { "points": 3, "excluded": false }], "gross": 4, "net": 4 },
+    { "rank": 3, "boat": "E", "races": [{ "points": 3, "excluded": false }, { "points": 2, "excluded": false }], "gross": 5, "net": 5 },
+    { "rank": 4, "boat": "F", "races": [{ "points": 4, "excluded": false }, { "points": 4, "excluded": false }], "gross": 8, "net": 8 },
+    { "rank": 5, "boat": "A", "races": [{ "code": "DSQ", "points": 7, "excluded": false }, { "points": 5, "excluded": false }], "gross": 12, "net": 12 },
+    { "rank": 6, "boat": "D", "races": [{ "code": "RET", "points": 7, "excluded": false }, { "points": 6, "excluded": false }], "gross": 13, "net": 13 }
+  ],
+  "working": [
+    "6 boats entered, so DSQ and RET score 7.",
+    "R1 crossing order A B C D E F. A (1st across) is DSQ and D (4th across) retired after finishing, so both places are vacated and the boats behind move up: B 1, C 2, E 3, F 4. A DSQ 7, D RET 7.",
+    "Without A6.1, B, C, E and F would have scored 2, 3, 5 and 6 in R1.",
+    "R2: C 1, E 2, B 3, F 4, A 5, D 6.",
+    "No score is excluded. C 2+1 = 3. B 1+3 = 4. E 3+2 = 5. F 4+4 = 8. A 7+5 = 12. D 7+6 = 13.",
+    "No two nets are equal: C, B, E, F, A, D."
+  ]
+}

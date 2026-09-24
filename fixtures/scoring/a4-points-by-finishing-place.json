@@ -1,0 +1,31 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a4-points-by-finishing-place",
+  "description": "Low point with no score excluded: each boat scores her finishing place, and the lowest series score wins.",
+  "rules": ["A4", "A2.1"],
+  "citation": "RRS 2025-2028 A4: 'Each boat finishing and not thereafter retiring, being penalized or given redress shall be scored points as follows: First 1, Second 2, Third 3 ... Each place thereafter Add 1 point.' A2.1: the notice of race may provide 'that no score will be excluded'; 'The boat with the lowest series score wins and others shall be ranked accordingly.'",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E"],
+    "discards": { "count": 0 },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["A", "B", "C", "D", "E"], "codes": {} },
+    { "finishes": ["B", "A", "C", "E", "D"], "codes": {} },
+    { "finishes": ["A", "C", "B", "D", "E"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 2, "excluded": false }, { "points": 1, "excluded": false }], "gross": 4, "net": 4 },
+    { "rank": 2, "boat": "B", "races": [{ "points": 2, "excluded": false }, { "points": 1, "excluded": false }, { "points": 3, "excluded": false }], "gross": 6, "net": 6 },
+    { "rank": 3, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 3, "excluded": false }, { "points": 2, "excluded": false }], "gross": 8, "net": 8 },
+    { "rank": 4, "boat": "D", "races": [{ "points": 4, "excluded": false }, { "points": 5, "excluded": false }, { "points": 4, "excluded": false }], "gross": 13, "net": 13 },
+    { "rank": 5, "boat": "E", "races": [{ "points": 5, "excluded": false }, { "points": 4, "excluded": false }, { "points": 5, "excluded": false }], "gross": 14, "net": 14 }
+  ],
+  "working": [
+    "R1 places: A 1, B 2, C 3, D 4, E 5. R2: B 1, A 2, C 3, E 4, D 5. R3: A 1, C 2, B 3, D 4, E 5.",
+    "No score is excluded, so net = gross.",
+    "A 1+2+1 = 4. B 2+1+3 = 6. C 3+3+2 = 8. D 4+5+4 = 13. E 5+4+5 = 14.",
+    "No two nets are equal, so no tie-break: A, B, C, D, E."
+  ]
+}

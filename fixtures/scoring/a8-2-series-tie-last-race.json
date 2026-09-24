@@ -1,0 +1,34 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a8-2-series-tie-last-race",
+  "description": "A tie A8.1 cannot break goes to the better score in the last race, using an excluded score where that is what the boat has there.",
+  "rules": ["A8.2", "A8.1", "A2.1"],
+  "citation": "RRS 2025-2028 A8.1: counted scores best to worst, 'No excluded scores shall be used.' A8.2: 'If a tie remains between two or more boats, they shall be ranked in order of their scores in the last race. Any remaining ties shall be broken by using the tied boats' scores in the next-to-last race and so on until all ties are broken. These scores shall be used even if some of them are excluded scores.' A2.1 excludes each boat's worst score (one discard).",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D", "E"],
+    "discards": { "count": 1 },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["B", "C", "D", "E", "A"], "codes": {} },
+    { "finishes": ["A", "D", "B", "C", "E"], "codes": {} },
+    { "finishes": ["C", "E", "A", "B", "D"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "C", "races": [{ "points": 2, "excluded": false }, { "points": 4, "excluded": true }, { "points": 1, "excluded": false }], "gross": 7, "net": 3 },
+    { "rank": 2, "boat": "A", "races": [{ "points": 5, "excluded": true }, { "points": 1, "excluded": false }, { "points": 3, "excluded": false }], "gross": 9, "net": 4 },
+    { "rank": 3, "boat": "B", "races": [{ "points": 1, "excluded": false }, { "points": 3, "excluded": false }, { "points": 4, "excluded": true }], "gross": 8, "net": 4 },
+    { "rank": 4, "boat": "D", "races": [{ "points": 3, "excluded": false }, { "points": 2, "excluded": false }, { "points": 5, "excluded": true }], "gross": 10, "net": 5 },
+    { "rank": 5, "boat": "E", "races": [{ "points": 4, "excluded": false }, { "points": 5, "excluded": true }, { "points": 2, "excluded": false }], "gross": 11, "net": 6 }
+  ],
+  "working": [
+    "R1: B 1, C 2, D 3, E 4, A 5. R2: A 1, D 2, B 3, C 4, E 5. R3: C 1, E 2, A 3, B 4, D 5.",
+    "A 5,1,3: gross 9, 5 (R1) excluded, net 4. B 1,3,4: gross 8, 4 (R3) excluded, net 4.",
+    "C 2,4,1: gross 7, 4 (R2) excluded, net 3. D 3,2,5: gross 10, 5 (R3) excluded, net 5. E 4,5,2: gross 11, 5 (R2) excluded, net 6.",
+    "A and B tie on 4. A8.1 with excluded scores left out: A [1, 3], B [1, 3], identical, so the tie remains.",
+    "A8.2, last race R3: A 3, B 4. B's 4 is her excluded score and is still used. A is ahead.",
+    "Standings: C 3, A 4, B 4, D 5, E 6.",
+    "A scorer that keeps excluded scores in A8.1 compares A [1, 3, 5] with B [1, 3, 4] and puts B ahead, which this vector refuses."
+  ]
+}

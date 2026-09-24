@@ -1,0 +1,30 @@
+{
+  "format": "pro-companion-scoring-vector/1",
+  "id": "a2-1-discard-schedule-below-first-threshold",
+  "description": "Discard schedule 'one from four races scored, two from eight': with three races scored, no score is excluded.",
+  "rules": ["A2.1", "A4"],
+  "citation": "RRS 2025-2028 A2.1: the notice of race or sailing instructions may provide 'that a specified number of scores will be excluded if a specified number of races are scored'. This vector's schedule excludes one score from four races scored and two from eight, so fewer than four excludes none. A4 scores the places.",
+  "expected_source": "hand",
+  "series": {
+    "entries": ["A", "B", "C", "D"],
+    "discards": { "schedule": [{ "races": 4, "count": 1 }, { "races": 8, "count": 2 }] },
+    "a5_3": false
+  },
+  "races": [
+    { "finishes": ["A", "B", "C", "D"], "codes": {} },
+    { "finishes": ["B", "D", "A", "C"], "codes": {} },
+    { "finishes": ["A", "D", "C", "B"], "codes": {} }
+  ],
+  "expected": [
+    { "rank": 1, "boat": "A", "races": [{ "points": 1, "excluded": false }, { "points": 3, "excluded": false }, { "points": 1, "excluded": false }], "gross": 5, "net": 5 },
+    { "rank": 2, "boat": "B", "races": [{ "points": 2, "excluded": false }, { "points": 1, "excluded": false }, { "points": 4, "excluded": false }], "gross": 7, "net": 7 },
+    { "rank": 3, "boat": "D", "races": [{ "points": 4, "excluded": false }, { "points": 2, "excluded": false }, { "points": 2, "excluded": false }], "gross": 8, "net": 8 },
+    { "rank": 4, "boat": "C", "races": [{ "points": 3, "excluded": false }, { "points": 4, "excluded": false }, { "points": 3, "excluded": false }], "gross": 10, "net": 10 }
+  ],
+  "working": [
+    "Three races scored is below the schedule's first threshold (four), so the discard count is 0.",
+    "R1: A 1, B 2, C 3, D 4. R2: B 1, D 2, A 3, C 4. R3: A 1, D 2, C 3, B 4.",
+    "A 1+3+1 = 5. B 2+1+4 = 7. D 4+2+2 = 8. C 3+4+3 = 10.",
+    "No two nets are equal: A, B, D, C. The same three races open the first-threshold and second-threshold vectors."
+  ]
+}
