@@ -3,6 +3,11 @@
 - Status: proposed 2026-09-23 (owner chose the shape; this text awaits approval)
 - Builds on: burgee ADR 004 (Flutter, Android-first), burgee ADR 002 (Supabase)
 - Scope of record: `cairn/memory/projects/pro-companion-scope-2026-08-14.md`, decisions 1, 2, 7, 8
+- Amended 2026-09-23 by pro-companion ADR 005: "Supabase" throughout this ADR means **the
+  companion's own Supabase project**, not burgee's. The server-side rules described below (row-level
+  security, append-only, who may write) land in pro-companion's `supabase/` migrations (#39, #40),
+  and burgee reads derived views across that boundary. The architecture — local core, one sync
+  path, no phone-to-phone link — is unchanged.
 
 ## Context
 
@@ -54,7 +59,8 @@ twice is harmless.
 A phone writes to an event only under the club's chosen auth path (pro-companion#5: a race-day
 device session or a named volunteer account). Every event is stamped with the device id and, where
 known, the person — so the log says who recorded what. Supabase's row-level security refuses writes
-outside the device's club and event, and refuses any UPDATE or DELETE on log rows (burgee#7). A
+outside the device's club and event, and refuses any UPDATE or DELETE on log rows (#40 — this said
+burgee#7 until ADR 005 moved the table into the companion's project on 2026-09-23). A
 phone that was never admitted to the event cannot put anything into its log, online or later.
 
 ### The race-timer link
