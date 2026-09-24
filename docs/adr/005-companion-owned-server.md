@@ -1,6 +1,9 @@
 # ADR 005 — The companion owns its server side: a separate Supabase project
 
-- Status: proposed 2026-09-23 (owner chose the shape at a gate; this text awaits approval on its PR)
+- Status: accepted 2026-09-24 (PR #42 merged 01:58 UTC; proposed 2026-09-23, when the owner chose
+  the shape at a gate)
+- Amended 2026-09-24 by groom decision G32 on #12: point 4's scoring vectors now flow companion →
+  burgee (#45)
 - Builds on: pro-companion ADR 001 (offline-first phones syncing to Supabase), burgee ADR 002
   (Supabase as the data layer — kept), burgee ADR 004 (the repo split)
 - Supersedes: groom decisions G6 and G16 on #12; amends G7, and the server half of G12, G13 and G18
@@ -11,7 +14,9 @@
 
 The 2026-09-23 delta groom routed the companion's server half to burgee: the general event log
 "beside burgee#7's tables", role enforcement on that table, the storage bucket, the club record,
-and the public views — ten held stories, under groom decisions G6, G7 and G16. Every one of them
+and the public views — ten held stories, under groom decisions G6, G7 and G16. *(Note 2026-09-24:
+burgee#7 is the table this ADR moved away from; the companion's append-only log is pro-companion
+#40.)* Every one of them
 depended on burgee's race-day schema (burgee#6) and magic-link sign-in with club roles (burgee#9),
 and burgee has no `supabase/` directory and no migrations yet.
 
@@ -69,9 +74,15 @@ should be able to operate stand alone, especially in the beginning stages."*
    entries-imported event through an insert function. Whether burgee reads over PostgREST or the
    companion pushes by webhook is picked at the start of the first public-page story (held H42),
    with burgee#13's 60-second public bar as the test.
-4. **Shared artefacts keep their directions.** Scoring vectors: burgee → companion, vendored with
-   a drift check (#2, #17 — unchanged). Chain and rounding fixtures: companion → burgee (held H87 —
-   unchanged). The synthetic ClubSpot fixture (held H72) moves its canonical home to the companion.
+4. **Shared artefacts flow from the companion.** Scoring vectors: companion → burgee. The companion
+   authors the golden scoring vectors in `fixtures/scoring/` (#83), #2 ports the engine against
+   them, and burgee vendors them, with the drift check run from pro-companion CI (held H87).
+   Chain and rounding fixtures: companion → burgee (held H87 — unchanged). The synthetic ClubSpot
+   fixture (held H72) moves its canonical home to the companion.
+   *(Amended 2026-09-24 by groom decision G32, which reverses G19: until then this point read
+   "Shared artefacts keep their directions. Scoring vectors: burgee → companion, vendored with a
+   drift check (#2, #17 — unchanged)". #2 no longer vendors burgee's vectors, and #17 narrows to
+   the integration reads.)*
 5. **Cost.** A Micro instance, about $10/month, in a Pro organisation shared with burgee's project:
    about $35/month for both. With Vercel Pro the stack lands near **$55 against the charter's $50
    line**, accepted by the owner. The free tier was rejected for this project: a free project pauses
@@ -90,7 +101,8 @@ should be able to operate stand alone, especially in the beginning stages."*
 - **#2, #4, #5, #6, #7 and #8 are re-parented** from burgee epic #2 to #12. burgee#2 keeps #35 and
   #38, its web-side stories.
 - **ADR 001 is amended**: "Supabase" in it means this project, and its append-only reference points
-  at #40's policies rather than burgee#7.
+  at #40's policies rather than burgee#7. *(Note 2026-09-24: burgee#7 is the table this ADR moved
+  away from; ADR 002's reference moved to pro-companion #40 the same way, by #45.)*
 - **Two Postgres projects now hold overlapping club, event and fleet models.** The nullable burgee
   ids are the seam. Double entry across it is the failure to watch for.
 - **Owner-only prerequisites**: create the organisation and the project, store the project ref and
