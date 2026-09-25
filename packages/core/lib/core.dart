@@ -5,6 +5,8 @@
 /// that.
 library;
 
+export 'src/chain.dart'
+    show ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
 export 'src/client.dart' show CoreClient;
 export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isUlid;
 export 'src/finishes.dart'

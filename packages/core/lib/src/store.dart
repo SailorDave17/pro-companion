@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:sqlite3/sqlite3.dart' as sql;
 
+import 'chain.dart';
 import 'envelope.dart';
 import 'wire.dart';
 
@@ -11,15 +12,20 @@ import 'wire.dart';
 /// is committed. The engine itself refuses edits, so the rule holds for every
 /// code path, not only for the ones that remember it.
 ///
+/// Each row's body is the event's canonical text (docs/event-chain.md), the
+/// exact text its hash is taken over, so a chain is always verified against
+/// what was stored and never against a re-serialisation of it.
+///
 /// Synchronous by design. It runs inside the core's isolate and is reached by
 /// the UI only through the async interface (ADR 003).
 class EventStore {
-  EventStore._(this._db, this.deviceId, this._clock, this._random, this._nextSeq) {
+  EventStore._(this._db, this.deviceId, this._clock, this._random, this._nextSeq, this._prevHash) {
     _insert = _db.prepare(
       'INSERT INTO events (ulid, device_id, seq, device_ts, body) VALUES (?, ?, ?, ?, ?)',
     );
     _count = _db.prepare('SELECT count(*) AS n FROM events');
     _all = _db.prepare('SELECT body FROM events ORDER BY device_ts, device_id, ulid');
+    _canonical = _db.prepare('SELECT body FROM events ORDER BY device_id, seq');
   }
 
   /// Opens (creating if needed) the log at [path]. The device id is minted on
@@ -33,11 +39,15 @@ class EventStore {
       final now = clock ?? () => DateTime.now().millisecondsSinceEpoch;
       final rng = random ?? Random.secure();
       final deviceId = _deviceId(db, now, rng);
-      final maxSeq = db.select(
-        'SELECT coalesce(max(seq), 0) AS m FROM events WHERE device_id = ?',
+      // The chain continues from this device's last event as stored.
+      final last = db.select(
+        'SELECT seq, body FROM events WHERE device_id = ? ORDER BY seq DESC LIMIT 1',
         [deviceId],
-      ).first['m'] as int;
-      return EventStore._(db, deviceId, now, rng, maxSeq + 1);
+      );
+      return last.isEmpty
+          ? EventStore._(db, deviceId, now, rng, 1, genesisHash)
+          : EventStore._(db, deviceId, now, rng, (last.first['seq'] as int) + 1,
+              chainHash(last.first['body'] as String));
     } catch (_) {
       db.close();
       rethrow;
@@ -48,9 +58,14 @@ class EventStore {
   final int Function() _clock;
   final Random _random;
   int _nextSeq;
+
+  /// The hash of this device's last stored event: the next append's
+  /// `prev_hash`. The genesis value before the first.
+  String _prevHash;
   late final sql.PreparedStatement _insert;
   late final sql.PreparedStatement _count;
   late final sql.PreparedStatement _all;
+  late final sql.PreparedStatement _canonical;
 
   /// This install's device id. Every event it appends carries it.
   final String deviceId;
@@ -97,8 +112,8 @@ class EventStore {
     return id;
   }
 
-  /// Appends [event] as this device's next event and returns it as stored.
-  /// When this returns, the event is committed.
+  /// Appends [event] as this device's next event, chained to its last one
+  /// (#28), and returns it as stored. When this returns, it is committed.
   EventEnvelope append(NewEvent event) {
     validateNewEvent(event);
     final now = _clock();
@@ -114,19 +129,25 @@ class EventStore {
       kind: event.kind,
       payloadVersion: event.payloadVersion,
       correctsUlid: event.correctsUlid,
+      prevHash: _prevHash,
       payload: event.payload,
     );
-    insert(envelope);
+    final text = _store(envelope);
     _nextSeq++;
+    _prevHash = chainHash(text);
     return envelope;
   }
 
   /// Stores an event exactly as given - one of this device's, or one written
   /// by another phone and arriving through sync (#6). Never replaces one.
-  void insert(EventEnvelope e) {
+  void insert(EventEnvelope e) => _store(e);
+
+  String _store(EventEnvelope e) {
     final wire = e.toWire();
     requireWireSafe(wire, 'event');
-    _insert.execute([e.ulid, e.deviceId, e.seq, e.deviceTs, jsonEncode(wire)]);
+    final text = canonicalJson(wire);
+    _insert.execute([e.ulid, e.deviceId, e.seq, e.deviceTs, text]);
+    return text;
   }
 
   /// Every event, ordered by device time, then device id, then ULID (ADR
@@ -138,6 +159,10 @@ class EventStore {
 
   int count() => _count.select().first['n'] as int;
 
+  /// Every event's canonical text as stored, by device and then sequence
+  /// number: what [verifyChains] takes.
+  List<String> readCanonical() => [for (final r in _canonical.select()) r['body'] as String];
+
   /// The raw connection, for tests that attempt what the core never does.
   sql.Database get debugDatabase => _db;
 
@@ -145,6 +170,7 @@ class EventStore {
     _insert.close();
     _count.close();
     _all.close();
+    _canonical.close();
     _db.close();
   }
 }

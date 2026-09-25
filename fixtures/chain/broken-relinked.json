@@ -1,0 +1,35 @@
+{
+  "format": "pro-companion-chain-vector/1",
+  "name": "broken-relinked",
+  "description": "Seq 3 was removed and seq 4 re-linked to seq 2, with seq 5 and 6 re-linked after it. Seq 4 links straight across the missing number, which a genuine chain never does.",
+  "events": [
+    {
+      "hash": "93322f023cbc83656fe652883020940402d8508b2e6fcaa0835251db33f56e95",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "e259853094cbe74261840aa9119c5c9fcaf93b7cc1f791653b89a288c2211af4",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"93322f023cbc83656fe652883020940402d8508b2e6fcaa0835251db33f56e95\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "46360628330405b8625f2498c4c6a354a5831849652a39b5c0a5578a2d41acef",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"e259853094cbe74261840aa9119c5c9fcaf93b7cc1f791653b89a288c2211af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "8c91aa3d7d15476a6779097bf0a68cd258a8e973a40708cd67978f9231a067b6",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"46360628330405b8625f2498c4c6a354a5831849652a39b5c0a5578a2d41acef\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "e756809e5f0c9e838804a8b0633957fce35c453dd3cb49cb8cc6420189b9852e",
+      "canonical": "{\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8c91aa3d7d15476a6779097bf0a68cd258a8e973a40708cd67978f9231a067b6\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "broken",
+      "at_seq": 4,
+      "at_ulid": "01J8Z0E0000000000000000004",
+      "after_seq": 2
+    }
+  }
+}

@@ -2,3 +2,5 @@
 # vendors those bytes. Keep LF on every checkout whatever core.autocrlf says,
 # or a Windows checkout and the Linux CI runner hash different files.
 fixtures/scoring/** text eol=lf
+# The chain vectors (#28) are vendored by burgee under the same checksums.
+fixtures/chain/** text eol=lf
