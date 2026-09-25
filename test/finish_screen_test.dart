@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart';
+import 'package:pro_companion/ui/race_time.dart';
 import 'package:pro_companion_core/core.dart';
 import 'package:pro_companion_core/testing.dart';
 
@@ -204,7 +205,8 @@ void main() {
 
     final all = await events(tester);
     final missed = only(all, FinishKinds.missed);
-    expect(missed.payload, {'gap': true, 'after': a.ulid, 'before': b.ulid});
+    // 'fleet' is null: no fleet is defined, so this is a single-fleet day (#18).
+    expect(missed.payload, {'fleet': null, 'gap': true, 'after': a.ulid, 'before': b.ulid});
     expect(byUlid(all, a.ulid).toWire(), a.toWire());
     expect(byUlid(all, b.ulid).toWire(), b.toWire());
 
@@ -442,7 +444,9 @@ void main() {
   for (final scale in [1.0, 2.0]) {
     testWidgets('criterion 9: the finish screen passes the bar-check helper at ${(scale * 100).round()}% text',
         (tester) async {
-      final violations = await barCheck(tester, (observer) {
+      // A single-fleet day: no fleet is defined, so there is no fleet switch
+      // to reach. #18's own bar check, with fleets, holds 'fleet-switch'.
+      final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
         var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
         final seeded = FakeCore(clock: () => t += 1000);
         // A full list already on the phone, so rows, their actions and the

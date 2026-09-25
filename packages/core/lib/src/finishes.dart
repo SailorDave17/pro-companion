@@ -1,8 +1,14 @@
 import 'envelope.dart';
+import 'fleets.dart';
+import 'order.dart';
 
 /// Finish capture (#4): the event kinds a finish screen appends, and the
 /// finish order derived from them. Nothing here edits an event - an undo, a
 /// missed finish and a sail number are each a new event (ADR 001).
+///
+/// Finishes are partitioned by fleet (#18): a finish and a missed finish carry
+/// their fleet, so each fleet has its own places. A sail number and an undo
+/// name the finish they apply to, so they follow it.
 abstract final class FinishKinds {
   /// A boat crossed the line. Its time is the envelope's device timestamp.
   static const finish = 'finish';
@@ -23,17 +29,20 @@ abstract final class FinishKinds {
 
 /// Builds the events a finish screen appends.
 abstract final class FinishEvents {
-  static NewEvent finish() => const NewEvent(kind: FinishKinds.finish, source: 'tap');
+  /// A finish for [fleet] (null on a single-fleet day).
+  static NewEvent finish({required String? fleet}) =>
+      NewEvent(kind: FinishKinds.finish, source: 'tap', payload: {fleetPayloadKey: fleet});
 
   static NewEvent undo(String entryUlid) =>
       NewEvent(kind: FinishKinds.undo, source: 'tap', correctsUlid: entryUlid);
 
-  /// A missed finish placed immediately before [beforeUlid] and after
-  /// [afterUlid] (null when it goes first).
-  static NewEvent missed({required String? afterUlid, required String beforeUlid}) => NewEvent(
+  /// A missed finish for [fleet], placed immediately before [beforeUlid] and
+  /// after [afterUlid] (null when it goes first).
+  static NewEvent missed({required String? fleet, required String? afterUlid, required String beforeUlid}) =>
+      NewEvent(
         kind: FinishKinds.missed,
         source: 'tap',
-        payload: {'gap': true, 'after': afterUlid, 'before': beforeUlid},
+        payload: {fleetPayloadKey: fleet, 'gap': true, 'after': afterUlid, 'before': beforeUlid},
       );
 
   static NewEvent assignSail(String entryUlid, String sail) => NewEvent(
@@ -68,39 +77,31 @@ class FinishEntry {
   String toString() => 'FinishEntry($place ${missed ? 'missed' : deviceTs} ${sail ?? '-'} $ulid)';
 }
 
-/// The order finish events happened in: device time, then device, then - for
-/// two events one phone logged in the same millisecond - that phone's
-/// sequence number, which is the order they were tapped. ADR 001's log order
-/// breaks that tie by ULID, whose random tail can invert two taps; the finish
-/// order must not.
-int _happened(EventEnvelope a, EventEnvelope b) {
-  final byTs = a.deviceTs.compareTo(b.deviceTs);
-  if (byTs != 0) return byTs;
-  final byDevice = a.deviceId.compareTo(b.deviceId);
-  if (byDevice != 0) return byDevice;
-  final bySeq = a.seq.compareTo(b.seq);
-  return bySeq != 0 ? bySeq : a.ulid.compareTo(b.ulid);
+/// True for a finish or missed finish logged for [fleet].
+bool _placeIn(EventEnvelope e, String? fleet) =>
+    (e.kind == FinishKinds.finish || e.kind == FinishKinds.missed) && fleetOf(e) == fleet;
+
+/// The finish or missed finish of [fleet] that "Undo last" takes back: the
+/// most recently logged one not already undone. Null when there is none.
+EventEnvelope? lastUndoableFinish(Iterable<EventEnvelope> events, {required String? fleet}) {
+  final undone = undoneBy(events, FinishKinds.undo);
+  final candidates = events.where((e) => _placeIn(e, fleet) && !undone.contains(e.ulid)).toList()..sort(happened);
+  return candidates.isEmpty ? null : candidates.last;
 }
 
-/// The finish or missed finish that "Undo last" takes back: the most recently
-/// logged one not already undone. Null when there is none.
-String? lastUndoable(Iterable<EventEnvelope> events) {
-  final undone = {
-    for (final e in events)
-      if (e.kind == FinishKinds.undo) e.correctsUlid,
-  };
-  final candidates = events
-      .where((e) => (e.kind == FinishKinds.finish || e.kind == FinishKinds.missed) && !undone.contains(e.ulid))
+/// The ULID of [lastUndoableFinish], or null.
+String? lastUndoable(Iterable<EventEnvelope> events, {required String? fleet}) =>
+    lastUndoableFinish(events, fleet: fleet)?.ulid;
+
+/// Derives [fleet]'s finish order from the log: its finishes by time, each
+/// missed finish between the two it was placed between, undone places
+/// removed, and each place's latest sail number. Another fleet's finishes
+/// never take a place here.
+List<FinishEntry> finishOrder(Iterable<EventEnvelope> events, {required String? fleet}) {
+  final log = events
+      .where((e) => _placeIn(e, fleet) || e.kind == FinishKinds.sail || e.kind == FinishKinds.undo)
       .toList()
-    ..sort(_happened);
-  return candidates.isEmpty ? null : candidates.last.ulid;
-}
-
-/// Derives the finish order from the log: finishes by time, each missed
-/// finish between the two it was placed between, undone places removed, and
-/// each place's latest sail number.
-List<FinishEntry> finishOrder(Iterable<EventEnvelope> events) {
-  final log = events.where((e) => FinishKinds.all.contains(e.kind)).toList()..sort(_happened);
+    ..sort(happened);
 
   // Finishes in time order first, then each missed finish slotted in, in the
   // order they were logged - so two misses placed in one gap keep their order.
@@ -118,10 +119,7 @@ List<FinishEntry> finishOrder(Iterable<EventEnvelope> events) {
     order.insert(after >= 0 ? after + 1 : order.length, m);
   }
 
-  final undone = {
-    for (final e in log)
-      if (e.kind == FinishKinds.undo && e.correctsUlid != null) e.correctsUlid!,
-  };
+  final undone = undoneBy(log, FinishKinds.undo);
   final sails = <String, String>{
     for (final e in log)
       if (e.kind == FinishKinds.sail) e.payload['finish'] as String: e.payload['sail'] as String,

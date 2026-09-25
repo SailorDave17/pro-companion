@@ -7,5 +7,10 @@ library;
 
 export 'src/client.dart' show CoreClient;
 export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isUlid;
-export 'src/finishes.dart' show FinishEntry, FinishEvents, FinishKinds, finishOrder, lastUndoable;
+export 'src/finishes.dart'
+    show FinishEntry, FinishEvents, FinishKinds, finishOrder, lastUndoable, lastUndoableFinish;
+export 'src/fleets.dart'
+    show Fleet, FleetEvents, FleetKinds, fleetOf, fleetPayloadKey, fleets, lastFleetSwitch, recentFleets, selectedFleet;
+export 'src/order.dart' show happened;
+export 'src/starts.dart' show FleetRaceState, StartEvents, StartKinds, elapsedAnchor, raceState;
 export 'src/wire.dart' show CoreException, isWireSafe;

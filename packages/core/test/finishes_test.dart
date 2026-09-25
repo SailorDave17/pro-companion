@@ -16,7 +16,7 @@ void main() {
           r['ulid'] as String: r['body'] as String,
       };
 
-  List<FinishEntry> order() => finishOrder(store.readAll());
+  List<FinishEntry> order() => finishOrder(store.readAll(), fleet: null);
 
   setUp(() {
     var t = 1727190000000;
@@ -25,8 +25,8 @@ void main() {
   });
 
   test('finishes are placed in the order they were tapped', () {
-    final a = store.append(FinishEvents.finish());
-    final b = store.append(FinishEvents.finish());
+    final a = store.append(FinishEvents.finish(fleet: null));
+    final b = store.append(FinishEvents.finish(fleet: null));
     expect([for (final e in order()) (e.place, e.ulid, e.missed)], [
       (1, a.ulid, false),
       (2, b.ulid, false),
@@ -35,8 +35,8 @@ void main() {
   });
 
   test('undo appends a correction naming the original, which is left unchanged', () {
-    final a = store.append(FinishEvents.finish());
-    final b = store.append(FinishEvents.finish());
+    final a = store.append(FinishEvents.finish(fleet: null));
+    final b = store.append(FinishEvents.finish(fleet: null));
     stored.addAll(bodies());
 
     final undo = store.append(FinishEvents.undo(a.ulid));
@@ -50,11 +50,11 @@ void main() {
   });
 
   test('a missed finish is placed between A and B with a gap marker, and neither moves', () {
-    final a = store.append(FinishEvents.finish());
-    final b = store.append(FinishEvents.finish());
+    final a = store.append(FinishEvents.finish(fleet: null));
+    final b = store.append(FinishEvents.finish(fleet: null));
     stored.addAll(bodies());
 
-    final m = store.append(FinishEvents.missed(afterUlid: a.ulid, beforeUlid: b.ulid));
+    final m = store.append(FinishEvents.missed(fleet: null, afterUlid: a.ulid, beforeUlid: b.ulid));
 
     expect(m.kind, FinishKinds.missed);
     expect(m.payload['gap'], isTrue, reason: 'the gap marker');
@@ -70,23 +70,23 @@ void main() {
   });
 
   test('two misses placed in one gap keep the order they were logged in', () {
-    final a = store.append(FinishEvents.finish());
-    final b = store.append(FinishEvents.finish());
-    final m1 = store.append(FinishEvents.missed(afterUlid: a.ulid, beforeUlid: b.ulid));
-    final m2 = store.append(FinishEvents.missed(afterUlid: m1.ulid, beforeUlid: b.ulid));
+    final a = store.append(FinishEvents.finish(fleet: null));
+    final b = store.append(FinishEvents.finish(fleet: null));
+    final m1 = store.append(FinishEvents.missed(fleet: null, afterUlid: a.ulid, beforeUlid: b.ulid));
+    final m2 = store.append(FinishEvents.missed(fleet: null, afterUlid: m1.ulid, beforeUlid: b.ulid));
     expect([for (final e in order()) e.ulid], [a.ulid, m1.ulid, m2.ulid, b.ulid]);
   });
 
   test('a miss before the first finish goes first', () {
-    final a = store.append(FinishEvents.finish());
-    final m = store.append(FinishEvents.missed(afterUlid: null, beforeUlid: a.ulid));
+    final a = store.append(FinishEvents.finish(fleet: null));
+    final m = store.append(FinishEvents.missed(fleet: null, afterUlid: null, beforeUlid: a.ulid));
     expect([for (final e in order()) e.ulid], [m.ulid, a.ulid]);
   });
 
   test('a sail number is a new event, then or later, and the latest one counts', () {
-    final a = store.append(FinishEvents.finish());
+    final a = store.append(FinishEvents.finish(fleet: null));
     final s1 = store.append(FinishEvents.assignSail(a.ulid, '12345'));
-    final b = store.append(FinishEvents.finish());
+    final b = store.append(FinishEvents.finish(fleet: null));
     stored.addAll(bodies());
 
     final s2 = store.append(FinishEvents.assignSail(a.ulid, '12346'));
@@ -101,8 +101,8 @@ void main() {
   });
 
   test('a missed finish can take a sail number and be undone like any other', () {
-    final a = store.append(FinishEvents.finish());
-    final m = store.append(FinishEvents.missed(afterUlid: null, beforeUlid: a.ulid));
+    final a = store.append(FinishEvents.finish(fleet: null));
+    final m = store.append(FinishEvents.missed(fleet: null, afterUlid: null, beforeUlid: a.ulid));
     store.append(FinishEvents.assignSail(m.ulid, '777'));
     expect(order().first.sail, '777');
     store.append(FinishEvents.undo(m.ulid));
@@ -130,28 +130,28 @@ void main() {
         reason: 'the log itself orders the tie by ULID');
     expect([for (final e in order()) e.ulid], [first.ulid, second.ulid],
         reason: 'the finish order follows the tap order');
-    expect(lastUndoable(store.readAll()), second.ulid);
+    expect(lastUndoable(store.readAll(), fleet: null), second.ulid);
   });
 
   test('Undo last takes back the most recent finish or miss not already undone', () {
-    expect(lastUndoable(store.readAll()), isNull);
-    final a = store.append(FinishEvents.finish());
-    final b = store.append(FinishEvents.finish());
-    expect(lastUndoable(store.readAll()), b.ulid);
-    final m = store.append(FinishEvents.missed(afterUlid: a.ulid, beforeUlid: b.ulid));
-    expect(lastUndoable(store.readAll()), m.ulid, reason: 'the miss was logged last');
+    expect(lastUndoable(store.readAll(), fleet: null), isNull);
+    final a = store.append(FinishEvents.finish(fleet: null));
+    final b = store.append(FinishEvents.finish(fleet: null));
+    expect(lastUndoable(store.readAll(), fleet: null), b.ulid);
+    final m = store.append(FinishEvents.missed(fleet: null, afterUlid: a.ulid, beforeUlid: b.ulid));
+    expect(lastUndoable(store.readAll(), fleet: null), m.ulid, reason: 'the miss was logged last');
     store.append(FinishEvents.assignSail(a.ulid, '9'));
-    expect(lastUndoable(store.readAll()), m.ulid, reason: 'a sail number is not undone by Undo last');
+    expect(lastUndoable(store.readAll(), fleet: null), m.ulid, reason: 'a sail number is not undone by Undo last');
     store.append(FinishEvents.undo(m.ulid));
-    expect(lastUndoable(store.readAll()), b.ulid);
+    expect(lastUndoable(store.readAll(), fleet: null), b.ulid);
     store.append(FinishEvents.undo(b.ulid));
     store.append(FinishEvents.undo(a.ulid));
-    expect(lastUndoable(store.readAll()), isNull);
+    expect(lastUndoable(store.readAll(), fleet: null), isNull);
   });
 
   test('events that are not finish events are ignored', () {
     store.append(const NewEvent(kind: 'note', source: 'tap'));
-    final a = store.append(FinishEvents.finish());
+    final a = store.append(FinishEvents.finish(fleet: null));
     expect([for (final e in order()) e.ulid], [a.ulid]);
   });
 }
