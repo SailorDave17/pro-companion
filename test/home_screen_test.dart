@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart';
@@ -40,6 +41,25 @@ void main() {
     await tester.pumpWidget(ProCompanionApp(confirmation: quiet, core:FakeCore()));
     await tester.pumpAndSettle();
     expect(find.text('0 events on this phone'), findsOneWidget);
+  });
+
+  // The CI emulator is a 320 x 640 dp phone. Back from FLEETS, the keyboard
+  // is still up while home lays out, and with SEQUENCE added the column no
+  // longer fit in what the keyboard left (#25, PR #94's integration job).
+  testWidgets('home still fits on a 320 x 640 phone with the keyboard still up', (tester) async {
+    tester.view.physicalSize = const Size(640, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    // The status bar the emulator's SafeArea gave up; without it the column
+    // had 24 dp more than on the device, and this passed before the fix.
+    tester.view.padding = const FakeViewPadding(top: 24 * 2.0);
+    tester.view.viewPadding = const FakeViewPadding(top: 24 * 2.0);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 243 * 2.0);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProCompanionApp(confirmation: quiet, core: FakeCore()));
+    await tester.pumpAndSettle();
+    for (final label in ['FLEETS', 'SEQUENCE', 'FINISHES']) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
   });
 
   testWidgets('a core that fails is said so, not shown as a count', (tester) async {

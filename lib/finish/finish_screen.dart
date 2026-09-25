@@ -5,7 +5,11 @@ import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
 import '../fleets/fleet_picker_screen.dart';
+import '../fleets/fleet_row.dart';
 import '../ui/bars.dart';
+import '../ui/clock.dart';
+import '../ui/digit_keypad.dart';
+import '../ui/fit_label.dart';
 import '../ui/race_time.dart';
 import '../ui/sunlight.dart';
 
@@ -121,6 +125,10 @@ class _FinishScreenState extends State<FinishScreen> {
     });
   }
 
+  /// The keypad's header while a sail number is typed for [e].
+  String _sailTitle(FinishEntry? e) =>
+      e == null ? 'Sail' : 'Sail for #${e.place} · ${e.missed ? 'missed' : clockText(e.deviceTs!)}';
+
   void _scrollToNewest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
@@ -154,6 +162,10 @@ class _FinishScreenState extends State<FinishScreen> {
             : 'UNDO LAST (#$lastPlace)';
 
     return Scaffold(
+      // Nothing here is typed with the system keyboard. Back from FLEETS it is
+      // still up while this screen lays out, and on a 320 x 640 phone the
+      // fleet row, UNDO and FINISH overflowed what it left (PR #94, #25).
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         toolbarHeight: 72,
         leadingWidth: 80,
@@ -181,7 +193,7 @@ class _FinishScreenState extends State<FinishScreen> {
         child: Column(
           children: [
             if (allFleets.isNotEmpty)
-              _FleetRow(
+              FleetRow(
                 fleets: allFleets,
                 current: fleet,
                 recent: _recentFleets(),
@@ -190,15 +202,15 @@ class _FinishScreenState extends State<FinishScreen> {
               ),
             Expanded(
               child: _keypadFor != null
-                  ? _SailKeypad(
-                      entry: order.where((e) => e.ulid == _keypadFor).firstOrNull,
-                      digits: _digits,
+                  ? DigitKeypad(
+                      title: _sailTitle(order.where((e) => e.ulid == _keypadFor).firstOrNull),
+                      display: _digits.isEmpty ? '—' : _digits,
                       onDigit: (d) => setState(() {
                         if (_digits.length < 7) _digits += d;
                       }),
                       onDelete: () => setState(() => _digits = _digits.isEmpty ? '' : _digits.substring(0, _digits.length - 1)),
-                      onCancel: () => setState(() => _keypadFor = null),
-                      onSave: _saveSail,
+                      onClose: () => setState(() => _keypadFor = null),
+                      onSave: _digits.isEmpty ? null : _saveSail,
                     )
                   : !_loaded && !_failed
                       ? const Center(child: Text('Reading the log…'))
@@ -251,7 +263,7 @@ class _FinishScreenState extends State<FinishScreen> {
                   height: Bars.minTargetDp,
                   child: ElevatedButton(
                     onPressed: undo == null ? null : () => _append(undo),
-                    child: _Label(undoLabel),
+                    child: FitLabel(undoLabel),
                   ),
                 ),
               ),
@@ -269,7 +281,7 @@ class _FinishScreenState extends State<FinishScreen> {
                     style: FilledButton.styleFrom(
                       textStyle: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: 2),
                     ),
-                    child: const _Label('FINISH'),
+                    child: const FitLabel('FINISH'),
                   ),
                 ),
               ),
@@ -279,101 +291,6 @@ class _FinishScreenState extends State<FinishScreen> {
       ),
     );
   }
-}
-
-/// The fleet buttons under the title (#18): every fleet when there are three
-/// or fewer, otherwise the two this phone used last and MORE. One tap on a
-/// fleet switches to it.
-class _FleetRow extends StatelessWidget {
-  const _FleetRow({
-    required this.fleets,
-    required this.current,
-    required this.recent,
-    required this.onSwitch,
-    required this.onMore,
-  });
-
-  static const _roomFor = 3;
-
-  final List<Fleet> fleets;
-  final String? current;
-
-  /// Fleets this phone switched to, most recent first.
-  final List<String> recent;
-  final ValueChanged<String> onSwitch;
-  final VoidCallback onMore;
-
-  List<Fleet> _shown() {
-    if (fleets.length <= _roomFor) return fleets;
-    final byId = {for (final f in fleets) f.id: f};
-    final ids = <String>[
-      ?current,
-      for (final id in recent)
-        if (id != current && byId.containsKey(id)) id,
-      for (final f in fleets) f.id,
-    ];
-    return ids.toSet().take(_roomFor - 1).map((id) => byId[id]!).toList();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final shown = _shown();
-    final cells = <Widget>[
-      for (final f in shown)
-        RaceTimeAction(
-          id: 'fleet-switch',
-          child: SizedBox(
-            height: Bars.minTargetDp,
-            child: fleetButton(
-              key: ValueKey('fleet-switch-${f.id}'),
-              current: f.id == current,
-              label: f.name,
-              onPressed: () => onSwitch(f.id),
-            ),
-          ),
-        ),
-      if (shown.length < fleets.length)
-        SizedBox(
-          height: Bars.minTargetDp,
-          child: OutlinedButton(key: const ValueKey('fleet-more'), onPressed: onMore, child: const _Label('MORE')),
-        ),
-    ];
-    // A rule under the row, so a finish scrolled partly away reads as passing
-    // beneath a header rather than as tucked under the buttons (emulator, #18).
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Bars.screenGutterDp, 8, Bars.screenGutterDp, 8),
-          child: Row(
-            children: [
-              for (var i = 0; i < cells.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(child: cells[i]),
-              ],
-            ],
-          ),
-        ),
-        const Divider(height: 2, thickness: 2, color: SunlightTokens.mutedText),
-      ],
-    );
-  }
-}
-
-/// A button label that shrinks to fit its button rather than wrap or clip.
-/// At large text sizes a fixed-size control otherwise cuts its own label
-/// ("Canc/el", "Sail" without its "#") - measured at 200% on the emulator.
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => FittedBox(fit: BoxFit.scaleDown, child: Text(text, maxLines: 1));
-}
-
-String _clock(int deviceTs) {
-  final t = DateTime.fromMillisecondsSinceEpoch(deviceTs);
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
 }
 
 class _FinishRow extends StatelessWidget {
@@ -431,7 +348,7 @@ class _FinishRow extends StatelessWidget {
                         SizedBox(width: 56, child: Text('${entry.place}', style: text?.copyWith(fontWeight: FontWeight.w700))),
                         Expanded(
                           child: Text(
-                            entry.missed ? 'missed · time unknown' : _clock(entry.deviceTs!),
+                            entry.missed ? 'missed · time unknown' : clockText(entry.deviceTs!),
                             style: entry.missed ? text?.copyWith(color: SunlightTokens.mutedText, fontStyle: FontStyle.italic) : text,
                           ),
                         ),
@@ -449,7 +366,7 @@ class _FinishRow extends StatelessWidget {
                   child: OutlinedButton(
                     key: ValueKey('sail-${entry.ulid}'),
                     onPressed: onSail,
-                    child: _Label(entry.sail ?? 'Sail #'),
+                    child: FitLabel(entry.sail ?? 'Sail #'),
                   ),
                 ),
               ),
@@ -464,7 +381,7 @@ class _FinishRow extends StatelessWidget {
                     child: RaceTimeAction(
                       id: 'missed-above',
                       itemScoped: true,
-                      child: ElevatedButton(onPressed: onMissedAbove, child: const _Label('Missed above')),
+                      child: ElevatedButton(onPressed: onMissedAbove, child: const FitLabel('Missed above')),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -472,102 +389,13 @@ class _FinishRow extends StatelessWidget {
                     child: RaceTimeAction(
                       id: 'undo-this',
                       itemScoped: true,
-                      child: ElevatedButton(onPressed: onUndo, child: const _Label('Undo this')),
+                      child: ElevatedButton(onPressed: onUndo, child: const FitLabel('Undo this')),
                     ),
                   ),
                 ],
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _SailKeypad extends StatelessWidget {
-  const _SailKeypad({
-    required this.entry,
-    required this.digits,
-    required this.onDigit,
-    required this.onDelete,
-    required this.onCancel,
-    required this.onSave,
-  });
-
-  final FinishEntry? entry;
-  final String digits;
-  final ValueChanged<String> onDigit;
-  final VoidCallback onDelete;
-  final VoidCallback onCancel;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) {
-    final e = entry;
-    final title = e == null ? 'Sail' : 'Sail for #${e.place} · ${e.missed ? 'missed' : _clock(e.deviceTs!)}';
-    Widget key(String label, VoidCallback? onPressed, {Key? k}) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: SizedBox(
-              height: Bars.minTargetDp,
-              child: OutlinedButton(
-                key: k,
-                onPressed: onPressed,
-                style: const ButtonStyle(
-                  textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
-                ),
-                child: _Label(label),
-              ),
-            ),
-          ),
-        );
-    return Container(
-      color: SunlightTokens.surface,
-      padding: const EdgeInsets.symmetric(horizontal: Bars.screenGutterDp - 4, vertical: 4),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            // A fixed-height header, so the keypad below it fits in the same
-            // space at any text size and FINISH never has to move.
-            SizedBox(
-              height: Bars.minTargetDp + 8,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(title, style: Theme.of(context).textTheme.bodyMedium),
-                            Text(digits.isEmpty ? '—' : digits,
-                                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // "Close", not "Cancel": numbers saved on the way stay saved.
-                  SizedBox(width: 140, child: Row(children: [key('Close', onCancel, k: const ValueKey('keypad-cancel'))])),
-                ],
-              ),
-            ),
-            for (final row in const [
-              ['1', '2', '3'],
-              ['4', '5', '6'],
-              ['7', '8', '9'],
-            ])
-              Row(children: [for (final d in row) key(d, () => onDigit(d), k: ValueKey('key-$d'))]),
-            Row(children: [
-              key('⌫', onDelete, k: const ValueKey('key-del')),
-              key('0', () => onDigit('0'), k: const ValueKey('key-0')),
-              key('Save', digits.isEmpty ? null : onSave, k: const ValueKey('keypad-save')),
-            ]),
-          ],
-        ),
       ),
     );
   }

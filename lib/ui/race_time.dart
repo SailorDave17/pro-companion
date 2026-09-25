@@ -37,4 +37,9 @@ const raceTimeActionIds = {
   'missed-above',
   'undo-this',
   'fleet-switch',
+  'gun',
+  'postpone',
+  'general-recall',
+  'fix-gun-time',
+  'sequence-undo',
 };

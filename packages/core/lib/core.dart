@@ -14,5 +14,6 @@ export 'src/fleets.dart'
 export 'src/order.dart' show happened;
 export 'src/scoring.dart'
     show DiscardStep, Discards, Race, RaceScore, ScoreCode, Series, Standing, scoreSeries;
-export 'src/starts.dart' show FleetRaceState, StartEvents, StartKinds, elapsedAnchor, raceState;
+export 'src/starts.dart'
+    show FleetRaceState, StartEvents, StartKinds, anchorTime, elapsedAnchor, gunTime, lastUndoableStart, raceState, sequenceOf;
 export 'src/wire.dart' show CoreException, isWireSafe;
