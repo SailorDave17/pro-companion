@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
+import '../fleets/fleet_picker_screen.dart';
 import '../ui/bars.dart';
 import '../ui/race_time.dart';
 import '../ui/sunlight.dart';
@@ -12,6 +13,11 @@ import '../ui/sunlight.dart';
 /// with undo instead of confirm prompts. FINISH is anchored at the bottom and
 /// never moves or gets covered; the order runs above it, newest nearest the
 /// button (owner's layout, 2026-09-24).
+///
+/// Fleets (#18): once fleets are named, a row of fleet buttons sits under the
+/// title and one tap switches (owner's layout, 2026-09-24). The screen shows
+/// the selected fleet's finishes only, each finish carries that fleet, and
+/// right after a switch UNDO LAST takes the switch back.
 class FinishScreen extends StatefulWidget {
   const FinishScreen({super.key, required this.core, required this.confirmation});
 
@@ -27,6 +33,7 @@ class _FinishScreenState extends State<FinishScreen> {
   final _scroll = ScrollController();
   bool _loaded = false;
   bool _failed = false;
+  String? _deviceId;
   String? _expanded;
   String? _keypadFor;
   String _digits = '';
@@ -34,16 +41,37 @@ class _FinishScreenState extends State<FinishScreen> {
   @override
   void initState() {
     super.initState();
-    widget.core.readAll().then((events) {
+    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
-        _events.addAll(events.where((e) => FinishKinds.all.contains(e.kind)));
+        _events.addAll((r[0] as List<EventEnvelope>)
+            .where((e) => FinishKinds.all.contains(e.kind) || FleetKinds.all.contains(e.kind)));
+        _deviceId = r[1] as String;
         _loaded = true;
       });
       _scrollToNewest();
     }, onError: (Object _) {
       if (mounted) setState(() => _failed = true);
     });
+  }
+
+  /// The fleet this phone is finishing, or null on a single-fleet day.
+  String? get _fleet => _deviceId == null ? null : selectedFleet(_events, _deviceId!);
+
+  /// Switches this phone to [fleet]: one event, confirmed by a buzz and a
+  /// beep. Tapping the fleet already selected does nothing.
+  Future<void> _switchTo(String fleet) async {
+    if (fleet == _fleet) return;
+    await _append(FleetEvents.select(fleet));
+  }
+
+  List<String> _recentFleets() => _deviceId == null ? const [] : recentFleets(_events, _deviceId!);
+
+  Future<void> _pickFromAll(List<Fleet> all) async {
+    final chosen = await Navigator.of(context).push<String>(MaterialPageRoute(
+      builder: (_) => FleetPickerScreen(fleets: all, current: _fleet),
+    ));
+    if (chosen != null && mounted) await _switchTo(chosen);
   }
 
   @override
@@ -61,8 +89,14 @@ class _FinishScreenState extends State<FinishScreen> {
       setState(() {
         _events.add(stored);
         _failed = false;
+        // A switch, or its undo, changes which fleet's list is showing; a row
+        // or keypad open on the other list no longer means anything.
+        if (FleetKinds.all.contains(event.kind)) {
+          _expanded = null;
+          _keypadFor = null;
+        }
       });
-      if (event.kind == FinishKinds.finish) _scrollToNewest();
+      if (event.kind == FinishKinds.finish || FleetKinds.all.contains(event.kind)) _scrollToNewest();
       return true;
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -78,7 +112,7 @@ class _FinishScreenState extends State<FinishScreen> {
     final target = _keypadFor;
     if (target == null || _digits.isEmpty) return;
     if (!await _append(FinishEvents.assignSail(target, _digits)) || !mounted) return;
-    final order = finishOrder(_events);
+    final order = finishOrder(_events, fleet: _fleet);
     final at = order.indexWhere((e) => e.ulid == target);
     final next = order.skip(at + 1).where((e) => e.sail == null).firstOrNull;
     setState(() {
@@ -95,10 +129,29 @@ class _FinishScreenState extends State<FinishScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final order = finishOrder(_events);
-    final last = lastUndoable(_events);
-    final lastPlace = last == null ? null : order.where((e) => e.ulid == last).firstOrNull?.place;
+    final fleet = _fleet;
+    final allFleets = fleets(_events);
+    final fleetName = allFleets.where((f) => f.id == fleet).firstOrNull?.name;
+    final order = finishOrder(_events, fleet: fleet);
     final height = MediaQuery.sizeOf(context).height;
+
+    // UNDO LAST takes back whichever came last: this fleet's last finish, or
+    // the switch that made it this fleet.
+    final lastFinish = lastUndoableFinish(_events, fleet: fleet);
+    final lastSwitch = _deviceId == null ? null : lastFleetSwitch(_events, _deviceId!);
+    final undoSwitch = lastSwitch != null && (lastFinish == null || happened(lastSwitch, lastFinish) > 0);
+    final last = lastFinish?.ulid;
+    final lastPlace = last == null ? null : order.where((e) => e.ulid == last).firstOrNull?.place;
+    final NewEvent? undo = undoSwitch
+        ? FleetEvents.undo(lastSwitch.ulid)
+        : last == null
+            ? null
+            : FinishEvents.undo(last);
+    final undoLabel = undoSwitch
+        ? 'UNDO SWITCH (${fleetName ?? 'fleet'})'
+        : last == null
+            ? 'Nothing to undo'
+            : 'UNDO LAST (#$lastPlace)';
 
     return Scaffold(
       appBar: AppBar(
@@ -114,12 +167,27 @@ class _FinishScreenState extends State<FinishScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: Text('Finishes · ${order.length}', style: Theme.of(context).textTheme.titleLarge),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            fleetName == null ? 'Finishes · ${order.length}' : 'Finishes · $fleetName · ${order.length}',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
       ),
       body: SafeArea(
         top: false,
         child: Column(
           children: [
+            if (allFleets.isNotEmpty)
+              _FleetRow(
+                fleets: allFleets,
+                current: fleet,
+                recent: _recentFleets(),
+                onSwitch: _switchTo,
+                onMore: () => _pickFromAll(allFleets),
+              ),
             Expanded(
               child: _keypadFor != null
                   ? _SailKeypad(
@@ -150,6 +218,7 @@ class _FinishScreenState extends State<FinishScreen> {
                             onMissedAbove: () {
                               setState(() => _expanded = null);
                               _append(FinishEvents.missed(
+                                fleet: fleet,
                                 afterUlid: i == 0 ? null : order[i - 1].ulid,
                                 beforeUlid: order[i].ulid,
                               ));
@@ -181,8 +250,8 @@ class _FinishScreenState extends State<FinishScreen> {
                   width: double.infinity,
                   height: Bars.minTargetDp,
                   child: ElevatedButton(
-                    onPressed: last == null ? null : () => _append(FinishEvents.undo(last)),
-                    child: _Label(last == null ? 'Nothing to undo' : 'UNDO LAST (#$lastPlace)'),
+                    onPressed: undo == null ? null : () => _append(undo),
+                    child: _Label(undoLabel),
                   ),
                 ),
               ),
@@ -196,7 +265,7 @@ class _FinishScreenState extends State<FinishScreen> {
                   width: double.infinity,
                   height: math.max(120, height * 0.3),
                   child: FilledButton(
-                    onPressed: () => _append(FinishEvents.finish()),
+                    onPressed: () => _append(FinishEvents.finish(fleet: fleet)),
                     style: FilledButton.styleFrom(
                       textStyle: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: 2),
                     ),
@@ -208,6 +277,84 @@ class _FinishScreenState extends State<FinishScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The fleet buttons under the title (#18): every fleet when there are three
+/// or fewer, otherwise the two this phone used last and MORE. One tap on a
+/// fleet switches to it.
+class _FleetRow extends StatelessWidget {
+  const _FleetRow({
+    required this.fleets,
+    required this.current,
+    required this.recent,
+    required this.onSwitch,
+    required this.onMore,
+  });
+
+  static const _roomFor = 3;
+
+  final List<Fleet> fleets;
+  final String? current;
+
+  /// Fleets this phone switched to, most recent first.
+  final List<String> recent;
+  final ValueChanged<String> onSwitch;
+  final VoidCallback onMore;
+
+  List<Fleet> _shown() {
+    if (fleets.length <= _roomFor) return fleets;
+    final byId = {for (final f in fleets) f.id: f};
+    final ids = <String>[
+      ?current,
+      for (final id in recent)
+        if (id != current && byId.containsKey(id)) id,
+      for (final f in fleets) f.id,
+    ];
+    return ids.toSet().take(_roomFor - 1).map((id) => byId[id]!).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = _shown();
+    final cells = <Widget>[
+      for (final f in shown)
+        RaceTimeAction(
+          id: 'fleet-switch',
+          child: SizedBox(
+            height: Bars.minTargetDp,
+            child: fleetButton(
+              key: ValueKey('fleet-switch-${f.id}'),
+              current: f.id == current,
+              label: f.name,
+              onPressed: () => onSwitch(f.id),
+            ),
+          ),
+        ),
+      if (shown.length < fleets.length)
+        SizedBox(
+          height: Bars.minTargetDp,
+          child: OutlinedButton(key: const ValueKey('fleet-more'), onPressed: onMore, child: const _Label('MORE')),
+        ),
+    ];
+    // A rule under the row, so a finish scrolled partly away reads as passing
+    // beneath a header rather than as tucked under the buttons (emulator, #18).
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(Bars.screenGutterDp, 8, Bars.screenGutterDp, 8),
+          child: Row(
+            children: [
+              for (var i = 0; i < cells.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(child: cells[i]),
+              ],
+            ],
+          ),
+        ),
+        const Divider(height: 2, thickness: 2, color: SunlightTokens.mutedText),
+      ],
     );
   }
 }

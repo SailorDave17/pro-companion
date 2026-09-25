@@ -4,6 +4,7 @@ import 'package:pro_companion_core/core.dart';
 import 'confirmation.dart';
 import 'core_bootstrap.dart';
 import 'finish/finish_screen.dart';
+import 'fleets/fleets_screen.dart';
 import 'ui/bars.dart';
 import 'ui/sunlight.dart';
 
@@ -56,10 +57,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<int> _count = widget.core.count();
 
-  Future<void> _openFinishes() async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => FinishScreen(core: widget.core, confirmation: widget.confirmation),
-    ));
+  Future<void> _open(Widget Function() screen) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen()));
     if (mounted) {
       setState(() {
         _count = widget.core.count();
@@ -88,10 +87,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
               const Spacer(),
+              // Naming the day's fleets is set-up, done before racing (#18).
+              SizedBox(
+                width: double.infinity,
+                height: Bars.minTargetDp + 8,
+                child: OutlinedButton(
+                  onPressed: () => _open(() => FleetsScreen(core: widget.core, confirmation: widget.confirmation)),
+                  child: const Text('FLEETS'),
+                ),
+              ),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 96,
-                child: ElevatedButton(onPressed: _openFinishes, child: const Text('FINISHES')),
+                child: ElevatedButton(
+                  onPressed: () => _open(() => FinishScreen(core: widget.core, confirmation: widget.confirmation)),
+                  child: const Text('FINISHES'),
+                ),
               ),
             ],
           ),

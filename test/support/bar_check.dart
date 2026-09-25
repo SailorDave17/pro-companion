@@ -24,7 +24,9 @@ import 'package:pro_companion/ui/sunlight.dart';
 ///   * no dialog, sheet or menu was opened (a PopupRoute), and none is showing.
 ///
 /// Across the whole exploration it checks that every race-time action in
-/// [actionIds] can be reached within the tap limit, its own tap included. An
+/// [actionIds] can be reached within the tap limit, its own tap included, and
+/// that every race-time action on screen is one of [actionIds] - which, for
+/// the app, is the registry [raceTimeActionIds]. An
 /// item's own corrections may take one tap more, to select the item (owner
 /// decision 2026-09-24).
 ///
@@ -77,6 +79,13 @@ Future<List<String>> barCheck(
     final screenWidth = tester.view.physicalSize.width / tester.view.devicePixelRatio;
     for (final element in find.byType(RaceTimeAction).hitTestable().evaluate()) {
       final action = element.widget as RaceTimeAction;
+      // An action this check does not hold to the tap limit - for the app,
+      // one missing from raceTimeActionIds - would pass unexamined, and
+      // nothing else would notice (#18).
+      if (!actionIds.contains(action.id)) {
+        violations.add('$where: race-time action "${action.id}" is not among the actions checked '
+            '(for the app: raceTimeActionIds)');
+      }
       final seen = reachedAt[action.id];
       if (seen == null || path.length < seen) reachedAt[action.id] = path.length;
       if (action.itemScoped) itemScoped.add(action.id);

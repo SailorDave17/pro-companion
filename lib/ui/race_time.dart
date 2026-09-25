@@ -36,4 +36,5 @@ const raceTimeActionIds = {
   'sail',
   'missed-above',
   'undo-this',
+  'fleet-switch',
 };
