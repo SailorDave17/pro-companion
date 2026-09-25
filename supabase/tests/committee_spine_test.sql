@@ -14,6 +14,7 @@ select plan(31);
 -- Fixed ids so the file needs no client-side variables.
 -- clubs:   …c01 Hoover, …c02 Other
 -- events:  …e01 on Hoover (code gull-1234), …e02 on Other (code tern-5678)
+-- courses: …ca01 on e01, …cb01 on e02 (since #58 every fleet names its race area)
 -- devices: …aa01 anonymous, …aa02 named volunteer
 
 -- 1–4. RLS is on for every spine table (mutation: `alter table … disable row level security` on
@@ -37,6 +38,8 @@ select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night',
                            '00000000-0000-0000-0000-000000000e01');
 select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27', 'tern-5678',
                            '00000000-0000-0000-0000-000000000e02');
+select public.create_course('00000000-0000-0000-0000-000000000e01', 'Main', '00000000-0000-0000-0000-00000000ca01');
+select public.create_course('00000000-0000-0000-0000-000000000e02', 'Main', '00000000-0000-0000-0000-00000000cb01');
 
 -- 9. The hash is not the code.
 select isnt((select admission_code_hash from public.event where id = '00000000-0000-0000-0000-000000000e01'),
@@ -75,9 +78,11 @@ select throws_ok($$select auth_uid from public.committee_device$$, '42501', null
                  'auth_uid is not granted to clients');
 
 -- 22–24. Writes: an admitted phone can add a fleet to its own event, not to another club's; it cannot provision.
-select lives_ok($$insert into public.fleet (event_id, name) values ('00000000-0000-0000-0000-000000000e01', 'Lasers')$$,
+select lives_ok($$insert into public.fleet (event_id, course_id, name)
+                  values ('00000000-0000-0000-0000-000000000e01', '00000000-0000-0000-0000-00000000ca01', 'Lasers')$$,
                 'admitted phone writes a fleet on its own event');
-select throws_ok($$insert into public.fleet (event_id, name) values ('00000000-0000-0000-0000-000000000e02', 'Sneak')$$,
+select throws_ok($$insert into public.fleet (event_id, course_id, name)
+                   values ('00000000-0000-0000-0000-000000000e02', '00000000-0000-0000-0000-00000000cb01', 'Sneak')$$,
                  '42501', null, 'fleet write on another club''s event is refused');
 select throws_ok($$select public.provision_club('Rogue Club')$$, '42501', null,
                  'a phone cannot provision a club');
@@ -102,7 +107,8 @@ select public.revoke_device((select id from public.committee_device
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa01","role":"authenticated","is_anonymous":true}', true);
-select throws_ok($$insert into public.fleet (event_id, name) values ('00000000-0000-0000-0000-000000000e01', 'Optis')$$,
+select throws_ok($$insert into public.fleet (event_id, course_id, name)
+                   values ('00000000-0000-0000-0000-000000000e01', '00000000-0000-0000-0000-00000000ca01', 'Optis')$$,
                  '42501', null, 'revoked device''s write is refused');
 select throws_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'mark_boat', 'gull-1234')$$,
                  '42501', null, 'revoked device cannot re-admit itself with the code');
@@ -110,7 +116,8 @@ select isnt((select revoked_at from public.committee_device), null, 'revoked dev
 
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa02","role":"authenticated","is_anonymous":false}', true);
-select lives_ok($$insert into public.fleet (event_id, name) values ('00000000-0000-0000-0000-000000000e01', '420s')$$,
+select lives_ok($$insert into public.fleet (event_id, course_id, name)
+                  values ('00000000-0000-0000-0000-000000000e01', '00000000-0000-0000-0000-00000000ca01', '420s')$$,
                 'the other device on the event still writes');
 
 select * from finish();
