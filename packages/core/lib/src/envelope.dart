@@ -121,7 +121,9 @@ class EventEnvelope {
   final int payloadVersion;
   final String? correctsUlid;
 
-  /// Reserved for the per-device hash chain. #28 fills it; null until then.
+  /// The hash of this device's previous event, or the genesis value on its
+  /// first (#28, docs/event-chain.md). Null only on an event written before
+  /// #28, which its chain's verifier reports as broken.
   final String? prevHash;
   final Map<String, Object?> payload;
 

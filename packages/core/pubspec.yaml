@@ -12,6 +12,9 @@ environment:
 resolution: workspace
 
 dependencies:
+  # SHA-256 for the per-device hash chain (#28). Pinned to the version the
+  # workspace already resolves for the scoring vectors' checksums (#83).
+  crypto: 3.0.7
   sqlite3: 3.0.0
 
 dev_dependencies:

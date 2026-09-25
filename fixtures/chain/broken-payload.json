@@ -1,0 +1,39 @@
+{
+  "format": "pro-companion-chain-vector/1",
+  "name": "broken-payload",
+  "description": "One byte of seq 4's payload was altered (sail 12345 became 12346) after seq 5 linked to it. Seq 5's link no longer holds, so the chain breaks at seq 5, after seq 4: either one could be the altered event.",
+  "events": [
+    {
+      "hash": "93322f023cbc83656fe652883020940402d8508b2e6fcaa0835251db33f56e95",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "e259853094cbe74261840aa9119c5c9fcaf93b7cc1f791653b89a288c2211af4",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"93322f023cbc83656fe652883020940402d8508b2e6fcaa0835251db33f56e95\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "aa3c9f0af1520c519516b25674f8bef6173ff524e67a94688924e3ad85e4a94f",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"e259853094cbe74261840aa9119c5c9fcaf93b7cc1f791653b89a288c2211af4\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+    },
+    {
+      "hash": "b2520ef21040c3c6749e5b237481828edccc9039e78f70907348d8bee9f38f25",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12346\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"aa3c9f0af1520c519516b25674f8bef6173ff524e67a94688924e3ad85e4a94f\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "a033ec286076563b31b09c011858efdb2b2dcb99c1652ce9eabfb663f20244f7",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"ac145bb6cad3c1a7fc409cc02e1257e4dfca1c97020e18810b1f4e9b87912c98\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "1f6b0c611fbc0f7ba58ddc2ee4e277a0588e2066e111651221fd6ade8820448f",
+      "canonical": "{\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"a033ec286076563b31b09c011858efdb2b2dcb99c1652ce9eabfb663f20244f7\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "broken",
+      "at_seq": 5,
+      "at_ulid": "01J8Z0E0000000000000000005",
+      "after_seq": 4
+    }
+  }
+}

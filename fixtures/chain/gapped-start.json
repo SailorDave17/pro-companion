@@ -1,0 +1,24 @@
+{
+  "format": "pro-companion-chain-vector/1",
+  "name": "gapped-start",
+  "description": "A far mark catching up: seq 1 to 3 have not arrived, and seq 4 links to a seq 3 not yet seen.",
+  "events": [
+    {
+      "hash": "ac145bb6cad3c1a7fc409cc02e1257e4dfca1c97020e18810b1f4e9b87912c98",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"aa3c9f0af1520c519516b25674f8bef6173ff524e67a94688924e3ad85e4a94f\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "a033ec286076563b31b09c011858efdb2b2dcb99c1652ce9eabfb663f20244f7",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"ac145bb6cad3c1a7fc409cc02e1257e4dfca1c97020e18810b1f4e9b87912c98\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "1f6b0c611fbc0f7ba58ddc2ee4e277a0588e2066e111651221fd6ade8820448f",
+      "canonical": "{\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"a033ec286076563b31b09c011858efdb2b2dcb99c1652ce9eabfb663f20244f7\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "gapped"
+    }
+  }
+}

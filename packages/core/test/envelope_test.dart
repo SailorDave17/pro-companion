@@ -34,17 +34,19 @@ void main() {
     expect(stored.kind, 'finish.correction');
     expect(stored.payloadVersion, 2, reason: 'payload schema version');
     expect(stored.correctsUlid, original.ulid, reason: 'corrects-ULID');
-    expect(stored.prevHash, isNull, reason: 'reserved for #28, present and empty');
+    expect(stored.prevHash, chainHash(store.readCanonical().first),
+        reason: 'the previous hash: seq 1 as stored (#28)');
     expect(stored.payload, {'sail': '12345'});
   });
 
-  test('person, role, GPS, corrects-ULID and the previous hash may all be null', () {
+  test('person, role, GPS and corrects-ULID may all be null; a first event chains from genesis', () {
     final store = openStore(tempDbPath());
     expect(store.readAll(), isEmpty);
 
     store.append(const NewEvent(kind: 'note', source: 'tap'));
     final e = store.readAll().single;
-    expect([e.person, e.role, e.gps, e.correctsUlid, e.prevHash], everyElement(isNull));
+    expect([e.person, e.role, e.gps, e.correctsUlid], everyElement(isNull));
+    expect(e.prevHash, genesisHash, reason: '#28');
     expect(e.seq, 1);
   });
 

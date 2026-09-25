@@ -1,0 +1,38 @@
+{
+  "format": "pro-companion-chain-vector/1",
+  "name": "broken-first-link",
+  "description": "Seq 1's previous hash is not the genesis value; the rest link to it correctly.",
+  "events": [
+    {
+      "hash": "a1774f1fa120f7b79bc19c94821416e08b64ec48681ec776931186cbd468d010",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "da4e0b90604142472cd9021ba2ef870a9b8f3a0075fabef0ad593571496447b1",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"a1774f1fa120f7b79bc19c94821416e08b64ec48681ec776931186cbd468d010\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "33fe2a05fc050d176ba7f71b6cdc7965ec3b01ddaa436d17f962931161dda799",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"da4e0b90604142472cd9021ba2ef870a9b8f3a0075fabef0ad593571496447b1\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+    },
+    {
+      "hash": "8119bac6cdc4756d12bf23c89a0ce3401722681474b50e728d6e4afcfc28a8c5",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"33fe2a05fc050d176ba7f71b6cdc7965ec3b01ddaa436d17f962931161dda799\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "bcda35f7c12c943bbaa2bbf4dda163b7c1b5222a845fb09f9e42f93f9110f89b",
+      "canonical": "{\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8119bac6cdc4756d12bf23c89a0ce3401722681474b50e728d6e4afcfc28a8c5\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "1c21fd30319eec9bd101ba798557888e28092bcaf348266bf2dc48e270975391",
+      "canonical": "{\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"bcda35f7c12c943bbaa2bbf4dda163b7c1b5222a845fb09f9e42f93f9110f89b\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "broken",
+      "at_seq": 1,
+      "at_ulid": "01J8Z0E0000000000000000001"
+    }
+  }
+}
