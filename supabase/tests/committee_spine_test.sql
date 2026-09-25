@@ -57,9 +57,9 @@ select is((select count(*) from public.committee_device), 0::bigint, 'an un-admi
 -- 12–14. Admission with the right code; wrong code and unknown event are refused alike.
 select lives_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'mark_boat', 'gull-1234')$$,
                 'anonymous device is admitted with the right code');
-select throws_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e02', 'pro', 'wrong-code')$$,
+select throws_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e02', 'overall_pro', 'wrong-code')$$,
                  '28000', null, 'wrong admission code is refused');
-select throws_ok($$select public.admit_device('00000000-0000-0000-0000-0000000000ff', 'pro', 'gull-1234')$$,
+select throws_ok($$select public.admit_device('00000000-0000-0000-0000-0000000000ff', 'overall_pro', 'gull-1234')$$,
                  '28000', null, 'unknown event is refused with the same message');
 
 -- 15–19. What the admitted phone can see: its own device row, its own club and event, nothing of the other club.
