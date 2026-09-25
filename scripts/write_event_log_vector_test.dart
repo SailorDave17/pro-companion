@@ -54,7 +54,7 @@ create extension if not exists pgtap with schema extensions;
     ..write(r'''
 
 insert into public.club (id, name) values ('00000000-0000-0000-0000-000000000c01', 'Hoover (fixture)');
-select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27', 'gull-1234',
+select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e01');
 
 -- Inserts one vector's events as the table owner, the role #48's append_event will run as. Each

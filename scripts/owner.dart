@@ -1,13 +1,15 @@
 // The owner's tooling for the pilot. A club admin acts through the owner's service_role scripts
-// (groom decision G27), so this is where clubs, events and race areas come from. #63 adds its first
-// subcommand; the admission codes (#65), revoke (#72) and the sign-in mode (#5) extend it.
+// (groom decision G27), so this is where clubs, events, race areas and admission codes come from.
+// #63 adds its first subcommand and #65 its codes; revoke (#72) and the sign-in mode (#5) extend it.
 //
 //   dart run scripts/owner.dart provision --club <name> --event <name> --date <yyyy-mm-dd>
 //       --race-area <name> [--race-area <name> ...] [--project <ref>]
 //
 // provision reuses the club of exactly that name, or provisions one when there is none. It then
-// creates the event and its race areas, and prints every id and the event's admission code. The
-// code is printed once and stored only as a hash.
+// creates the event and its race areas, and prints every id and the event's admission codes: one
+// for each event-wide role, and one per race area for each bound role (groom decisions G26 and
+// G38). A code admits a phone to exactly its role and race area. Each is printed once and stored
+// only as a hash.
 //
 // With no --project it targets the local stack, taking the stack's URL and secret key from
 // `supabase status`. It reaches a live project only when --project names it, and then reads that
@@ -122,6 +124,23 @@ String newAdmissionCode([Random? random]) {
   return '${group()}-${group()}';
 }
 
+/// The roles that work across the whole event, one code each (docs/roles.md).
+const eventWideRoles = ['overall_pro', 'scorer', 'safety'];
+
+/// The roles bound to one race area, one code each per race area (docs/roles.md, G38).
+const raceAreaRoles = ['course_pro', 'recorder', 'mark_boat'];
+
+/// One admission code's role, and for a bound role the race area it works on.
+typedef CodeSlot = ({String role, String? raceArea});
+
+/// Every code an event with [raceAreas] gets, in the order they are printed: the event-wide roles,
+/// then each race area's bound roles.
+List<CodeSlot> codeSlots(List<String> raceAreas) => [
+      for (final role in eventWideRoles) (role: role, raceArea: null),
+      for (final raceArea in raceAreas)
+        for (final role in raceAreaRoles) (role: role, raceArea: raceArea),
+    ];
+
 class Target {
   Target(this.apiUrl, this.secretKey, this.label);
 
@@ -213,11 +232,10 @@ class ServiceApi {
   }
 }
 
-/// Reuses or provisions the club, then creates the event and its race areas, writing each line to
-/// [out] as soon as the thing it names exists. So a failure part-way leaves a record of what was
-/// made, and the code is shown once the event that holds its hash exists.
-Future<void> provision(ServiceApi api, ProvisionArgs args, StringSink out, {String? code}) async {
-  final admissionCode = code ?? newAdmissionCode();
+/// Reuses or provisions the club, then creates the event, its race areas and its codes, writing each
+/// line to [out] as soon as the thing it names exists. So a failure part-way leaves a record of what
+/// was made, and a code is shown once its hash is stored.
+Future<void> provision(ServiceApi api, ProvisionArgs args, StringSink out) async {
   out.writeln('target      ${api.target.label}');
 
   final existing = await api.clubIdsNamed(args.club);
@@ -233,17 +251,35 @@ Future<void> provision(ServiceApi api, ProvisionArgs args, StringSink out, {Stri
     'p_club': clubId,
     'p_name': args.event,
     'p_race_day': args.date,
-    'p_admission_code': admissionCode,
   });
   out.writeln('event       $eventId  ${args.event} on ${args.date}');
-  out.writeln('code        $admissionCode');
 
+  final courseIds = <String, String>{};
   for (final name in args.raceAreas) {
     final courseId = await api.rpc('create_course', {'p_event': eventId, 'p_name': name});
+    courseIds[name] = courseId;
     out.writeln('race area   $courseId  $name');
   }
-  out.writeln('The code admits a phone to this event. It is stored only as a hash, so this is the '
-      'only time it is shown.');
+
+  // The server refuses one code standing for two slots of an event, so a repeat is drawn again
+  // here rather than failing the run part-way.
+  final issued = <String>{};
+  for (final slot in codeSlots(args.raceAreas)) {
+    String code;
+    do {
+      code = newAdmissionCode();
+    } while (!issued.add(code));
+    await api.rpc('issue_admission_code', {
+      'p_event': eventId,
+      'p_role': slot.role,
+      'p_code': code,
+      'p_course': slot.raceArea == null ? null : courseIds[slot.raceArea],
+    });
+    out.writeln('code        $code  ${slot.role}${slot.raceArea == null ? '' : '  ${slot.raceArea}'}');
+  }
+  out.writeln('A code admits a phone to this event as the role it is printed with and, for a bound '
+      'role, on its race area. The codes are stored only as hashes, so this is the only time they '
+      'are shown.');
 }
 
 Future<int> run(

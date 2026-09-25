@@ -13,8 +13,8 @@ select plan(43);
 
 -- Fixed ids so the file needs no client-side variables.
 -- clubs:   …c01 Hoover, …c02 Other
--- events:  …e01 Hoover's club night (gull-1234), …e03 Hoover's second day (wren-9012),
---          …e02 the other club's regatta (tern-5678)
+-- events:  …e01 Hoover's club night, …e03 Hoover's second day, …e02 the other club's regatta
+-- codes:   e01's scorer (gull-1234), e02's scorer (tern-5678): event-wide, so no race area is needed
 -- devices: …aa01 admitted to e01, …aa02 admitted to e02
 -- log:     01J8…0401 to 01J8…0404 are stored on e01; 01J8…0405 is never stored
 
@@ -40,12 +40,14 @@ select fk_ok('public', 'event_log', 'event_id', 'public', 'event', 'id', 'every 
 insert into public.club (id, name) values
   ('00000000-0000-0000-0000-000000000c01', 'Hoover (fixture)'),
   ('00000000-0000-0000-0000-000000000c02', 'Other (fixture)');
-select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27', 'gull-1234',
+select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e01');
-select public.create_event('00000000-0000-0000-0000-000000000c01', 'Second day', date '2026-09-28', 'wren-9012',
+select public.create_event('00000000-0000-0000-0000-000000000c01', 'Second day', date '2026-09-28',
                            '00000000-0000-0000-0000-000000000e03');
-select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27', 'tern-5678',
+select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e02');
+select public.issue_admission_code('00000000-0000-0000-0000-000000000e01', 'scorer', 'gull-1234');
+select public.issue_admission_code('00000000-0000-0000-0000-000000000e02', 'scorer', 'tern-5678');
 
 -- Canonical texts, keys in RFC 8785 order. Only the owner reads this table, so no client test can
 -- be refused by it instead of by the log.
@@ -159,10 +161,10 @@ select throws_ok($$insert into public.event_log (event_id, canonical)
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa01","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e01', 'recorder', 'gull-1234');
+select public.admit_device('00000000-0000-0000-0000-000000000e01', 'gull-1234');
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa02","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e02', 'recorder', 'tern-5678');
+select public.admit_device('00000000-0000-0000-0000-000000000e02', 'tern-5678');
 
 -- 23–29. Criteria 2 and 4: no client writes the log. A phone of another club is refused, and so is
 -- a phone admitted to the event: the one client path is #48's append_event, which checks the club.

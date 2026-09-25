@@ -4,9 +4,13 @@
   The check on `committee_device.role` (`supabase/migrations/20260925000200_six_committee_roles.sql`,
   #57) refuses any other, and #39's `pro` became `overall_pro`. `supabase/tests/roles_test.sql` fails
   if the check allows a different set. `test/roles_doc_test.dart` fails if this table changes.
-- **Decided, not yet enforced:** the race-area binding and the critical kinds. A phone is bound to its
-  race area at admission from #65, which also gives each role its own admission code (G26). Until
-  then a phone names its role when it is admitted. The server refuses a critical kind outside the
+- **The race-area binding is enforced from #65.** Each role has its own admission code (G26): one per
+  event for an event-wide role, and one per race area for a bound role. A phone is admitted to
+  exactly the role and race area of the code it presents, and never names its role.
+  `committee_device_race_area_check` refuses a bound role with no race area, and an event-wide role
+  with one. A phone bound to a race area adds fleets only on that race area.
+  `supabase/tests/admission_code_test.sql` holds all of it.
+- **Decided, not yet enforced:** the critical kinds. The server refuses a critical kind outside the
   writer's role and race area from #75.
 
 ## The roles
