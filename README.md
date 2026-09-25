@@ -62,6 +62,27 @@ the Management API's own migrations routes either: they record history under a v
 so the live history would never match the file names. On the local stack the Supabase CLI writes the
 same history table itself.
 
+### Provisioning a race day
+
+For the pilot a club admin acts through the owner's scripts (groom decision G27).
+`scripts/owner.dart provision` does three things:
+
+- It reuses the club of exactly that name, or provisions one when there is none.
+- It creates the event and its race areas.
+- It prints every id and the event's admission code.
+
+```
+dart run scripts/owner.dart provision --club "Hoover Sailing Club" --event "Club night" \
+    --date 2026-09-27 --race-area Alpha --race-area Bravo
+```
+
+- **Target.** With no `--project` it runs against the local stack, taking the stack's URL and
+  secret key from `supabase status`. It reaches the live project only when you name it, with
+  `--project pxywvqhdywgrysmwvbxy`. It then reads the project's secret key from
+  `SUPABASE_SECRET_KEY`, in your shell or in the git-ignored `.env.local`.
+- **The admission code** is printed once and stored only as a hash. Hand it to the committee; the
+  script never writes it to a file.
+
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses
 any credential-shaped string in the tracked tree.
