@@ -5,7 +5,9 @@ import 'confirmation.dart';
 import 'core_bootstrap.dart';
 import 'finish/finish_screen.dart';
 import 'fleets/fleets_screen.dart';
+import 'sequence/sequence_screen.dart';
 import 'ui/bars.dart';
+import 'ui/clock.dart';
 import 'ui/sunlight.dart';
 
 Future<void> main() async {
@@ -22,6 +24,7 @@ class ProCompanionApp extends StatelessWidget {
     required this.core,
     required this.confirmation,
     this.navigatorObservers = const [],
+    this.clock = systemClock,
   });
 
   /// The only way UI code reaches the log (ADR 001, ADR 003).
@@ -31,24 +34,28 @@ class ProCompanionApp extends StatelessWidget {
   final ConfirmationService confirmation;
   final List<NavigatorObserver> navigatorObservers;
 
+  /// The phone's clock, which a gun's typed time is held to (#25).
+  final int Function() clock;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'PRO Companion',
       theme: sunlightTheme(),
       navigatorObservers: navigatorObservers,
-      home: HomeScreen(core: core, confirmation: confirmation),
+      home: HomeScreen(core: core, confirmation: confirmation, clock: clock),
     );
   }
 }
 
 /// The app's home. Stands in for the PRO's role home until #20 adds role
-/// homes; the finish screen is one tap from here.
+/// homes; the sequence and finish screens are one tap from here.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.core, required this.confirmation});
+  const HomeScreen({super.key, required this.core, required this.confirmation, this.clock = systemClock});
 
   final CoreClient core;
   final ConfirmationService confirmation;
+  final int Function() clock;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -75,16 +82,24 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             children: [
               const Spacer(),
-              Text('PRO Companion', style: Theme.of(context).textTheme.titleLarge),
+              // One line each, shrunk to fit: wrapped at 200% text, these took
+              // the room the three buttons need on a short phone (#25).
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('PRO Companion', style: Theme.of(context).textTheme.titleLarge),
+              ),
               const SizedBox(height: 8),
-              FutureBuilder<int>(
-                future: _count,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) return const Text('The log on this phone could not be read');
-                  final n = snapshot.data;
-                  if (n == null) return const Text('Reading the log…');
-                  return Text('$n ${n == 1 ? 'event' : 'events'} on this phone');
-                },
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: FutureBuilder<int>(
+                  future: _count,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) return const Text('The log on this phone could not be read');
+                    final n = snapshot.data;
+                    if (n == null) return const Text('Reading the log…');
+                    return Text('$n ${n == 1 ? 'event' : 'events'} on this phone');
+                  },
+                ),
               ),
               const Spacer(),
               // Naming the day's fleets is set-up, done before racing (#18).
@@ -94,6 +109,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: OutlinedButton(
                   onPressed: () => _open(() => FleetsScreen(core: widget.core, confirmation: widget.confirmation)),
                   child: const Text('FLEETS'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // The start, then the finishes: the order a race runs in (#25).
+              SizedBox(
+                width: double.infinity,
+                height: 96,
+                child: ElevatedButton(
+                  onPressed: () => _open(() => SequenceScreen(
+                        core: widget.core,
+                        confirmation: widget.confirmation,
+                        clock: widget.clock,
+                      )),
+                  child: const Text('SEQUENCE'),
                 ),
               ),
               const SizedBox(height: 16),

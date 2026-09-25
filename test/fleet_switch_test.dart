@@ -266,18 +266,20 @@ void main() {
   });
 
   group('criterion 5: the fleet switcher passes the bar-check helper', () {
-    /// A fleet day already on the phone: fleets named, one selected, and a
-    /// full list of its finishes, so the row, the rows and scrolling all exist.
+    /// A fleet day already on the phone: fleets named, one selected, its gun,
+    /// and a full list of its finishes, so the row, the rows, scrolling and
+    /// the gun time to fix (#25) all exist.
     FakeCore fleetDay(List<String> names) {
       var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
       var seq = 0;
       final day = FakeCore(clock: () => t += 1000);
-      EventEnvelope event(String kind, Map<String, Object?> payload, String tail) => EventEnvelope(
+      EventEnvelope event(String kind, Map<String, Object?> payload, String tail, {String source = 'tap'}) =>
+          EventEnvelope(
             ulid: '01J8${kind.replaceAll('.', '').toUpperCase().padRight(14, '0').substring(0, 14)}$tail',
             deviceTs: t += 1000,
             deviceId: day.deviceIdValue,
             seq: ++seq,
-            source: 'tap',
+            source: source,
             kind: kind,
             payloadVersion: 1,
             payload: payload,
@@ -289,6 +291,7 @@ void main() {
         day.seed([e]);
       }
       day.seed([event(FleetKinds.selected, {fleetPayloadKey: ids.first}, 'S0000000')]);
+      day.seed([event(StartKinds.start, {fleetPayloadKey: ids.first}, 'G0000000', source: 'manual')]);
       for (var i = 0; i < 12; i++) {
         day.seed([event(FinishKinds.finish, {fleetPayloadKey: ids.first}, 'X${i.toString().padLeft(7, '0')}')]);
       }

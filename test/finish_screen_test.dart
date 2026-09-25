@@ -449,6 +449,19 @@ void main() {
       final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
         var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
         final seeded = FakeCore(clock: () => t += 1000);
+        // The day's gun, so the sequence screen has a gun time to fix (#25).
+        seeded.seed([
+          EventEnvelope(
+            ulid: '01J8START0000000000000000G',
+            deviceTs: t += 1000,
+            deviceId: seeded.deviceIdValue,
+            seq: 1,
+            source: 'manual',
+            kind: StartKinds.start,
+            payloadVersion: 1,
+            payload: const {'fleet': null},
+          ),
+        ]);
         // A full list already on the phone, so rows, their actions and the
         // scrolling all exist.
         for (var i = 0; i < 12; i++) {
@@ -457,7 +470,7 @@ void main() {
               ulid: '01J8FINISH00000000000000${i.toString().padLeft(2, '0')}',
               deviceTs: t += 1000,
               deviceId: seeded.deviceIdValue,
-              seq: i + 1,
+              seq: i + 2,
               source: 'tap',
               kind: FinishKinds.finish,
               payloadVersion: 1,
