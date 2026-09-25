@@ -173,10 +173,11 @@ void main() {
     });
 
     test('keeps entry order in a fleet too large for the sort to keep it by chance', () {
-      // Dart's List.sort is stable only up to 32 elements (insertion sort),
-      // so a smaller fleet keeps entry order whether or not the scorer asks
-      // for it. 40 entered, listed S40 down to S01; S01 finishes alone and
-      // the other 39 score DNC 41 alike: rank 2 for all 39, in entry order.
+      // Dart's List.sort is an insertion sort, so stable, for lists of up to
+      // 33 elements, so a smaller fleet keeps entry order whether or not the
+      // scorer asks for it. 40 entered, listed S40 down to S01; S01 finishes
+      // alone and the other 39 score DNC 41 alike: rank 2 for all 39, in
+      // entry order.
       final entries = [for (var i = 40; i >= 1; i--) 'S${i.toString().padLeft(2, '0')}'];
       expect(
           ranksAndBoats(Series(
