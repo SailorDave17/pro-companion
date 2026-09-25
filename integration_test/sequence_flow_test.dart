@@ -55,11 +55,21 @@ void main() {
 
     await tester.tap(card);
     await tester.pumpAndSettle();
-    for (final d in typed.split('')) {
-      await tester.tap(find.byKey(ValueKey('key-$d')));
+    // The CI emulator is a 320 x 640 dp phone, where only the keypad's first
+    // row is on screen: a tap on a key below it lands on UNDO instead (PR #94,
+    // measured). Each key is scrolled into view first; fitting both keypads on
+    // a phone that small is #95.
+    Future<void> press(Finder key) async {
+      await tester.ensureVisible(key);
+      await tester.pumpAndSettle();
+      await tester.tap(key);
       await tester.pump();
     }
-    await tester.tap(find.byKey(const ValueKey('keypad-save')));
+
+    for (final d in typed.split('')) {
+      await press(find.byKey(ValueKey('key-$d')));
+    }
+    await press(find.byKey(const ValueKey('keypad-save')));
     await tester.pumpAndSettle();
     expect(headline(), 'GUN $fixed');
     expect(find.textContaining('tapped $tapped'), findsOneWidget);

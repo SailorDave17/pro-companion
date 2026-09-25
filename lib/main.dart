@@ -76,6 +76,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Home has nothing to type into. Back from FLEETS the keyboard is still
+      // up while home lays out, and on a 320 x 640 phone the three buttons did
+      // not fit in what it left (#25, PR #94's emulator job).
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(Bars.screenGutterDp),
