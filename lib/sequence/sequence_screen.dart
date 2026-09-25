@@ -173,6 +173,10 @@ class _SequenceScreenState extends State<SequenceScreen> {
     final undoLabel = undoSwitch ? 'UNDO SWITCH (${fleetName ?? 'fleet'})' : _undoLabel(lastStart);
 
     return Scaffold(
+      // Nothing here is typed with the system keyboard, as on FINISHES: back
+      // from FLEETS it is still up while this screen lays out, and on a
+      // 320 x 640 phone the fixed rows overflowed what it left (PR #94).
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         toolbarHeight: 72,
         leadingWidth: 80,

@@ -265,6 +265,27 @@ void main() {
     });
   });
 
+  // The CI emulator is a 320 x 640 dp phone. Back from FLEETS the keyboard is
+  // still up while FINISHES lays out, and the fleet row, UNDO and FINISH
+  // overflowed what it left by 61 px (PR #94's emulator job, fleet_flow_test).
+  testWidgets('on a 320 x 640 phone with the keyboard still up, the finish screen lays out', (tester) async {
+    final ids = await defineFleets(tester, ['Lasers', '420s']);
+    tester.view.physicalSize = const Size(640, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    tester.view.padding = const FakeViewPadding(top: 24 * 2.0);
+    tester.view.viewPadding = const FakeViewPadding(top: 24 * 2.0);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('FINISHES'));
+    await tester.pumpAndSettle();
+    await tester.tap(fleetButton(ids[0]));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 243 * 2.0);
+    await tester.pumpAndSettle();
+    expect(finishButton, findsOneWidget);
+  });
+
   group('criterion 5: the fleet switcher passes the bar-check helper', () {
     /// A fleet day already on the phone: fleets named, one selected, its gun,
     /// and a full list of its finishes, so the row, the rows, scrolling and

@@ -162,6 +162,10 @@ class _FinishScreenState extends State<FinishScreen> {
             : 'UNDO LAST (#$lastPlace)';
 
     return Scaffold(
+      // Nothing here is typed with the system keyboard. Back from FLEETS it is
+      // still up while this screen lays out, and on a 320 x 640 phone the
+      // fleet row, UNDO and FINISH overflowed what it left (PR #94, #25).
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         toolbarHeight: 72,
         leadingWidth: 80,

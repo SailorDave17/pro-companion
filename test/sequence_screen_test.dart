@@ -482,6 +482,25 @@ void main() {
     });
   });
 
+  // The CI emulator is a 320 x 640 dp phone. Back from FLEETS the keyboard
+  // is still up while a race-time screen lays out, and the fixed rows
+  // overflowed what it left (PR #94's emulator job, 61 px on FINISHES).
+  testWidgets('on a 320 x 640 phone with the keyboard still up, the sequence card lays out', (tester) async {
+    final ids = await defineFleets(tester, ['Lasers', '420s']);
+    tester.view.physicalSize = const Size(640, 1280);
+    tester.view.devicePixelRatio = 2.0;
+    tester.view.padding = const FakeViewPadding(top: 24 * 2.0);
+    tester.view.viewPadding = const FakeViewPadding(top: 24 * 2.0);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    await tap(tester, find.text('SEQUENCE'));
+    await tap(tester, fleetButton(ids[0]));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 243 * 2.0);
+    await tester.pumpAndSettle();
+    expect(gunButton, findsOneWidget);
+  });
+
   group('#18 criterion 2, the start half: a fleet selected in at most 2 taps, and later sequence events carry it',
       () {
     testWidgets('three fleets: SEQUENCE, then the fleet; the gun, postponement and recall carry it', (tester) async {
