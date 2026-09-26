@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
@@ -37,6 +39,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
   @override
   void initState() {
     super.initState();
+    // PLANTED for #7 criterion 2's CI proof, reverted in the next commit.
+    try {
+      HttpClient().close();
+    } catch (_) {}
     widget.core.readAll().then(
       (events) {
         if (!mounted) return;
