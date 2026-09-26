@@ -3,9 +3,9 @@
 -- may change a row (nobody). Run with `supabase test db` against the local stack; the whole file is
 -- one transaction and rolls back. #28's chain vectors are checked in event_log_vectors_test.sql.
 --
--- Rows are inserted as the table owner. That is the role #48's append_event will run as, and until
--- #48 lands no client has an insert path at all. Roles are switched the way PostgREST switches them,
--- as in committee_spine_test.sql.
+-- Rows are inserted as the table owner. That is the role #48's append_event runs as, and it is the
+-- one client path into the log; append_event_test.sql holds it. Roles are switched the way PostgREST
+-- switches them, as in committee_spine_test.sql.
 
 begin;
 create extension if not exists pgtap with schema extensions;

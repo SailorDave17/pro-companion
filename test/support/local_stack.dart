@@ -141,6 +141,14 @@ class LocalStack {
     return out.isEmpty ? null : out;
   }
 
+  /// The refusals kept for [eventId] (#48), each as `reason hash`, read as the table owner. No
+  /// client role can read them.
+  Future<List<String>> refusals(String eventId) async {
+    final out = await _psql("select reason || ' ' || event_hash from public.event_refusal "
+        "where event_id = '$eventId' order by refused_at, event_hash;");
+    return out.isEmpty ? [] : out.split('\n');
+  }
+
   Future<String> _psql(String sql) async {
     final result = await Process.run('docker', [
       'exec', _dbContainer, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q', '-t', '-A',
