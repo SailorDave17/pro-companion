@@ -1,0 +1,14 @@
+# Version updates for the pinned actions in .github/workflows (security audit
+# 2026-09-26, finding 4). Dependabot moves each SHA pin and its `# vN` comment
+# together. A release is held for 7 days first, so one pulled within its first
+# week never reaches CI. Pub packages are not here yet: several are pinned on
+# purpose (Flutter 3.44.9 caps package:sqlite3 at 3.0.0), and adding them is a
+# decision of its own.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
