@@ -1,0 +1,105 @@
+stack http://127.0.0.1:54421; emulator API 34, sdk_gphone64_x86_64
+provisioned home event 3df82052-0b9c-4c6b-a2c0-281facf1a08c and away event c86140bf-3551-4a9c-98d8-4922dd1bb82c (another club)
+building the profile APK
+after BACK: activities 0, service running true, core pid 8178
+token lifetime 60s
+>> criterion 1: PASS  activities 0/0; anonymous sign-in 51 ms; admit_device first call 136.6 ms, then n=20 p50 11.6 ms p95 21.0 ms max 21.0 ms; server row: d5c46335-1204-498a-9501-1913090056c4 overall_pro true
+>> criterion 2: PASS  own event: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=14 before_iat=1790448072 after_iat=1790448072; another club's event: REFUSED uid=d5c46335-1204-498a-9501-1913090056c4 code=42501 ms=12 message="new row violates row-level security policy for table "fleet""; fleets on the server: own event 1, other club's event 0
+[3] service before the kill: mAllowWhileInUsePermissionInFgsReason=PROC_STATE_TOP allowStartForeground=PROC_STATE_TOP startForegroundCount=1 isForeground=true foregroundId=14 types=00000008
+[3] killing core pid 8178 (the run last saw 8178)
+[3] service after the system restarted it: mAllowWhileInUsePermissionInFgsReason=PROC_STATE_TOP allowStartForeground=PROC_STATE_TOP startForegroundCount=1 isForeground=true foregroundId=14 types=00000008
+>> criterion 3: PASS  pid 8178 -> 8328, core back 1481 ms after the kill, activities 0; RESUMED uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448072 exp=1790448132 ms=14; write as d5c46335-1204-498a-9501-1913090056c4: OK; anonymous users 19 -> 19, auth sessions for the user 1 -> 1; system: 09-26 14:41:14.501   559  1791 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+[4a] waiting 60s, past the current token's expiry, with the ticker running
+>> criterion 4a: PASS  ticker refreshed 2 time(s) in 60s (new iat 1790448096, 1790448126); write: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=61 before_iat=1790448126 after_iat=1790448126
+[4b] ticker stopped at 1790448137
+[4b] waiting 53s, to 5s past the remembered token's exp 1790448186
+[4b] waiting 35s, to 40s past the remembered token's exp 1790448186
+>> criterion 4b: PASS  the remembered token (exp 1790448186) presented directly: 5 s past exp 200, 40 s past exp 401 {; refresh during the write: true; write: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=208 before_iat=1790448126 after_iat=1790448227
+[3b] service before the kill: mAllowWhileInUsePermissionInFgsReason=PROC_STATE_TOP allowStartForeground=PROC_STATE_TOP startForegroundCount=1 isForeground=true foregroundId=14 types=00000008
+[3b] killing core pid 8328 (the run last saw 8328)
+[3b] service after the system restarted it: mAllowWhileInUsePermissionInFgsReason=PROC_STATE_TOP allowStartForeground=PROC_STATE_TOP startForegroundCount=1 isForeground=true foregroundId=14 types=00000008
+>> criterion 3b: PASS  pid 8328 -> 8572, core back 1990 ms after the kill, activities 0; RESUMED uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448227 exp=1790448287 ms=7; write as d5c46335-1204-498a-9501-1913090056c4: OK; anonymous users 19 -> 19, auth sessions for the user 1 -> 1; system: 09-26 14:41:14.501   559  1791 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested | 09-26 14:43:48.554   559  2776 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+[reuse] parent: waiting for 1 rotation(s) of the remembered token, then 15 s more
+[reuse] parent presented: status=200 body="{"access_token":"<redacted>","token_type":"bearer","expires_in":60,"expires_at":1790448326,"refresh_token":"<redacted>","user":{"id":"d5c46335-1204-498a-9501-19"
+>> reuse parent: the parent of the active refresh token (issued with iat 1790448227) presented 15 s after its rotation: status=200 body="{"access_token":"<redacted>","token_type":"bearer","expires_in":60,"expires_at":1790448326,"refresh_token":"<redacted>","user":{"id":"d5c46335-1204-498a-9501-19"; the live session's next refresh: AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448280 exp=1790448340; then a write: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=44 before_iat=1790448280 after_iat=1790448280
+[reuse] grandparent: waiting for 2 rotation(s) of the remembered token, then 15 s more
+[reuse] grandparent presented: status=400 body="{"code":400,"error_code":"refresh_token_already_used","msg":"Invalid Refresh Token: Already Used"}"
+>> reuse grandparent: the grandparent of the active refresh token (issued with iat 1790448280) presented 15 s after its rotation: status=400 body="{"code":400,"error_code":"refresh_token_already_used","msg":"Invalid Refresh Token: Already Used"}"; the live session's next refresh: AUTH signedOut uid=null token=none; then a write: REFUSED uid=null code=42501 ms=28 message="permission denied for table fleet"
+
+== verdicts ==
+criterion 1: PASS  activities 0/0; anonymous sign-in 51 ms; admit_device first call 136.6 ms, then n=20 p50 11.6 ms p95 21.0 ms max 21.0 ms; server row: d5c46335-1204-498a-9501-1913090056c4 overall_pro true
+criterion 2: PASS  own event: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=14 before_iat=1790448072 after_iat=1790448072; another club's event: REFUSED uid=d5c46335-1204-498a-9501-1913090056c4 code=42501 ms=12 message="new row violates row-level security policy for table "fleet""; fleets on the server: own event 1, other club's event 0
+criterion 3: PASS  pid 8178 -> 8328, core back 1481 ms after the kill, activities 0; RESUMED uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448072 exp=1790448132 ms=14; write as d5c46335-1204-498a-9501-1913090056c4: OK; anonymous users 19 -> 19, auth sessions for the user 1 -> 1; system: 09-26 14:41:14.501   559  1791 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+criterion 3b: PASS  pid 8328 -> 8572, core back 1990 ms after the kill, activities 0; RESUMED uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448227 exp=1790448287 ms=7; write as d5c46335-1204-498a-9501-1913090056c4: OK; anonymous users 19 -> 19, auth sessions for the user 1 -> 1; system: 09-26 14:41:14.501   559  1791 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested | 09-26 14:43:48.554   559  2776 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+criterion 4a: PASS  ticker refreshed 2 time(s) in 60s (new iat 1790448096, 1790448126); write: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=61 before_iat=1790448126 after_iat=1790448126
+criterion 4b: PASS  the remembered token (exp 1790448186) presented directly: 5 s past exp 200, 40 s past exp 401 {; refresh during the write: true; write: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=208 before_iat=1790448126 after_iat=1790448227
+criterion reuse parent: EXTRA  the parent of the active refresh token (issued with iat 1790448227) presented 15 s after its rotation: status=200 body="{"access_token":"<redacted>","token_type":"bearer","expires_in":60,"expires_at":1790448326,"refresh_token":"<redacted>","user":{"id":"d5c46335-1204-498a-9501-19"; the live session's next refresh: AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448280 exp=1790448340; then a write: OK uid=d5c46335-1204-498a-9501-1913090056c4 ms=44 before_iat=1790448280 after_iat=1790448280
+criterion reuse grandparent: EXTRA  the grandparent of the active refresh token (issued with iat 1790448280) presented 15 s after its rotation: status=400 body="{"code":400,"error_code":"refresh_token_already_used","msg":"Invalid Refresh Token: Already Used"}"; the live session's next refresh: AUTH signedOut uid=null token=none; then a write: REFUSED uid=null code=42501 ms=28 message="permission denied for table fleet"
+
+== every SYNC and START line the core wrote ==
+2026-09-26T18:41:07.072444Z START pid=8178
+2026-09-26T18:41:07.078307Z SYNC NOT_CONFIGURED
+2026-09-26T18:41:11.286818Z SYNC CMD configure
+2026-09-26T18:41:11.298258Z SYNC NO_SESSION
+2026-09-26T18:41:11.302560Z SYNC CONFIGURED url=http://127.0.0.1:54421
+2026-09-26T18:41:11.494436Z SYNC CMD sign_in
+2026-09-26T18:41:11.549623Z SYNC SIGNED_IN uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448072 exp=1790448132 ms=51
+2026-09-26T18:41:11.553493Z SYNC AUTH signedIn uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448072 exp=1790448132
+2026-09-26T18:41:11.717498Z SYNC CMD admit
+2026-09-26T18:41:12.121389Z SYNC ADMITTED id=9e8a72b2-200f-456c-8652-d5cc3b784a49 uid=d5c46335-1204-498a-9501-1913090056c4 first_ms=136.6 n=20 p50_ms=11.6 p95_ms=21.0 max_ms=21.0
+2026-09-26T18:41:12.913218Z SYNC CMD insert_fleet
+2026-09-26T18:41:12.932555Z SYNC FLEET_OK label=own uid=d5c46335-1204-498a-9501-1913090056c4 ms=14 before_iat=1790448072 after_iat=1790448072
+2026-09-26T18:41:13.130404Z SYNC CMD insert_fleet
+2026-09-26T18:41:13.148401Z SYNC FLEET_REFUSED label=other uid=d5c46335-1204-498a-9501-1913090056c4 code=42501 ms=12 message="new row violates row-level security policy for table "fleet""
+2026-09-26T18:41:15.826488Z START pid=8328
+2026-09-26T18:41:15.832676Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448072 exp=1790448132
+2026-09-26T18:41:15.846489Z SYNC RESUMED uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448072 exp=1790448132 ms=14
+2026-09-26T18:41:16.263662Z SYNC CMD insert_fleet
+2026-09-26T18:41:16.293075Z SYNC FLEET_OK label=restart uid=d5c46335-1204-498a-9501-1913090056c4 ms=23 before_iat=1790448072 after_iat=1790448072
+2026-09-26T18:41:17.052830Z SYNC CMD whoami
+2026-09-26T18:41:17.056792Z SYNC WHOAMI uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448072 exp=1790448132 now=1790448077
+2026-09-26T18:41:35.947293Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448096 exp=1790448156
+2026-09-26T18:42:05.948935Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448126 exp=1790448186
+2026-09-26T18:42:17.367989Z SYNC CMD insert_fleet
+2026-09-26T18:42:17.433600Z SYNC FLEET_OK label=ticker uid=d5c46335-1204-498a-9501-1913090056c4 ms=61 before_iat=1790448126 after_iat=1790448126
+2026-09-26T18:42:17.555099Z SYNC CMD auto_refresh
+2026-09-26T18:42:17.558429Z SYNC AUTO_REFRESH off
+2026-09-26T18:42:17.729546Z SYNC CMD remember
+2026-09-26T18:42:17.733763Z SYNC REMEMBERED iat=1790448126 exp=1790448186
+2026-09-26T18:42:17.916264Z SYNC CMD whoami
+2026-09-26T18:42:17.921307Z SYNC WHOAMI uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448126 exp=1790448186 now=1790448137
+2026-09-26T18:42:18.095490Z SYNC CMD whoami
+2026-09-26T18:42:18.099697Z SYNC WHOAMI uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448126 exp=1790448186 now=1790448138
+2026-09-26T18:43:11.300010Z SYNC CMD probe_access
+2026-09-26T18:43:11.334021Z SYNC PROBE_ACCESS status=200 iat=1790448126 exp=1790448186 now=1790448191 body="[{"id":"00ea9ceb-5334-48bd-a525-770dbd14a1b9"}]"
+2026-09-26T18:43:11.501461Z SYNC CMD whoami
+2026-09-26T18:43:11.505866Z SYNC WHOAMI uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448126 exp=1790448186 now=1790448191
+2026-09-26T18:43:46.716605Z SYNC CMD probe_access
+2026-09-26T18:43:46.740715Z SYNC PROBE_ACCESS status=401 iat=1790448126 exp=1790448186 now=1790448226 body="{"code":"PGRST303","details":null,"hint":null,"message":"JWT expired"}"
+2026-09-26T18:43:46.946810Z SYNC CMD insert_fleet
+2026-09-26T18:43:47.094361Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448227 exp=1790448287
+2026-09-26T18:43:47.159277Z SYNC FLEET_OK label=expired uid=d5c46335-1204-498a-9501-1913090056c4 ms=208 before_iat=1790448126 after_iat=1790448227
+2026-09-26T18:43:47.830319Z SYNC CMD auto_refresh
+2026-09-26T18:43:47.834555Z SYNC AUTO_REFRESH on
+2026-09-26T18:43:49.824374Z START pid=8572
+2026-09-26T18:43:49.828950Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448227 exp=1790448287
+2026-09-26T18:43:49.836423Z SYNC RESUMED uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448227 exp=1790448287 ms=7
+2026-09-26T18:43:50.869592Z SYNC CMD insert_fleet
+2026-09-26T18:43:50.891957Z SYNC FLEET_OK label=after-refresh uid=d5c46335-1204-498a-9501-1913090056c4 ms=19 before_iat=1790448227 after_iat=1790448227
+2026-09-26T18:43:51.528417Z SYNC CMD remember
+2026-09-26T18:43:51.533323Z SYNC REMEMBERED iat=1790448227 exp=1790448287
+2026-09-26T18:44:09.940096Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448250 exp=1790448310
+2026-09-26T18:44:25.402497Z SYNC CMD probe_refresh
+2026-09-26T18:44:25.535030Z SYNC PROBE_REFRESH status=200 body="{"access_token":"<redacted>","token_type":"bearer","expires_in":60,"expires_at":1790448326,"refresh_token":"<redacted>","user":{"id":"d5c46335-1204-498a-9501-19"
+2026-09-26T18:44:39.940704Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448280 exp=1790448340
+2026-09-26T18:44:40.088406Z SYNC CMD insert_fleet
+2026-09-26T18:44:40.137122Z SYNC FLEET_OK label=reuse-parent uid=d5c46335-1204-498a-9501-1913090056c4 ms=44 before_iat=1790448280 after_iat=1790448280
+2026-09-26T18:44:40.263858Z SYNC CMD remember
+2026-09-26T18:44:40.269126Z SYNC REMEMBERED iat=1790448280 exp=1790448340
+2026-09-26T18:45:09.943510Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448310 exp=1790448370
+2026-09-26T18:45:39.936589Z SYNC AUTH tokenRefreshed uid=d5c46335-1204-498a-9501-1913090056c4 iat=1790448340 exp=1790448400
+2026-09-26T18:45:55.427513Z SYNC CMD probe_refresh
+2026-09-26T18:45:55.557713Z SYNC PROBE_REFRESH status=400 body="{"code":400,"error_code":"refresh_token_already_used","msg":"Invalid Refresh Token: Already Used"}"
+2026-09-26T18:46:19.929556Z SYNC AUTH signedOut uid=null token=none
+2026-09-26T18:46:20.350331Z SYNC CMD insert_fleet
+2026-09-26T18:46:20.383359Z SYNC FLEET_REFUSED label=reuse-grandparent uid=null code=42501 ms=28 message="permission denied for table fleet"

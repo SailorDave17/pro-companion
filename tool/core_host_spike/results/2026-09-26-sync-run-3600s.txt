@@ -1,0 +1,36 @@
+stack http://127.0.0.1:54421; emulator API 34, sdk_gphone64_x86_64
+provisioned home event 1096c1c7-04c6-4353-a703-5e9826afef10 and away event 0c3ed4ff-eb90-4753-8a0d-94b097fe5137 (another club)
+building the profile APK
+after BACK: activities 0, service running true, core pid 7112
+token lifetime 3600s
+>> criterion 1: PASS  activities 0/0; anonymous sign-in 470 ms; admit_device first call 661.9 ms, then n=20 p50 13.9 ms p95 28.2 ms max 28.2 ms; server row: 2f4f64fc-338e-48a6-8084-2f38e02c1b5c overall_pro true
+>> criterion 2: PASS  own event: OK uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c ms=44 before_iat=1790447538 after_iat=1790447538; another club's event: REFUSED uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c code=42501 ms=24 message="new row violates row-level security policy for table "fleet""; fleets on the server: own event 1, other club's event 0
+[3] killing core pid 7112 (the run last saw 7112)
+>> criterion 3: PASS  pid 7112 -> 7291, core back 2210 ms after the kill, activities 0; RESUMED uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c iat=1790447538 exp=1790451138 ms=13; write as 2f4f64fc-338e-48a6-8084-2f38e02c1b5c: OK; anonymous users 17 -> 17, auth sessions for the user 1 -> 1; system: 09-26 14:32:23.005   559  1003 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+criterion 4 skipped: the token lives 3600s; start the stack with a short jwt_expiry
+
+== verdicts ==
+criterion 1: PASS  activities 0/0; anonymous sign-in 470 ms; admit_device first call 661.9 ms, then n=20 p50 13.9 ms p95 28.2 ms max 28.2 ms; server row: 2f4f64fc-338e-48a6-8084-2f38e02c1b5c overall_pro true
+criterion 2: PASS  own event: OK uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c ms=44 before_iat=1790447538 after_iat=1790447538; another club's event: REFUSED uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c code=42501 ms=24 message="new row violates row-level security policy for table "fleet""; fleets on the server: own event 1, other club's event 0
+criterion 3: PASS  pid 7112 -> 7291, core back 2210 ms after the kill, activities 0; RESUMED uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c iat=1790447538 exp=1790451138 ms=13; write as 2f4f64fc-338e-48a6-8084-2f38e02c1b5c: OK; anonymous users 17 -> 17, auth sessions for the user 1 -> 1; system: 09-26 14:32:23.005   559  1003 W ActivityManager: Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+
+== every SYNC and START line the core wrote ==
+2026-09-26T18:32:12.835412Z START pid=7112
+2026-09-26T18:32:12.843280Z SYNC NOT_CONFIGURED
+2026-09-26T18:32:17.526495Z SYNC CMD configure
+2026-09-26T18:32:17.541146Z SYNC NO_SESSION
+2026-09-26T18:32:17.545892Z SYNC CONFIGURED url=http://127.0.0.1:54421
+2026-09-26T18:32:17.946358Z SYNC CMD sign_in
+2026-09-26T18:32:18.424287Z SYNC SIGNED_IN uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c iat=1790447538 exp=1790451138 ms=470
+2026-09-26T18:32:18.428488Z SYNC AUTH signedIn uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c iat=1790447538 exp=1790451138
+2026-09-26T18:32:18.917543Z SYNC CMD admit
+2026-09-26T18:32:19.896564Z SYNC ADMITTED id=9ecaf6d5-905f-4c16-818e-0b49a0187aeb uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c first_ms=661.9 n=20 p50_ms=13.9 p95_ms=28.2 max_ms=28.2
+2026-09-26T18:32:20.957095Z SYNC CMD insert_fleet
+2026-09-26T18:32:21.007405Z SYNC FLEET_OK label=own uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c ms=44 before_iat=1790447538 after_iat=1790447538
+2026-09-26T18:32:21.214068Z SYNC CMD insert_fleet
+2026-09-26T18:32:21.241891Z SYNC FLEET_REFUSED label=other uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c code=42501 ms=24 message="new row violates row-level security policy for table "fleet""
+2026-09-26T18:32:24.414862Z START pid=7291
+2026-09-26T18:32:24.427693Z SYNC AUTH tokenRefreshed uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c iat=1790447538 exp=1790451138
+2026-09-26T18:32:24.440417Z SYNC RESUMED uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c iat=1790447538 exp=1790451138 ms=13
+2026-09-26T18:32:25.461657Z SYNC CMD insert_fleet
+2026-09-26T18:32:25.494372Z SYNC FLEET_OK label=restart uid=2f4f64fc-338e-48a6-8084-2f38e02c1b5c ms=27 before_iat=1790447538 after_iat=1790447538
