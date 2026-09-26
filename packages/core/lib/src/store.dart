@@ -19,7 +19,8 @@ import 'wire.dart';
 /// Synchronous by design. It runs inside the core's isolate and is reached by
 /// the UI only through the async interface (ADR 003).
 class EventStore {
-  EventStore._(this._db, this.deviceId, this._clock, this._random, this._nextSeq, this._prevHash) {
+  EventStore._(this._db, this.deviceId, this._clock, this._random, this._nextSeq, this._prevHash,
+      this._admissionId) {
     _insert = _db.prepare(
       'INSERT INTO events (ulid, device_id, seq, device_ts, body) VALUES (?, ?, ?, ?, ?)',
     );
@@ -39,15 +40,17 @@ class EventStore {
       final now = clock ?? () => DateTime.now().millisecondsSinceEpoch;
       final rng = random ?? Random.secure();
       final deviceId = _deviceId(db, now, rng);
+      final admission = db.select("SELECT value FROM meta WHERE key = 'admission_id'");
+      final admissionId = admission.isEmpty ? null : admission.first['value'] as String;
       // The chain continues from this device's last event as stored.
       final last = db.select(
         'SELECT seq, body FROM events WHERE device_id = ? ORDER BY seq DESC LIMIT 1',
         [deviceId],
       );
       return last.isEmpty
-          ? EventStore._(db, deviceId, now, rng, 1, genesisHash)
+          ? EventStore._(db, deviceId, now, rng, 1, genesisHash, admissionId)
           : EventStore._(db, deviceId, now, rng, (last.first['seq'] as int) + 1,
-              chainHash(last.first['body'] as String));
+              chainHash(last.first['body'] as String), admissionId);
     } catch (_) {
       db.close();
       rethrow;
@@ -69,6 +72,13 @@ class EventStore {
 
   /// This install's device id. Every event it appends carries it.
   final String deviceId;
+
+  String? _admissionId;
+
+  /// The admission this phone holds (#49), kept in the file beside the device
+  /// id, so a restart keeps it. Every event appended carries it. Null until
+  /// the phone is admitted.
+  String? get admissionId => _admissionId;
 
   static void _createSchema(sql.Database db) {
     db.execute('''
@@ -112,8 +122,23 @@ class EventStore {
     return id;
   }
 
+  /// Caches [admissionId], `admit_device`'s answer, as the admission every
+  /// later event is stamped with (#49). A re-admission calls this again and
+  /// replaces it; events already stored keep the admission they were written
+  /// under. When this returns, it is committed.
+  void setAdmissionId(String admissionId) {
+    validateAdmissionId(admissionId);
+    _db.execute(
+      "INSERT INTO meta (key, value) VALUES ('admission_id', ?) "
+      'ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+      [admissionId],
+    );
+    _admissionId = admissionId;
+  }
+
   /// Appends [event] as this device's next event, chained to its last one
-  /// (#28), and returns it as stored. When this returns, it is committed.
+  /// (#28) and stamped with the admission the phone holds (#49), and returns
+  /// it as stored. When this returns, it is committed.
   EventEnvelope append(NewEvent event) {
     validateNewEvent(event);
     final now = _clock();
@@ -124,6 +149,7 @@ class EventStore {
       seq: _nextSeq,
       person: event.person,
       role: event.role,
+      admissionId: _admissionId,
       gps: event.gps,
       source: event.source,
       kind: event.kind,

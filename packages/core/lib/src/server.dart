@@ -56,6 +56,11 @@ class CoreServer {
         return store.count();
       case Wire.deviceId:
         return store.deviceId;
+      case Wire.admissionId:
+        return store.admissionId;
+      case Wire.setAdmissionId:
+        store.setAdmissionId(args['admission_id'] as String);
+        return null;
       case Wire.close:
         store.close();
         return null;

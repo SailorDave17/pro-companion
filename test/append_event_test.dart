@@ -1,14 +1,17 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pro_companion_core/store.dart' show EventStore, NewEvent;
 
 import 'support/local_stack.dart';
 
 /// #48: append_event met the way a phone meets it, through the local stack's API. What pgTAP cannot
 /// show is the HTTP answer: a refusal is a 422 carrying its reason, and PostgREST commits the
 /// refusal record under that error status rather than rolling it back. supabase/tests/
-/// append_event_test.sql holds every reason and who can read the records. These skip unless
+/// append_event_test.sql holds every reason and who can read the records. #49's test here sends an
+/// event the core stamped with admit_device's own answer. These skip unless
 /// PRO_COMPANION_LOCAL_STACK=1, which the CI job `local-stack` sets (README, Server side).
 void main() {
   group('append_event against the local stack (#48)', () {
@@ -80,6 +83,36 @@ void main() {
       expect(body, allOf(containsPair('code', 'append_event_refused'),
           containsPair('details', 'not_admitted')));
       expect(await stack.refusals(eventId), before);
+    });
+
+    test("#49 criterion 1: admit_device's answer is the admission the core stamps, and the stamped text "
+        'is stored exactly as the phone wrote it', () async {
+      final dir = Directory.systemTemp.createTempSync('pc_49_');
+      final store = EventStore.open('${dir.path}${Platform.pathSeparator}core.db');
+      addTearDown(() {
+        store.close();
+        try {
+          dir.deleteSync(recursive: true);
+        } on FileSystemException {
+          // Windows can hold the WAL file briefly after close; not the test's concern.
+        }
+      });
+      store.setAdmissionId(scorer.admissionId!);
+      final event = store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'text': 'Mark 2 hold'}));
+      final canonical = store.readCanonical().single;
+      expect((jsonDecode(canonical) as Map)['admission_id'], scorer.admissionId);
+
+      // The id is the phone's own committee_device row, as the phone reads it back.
+      final (rowStatus, rows) = await scorer.send('GET', '/rest/v1/committee_device', query: {'select': 'id'});
+      expect(rowStatus, 200, reason: '$rows');
+      expect(rows, [
+        {'id': scorer.admissionId},
+      ]);
+
+      final (status, body) = await append(scorer, canonical);
+      expect(status, 200, reason: '$body');
+      expect(body, {'outcome': 'accepted', 'duplicate': false, 'hash': hashOf(canonical)});
+      expect(await stack.eventLogCanonical(event.ulid), canonical, reason: 'stored exactly as the phone wrote it');
     });
   }, skip: localStackRequested ? false : localStackSkip);
 }

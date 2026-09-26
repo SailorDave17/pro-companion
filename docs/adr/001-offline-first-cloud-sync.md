@@ -8,6 +8,9 @@
   security, append-only, who may write) land in pro-companion's `supabase/` migrations (#39, #40),
   and burgee reads derived views across that boundary. The architecture — local core, one sync
   path, no phone-to-phone link — is unchanged.
+- Amended 2026-09-26 by pro-companion #49 (groom decision G44): every event's envelope also carries
+  `admission_id`, the admission its phone held when it wrote the event. See "Who can write to an
+  event's log".
 
 ## Context
 
@@ -63,6 +66,16 @@ outside the device's club and event, and refuses any UPDATE or DELETE on log row
 burgee#7 until ADR 005 moved the table into the companion's project on 2026-09-23). A
 phone that was never admitted to the event cannot put anything into its log, online or later.
 
+**Amended 2026-09-26 (#49, groom decision G44): every event also carries the admission it was
+written under.** The envelope field `admission_id` holds the id of the phone's committee_device row,
+which `admit_device` returns and the local core caches. It is null on a phone never admitted, as in
+single-phone use. The phone stamps it inside the event's canonical text, so the chain's hash covers
+it (`docs/event-chain.md`). The server cannot stamp it on insert: an event written offline under
+one admission and uploaded after a re-admission would get the wrong one. So attribution keys on the
+admission, which carries the role and race area, not on the auth identity. A re-admission changes
+the admission on later events only, and the device's chain continues across it. The server's check
+that an event names its writer's admission is #73.
+
 ### The race-timer link
 
 Decision 2: race-timer signals, the companion logs. race-timer runs on the same phone and today
@@ -86,8 +99,9 @@ link is work on both sides:
   altered event breaks the chain visibly, on the phone and on shore.
 - **Two clocks** — the device timestamp is kept verbatim, and the server's receipt time is stored
   separately; neither overwrites the other (the clock-skew rule in pro-companion#6).
-- **Located and attributed** — each event carries GPS position where available, the device id and
-  the person, so it answers *who, when, where* without anyone's memory.
+- **Located and attributed** — each event carries GPS position where available, the device id,
+  the person and (amended 2026-09-26, #49) the admission it was written under, so it answers *who,
+  when, where* without anyone's memory.
 
 ## Consequences
 

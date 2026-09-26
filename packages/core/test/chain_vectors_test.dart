@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:pro_companion_core/store.dart';
 import 'package:test/test.dart';
 
+import '../tool/write_chain_vectors.dart' as writer;
+
 /// #28 criterion 7: the verifier reads the committed chain vectors, which the
 /// companion's shore verifier (#62) reuses and burgee vendors. Run from
 /// packages/core, as CI's `dart test` step does.
@@ -13,17 +15,27 @@ const manifestName = 'SHA256SUMS';
 const vectorFormat = 'pro-companion-chain-vector/1';
 final sumLine = RegExp(r'^([0-9a-f]{64})  (\S+)$');
 
+/// The admission each vector device held (#49), written here rather than read
+/// from the writer, so a writer that lost the admission cannot agree with
+/// itself.
+const admissionOf = {
+  '01J8Z0D0000000000000000001': '00000000-0000-0000-0000-0000000000a1',
+  '01J8Z0D0000000000000000002': '00000000-0000-0000-0000-0000000000b1',
+};
+
 String baseName(File f) => f.uri.pathSegments.last;
 
 void main() {
   final files = Directory(vectorDir).listSync().whereType<File>().where((f) => f.path.endsWith('.json')).toList()
     ..sort((a, b) => baseName(a).compareTo(baseName(b)));
+  final written = writer.vectorFiles();
 
   test('the set covers intact, gapped, broken and handoff chains', () {
     expect(files.map((f) => baseName(f).replaceAll('.json', '')).toSet(), {
       'intact', 'gapped-middle', 'gapped-start', 'broken-payload', 'broken-relinked', //
       'broken-relinked-start', 'broken-first-link', 'broken-fork', 'handoff',
     });
+    expect(written.keys.toSet(), files.map(baseName).toSet(), reason: 'the writer writes exactly the committed set');
   });
 
   for (final file in files) {
@@ -47,6 +59,25 @@ void main() {
         for (final text in texts) {
           expect(canonicalJson(jsonDecode(text)), text);
         }
+      });
+
+      test("each text is what the core writes for its event: read into an envelope and written back, it "
+          'is unchanged', () {
+        for (final text in texts) {
+          expect(canonicalJson(EventEnvelope.fromWire(jsonDecode(text) as Map).toWire()), text);
+        }
+      });
+
+      test("each event carries its device's admission id (#49)", () {
+        for (final text in texts) {
+          final wire = jsonDecode(text) as Map;
+          expect(wire['admission_id'], admissionOf[wire['device_id']], reason: text);
+        }
+      });
+
+      test('is exactly what tool/write_chain_vectors.dart writes today', () {
+        expect(file.readAsStringSync().replaceAll('\r\n', '\n'), written[baseName(file)],
+            reason: 'run: dart run tool/write_chain_vectors.dart (from packages/core), then update SHA256SUMS');
       });
 
       test('the verifier reaches the expected verdict for each device', () {

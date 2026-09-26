@@ -18,11 +18,14 @@ abstract final class Wire {
   static const readAll = 'readAll';
   static const count = 'count';
   static const deviceId = 'deviceId';
+  static const admissionId = 'admissionId';
+  static const setAdmissionId = 'setAdmissionId';
   static const close = 'close';
 
   /// Every command the core serves. There is no update and no delete, and a
-  /// command not listed here is refused (#24 criterion 3).
-  static const commands = {append, readAll, count, deviceId, close};
+  /// command not listed here is refused (#24 criterion 3). setAdmissionId
+  /// replaces the admission the phone holds (#49), never a stored event.
+  static const commands = {append, readAll, count, deviceId, admissionId, setAdmissionId, close};
 
   static const ok = 'ok';
   static const err = 'err';
