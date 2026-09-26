@@ -43,9 +43,14 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
     secret key.
   - A row no client can write, like the event log's, is seeded as the table owner through `psql`
     in the database container.
-- **CI runs them in the `local-stack` job.** It starts the stack from `supabase/migrations`, resets
-  it, and runs the whole suite with the variable set. So a migration that fails to apply fails
-  the job, and a new local-stack test runs there with nothing to register.
+- **CI runs them in the `local-stack` job.** It starts the stack from `supabase/migrations` with
+  `scripts/start_local_stack.sh`, resets it, and runs the whole suite with the variable set. So a
+  migration that fails to apply fails the job, and a new local-stack test runs there with nothing
+  to register.
+  - The script starts only the four services the tests use: the database, auth, the REST API and
+    its gateway.
+  - It retries `supabase start` only when an image pull is throttled (`toomanyrequests`), which
+    both ECR and ghcr.io do on some days. Any other failure fails at once.
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each phone
   is one. A full run signs in 9 phones, so a long mutation pass can reach the limit.
 
