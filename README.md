@@ -49,8 +49,10 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
   to register.
   - The script starts only the four services the tests use: the database, auth, the REST API and
     its gateway.
-  - It retries `supabase start` only when an image pull is throttled (`toomanyrequests`), which
-    both ECR and ghcr.io do on some days. Any other failure fails at once.
+  - It retries `supabase start` only when an image pull fails outright. That is the CLI's
+    `failed to pull docker image`, printed after its own three tries, which both ECR and ghcr.io
+    throttles cause on some days. Any other failure fails at once, a migration that fails to apply
+    among them.
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each phone
   is one. A full run signs in 9 phones, so a long mutation pass can reach the limit.
 
