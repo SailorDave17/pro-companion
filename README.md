@@ -26,6 +26,36 @@ The companion owns the server it syncs to — its own Supabase project, separate
 - `supabase/config.toml` — the local stack. `npx supabase start`, then `npx supabase db reset` to
   apply the migrations and `npx supabase test db` to run the tests. Needs Docker.
 
+### Tests against the local stack
+
+Some Dart tests talk to the local stack through its API, as a phone or as the owner's tooling:
+`test/local_stack_test.dart`, and the local-stack group in `test/owner_script_test.dart`. They
+skip unless `PRO_COMPANION_LOCAL_STACK=1`, so with the stack started:
+
+```
+PRO_COMPANION_LOCAL_STACK=1 flutter test
+```
+
+- **`test/support/local_stack.dart` is the helper.** A test asks it for a race day and for phones:
+  - The club, event, race areas and codes come from the owner's tooling (`scripts/owner.dart`).
+  - Each phone signs in anonymously, through the stack's own auth.
+  - Each phone is admitted by `admit_device` with one of the printed codes, and never by the
+    secret key.
+  - A row no client can write, like the event log's, is seeded as the table owner through `psql`
+    in the database container.
+- **CI runs them in the `local-stack` job.** It starts the stack from `supabase/migrations` with
+  `scripts/start_local_stack.sh`, resets it, and runs the whole suite with the variable set. So a
+  migration that fails to apply fails the job, and a new local-stack test runs there with nothing
+  to register.
+  - The script starts only the four services the tests use: the database, auth, the REST API and
+    its gateway.
+  - It retries `supabase start` only when an image pull fails outright. That is the CLI's
+    `failed to pull docker image`, printed after its own three tries, which both ECR and ghcr.io
+    throttles cause on some days. Any other failure fails at once, a migration that fails to apply
+    among them.
+- **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each phone
+  is one. A full run signs in 9 phones, so a long mutation pass can reach the limit.
+
 ### Applying a migration to the live project
 
 `scripts/migrate_live.dart` applies migrations to the live project and records each one. It sends
