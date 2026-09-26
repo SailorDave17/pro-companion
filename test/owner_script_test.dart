@@ -38,6 +38,44 @@ void main() {
         expect(() => owner.parseProvision(args), throwsA(isA<owner.UsageError>()), reason: reason);
       });
     });
+
+    test('#5: sign-in-mode takes a club and one of the three modes G39 names', () {
+      final args = owner.parseSignInMode(['--club', 'Hoover Sailing Club', '--mode', 'named_volunteers']);
+      expect(args.club, 'Hoover Sailing Club');
+      expect(args.mode, 'named_volunteers');
+      expect(args.project, isNull);
+      for (final mode in ['device_handoff', 'named_volunteers', 'both']) {
+        expect(owner.parseSignInMode(['--club', 'C', '--mode', mode]).mode, mode);
+      }
+    });
+
+    test('#5: sign-in-mode refuses before any call what the server would refuse', () {
+      final refused = {
+        'no mode': ['--club', 'C'],
+        'no club': ['--mode', 'both'],
+        'a mode that is not one of the three': ['--club', 'C', '--mode', 'anyone'],
+        'a mode spelled with hyphens': ['--club', 'C', '--mode', 'named-volunteers'],
+        'an unknown flag': ['--club', 'C', '--mode', 'both', '--event', 'E'],
+        'a flag with no value': ['--club', 'C', '--mode'],
+        'a project that is not a ref': ['--club', 'C', '--mode', 'both', '--project', 'Hoover'],
+      };
+      refused.forEach((reason, args) {
+        expect(() => owner.parseSignInMode(args), throwsA(isA<owner.UsageError>()), reason: reason);
+      });
+    });
+
+    test('a missing or unknown subcommand is a usage error, exit 64, and nothing is called', () async {
+      var asked = 0;
+      Future<Map<String, String>> status() async {
+        asked++;
+        return const {};
+      }
+
+      expect(await owner.run([], localStatus: status), 64);
+      expect(await owner.run(['nonsense', '--club', 'C'], localStatus: status), 64);
+      expect(await owner.run(['sign-in-mode', '--club', 'C', '--mode', 'anyone'], localStatus: status), 64);
+      expect(asked, 0, reason: 'a usage error never reaches a target');
+    });
   });
 
   group('target (criterion 2)', () {

@@ -27,8 +27,7 @@ void main() {
       stack.phoneRequests.clear();
 
       final pro = await stack.admittedPhone(day, 'overall_pro');
-      final recorder =
-          await stack.admittedPhone(day, 'recorder', raceArea: 'Bravo', person: 'Jo Volunteer');
+      final recorder = await stack.admittedPhone(day, 'recorder', raceArea: 'Bravo');
 
       expect(stack.phoneRequests, [
         'POST /auth/v1/signup publishable',
@@ -52,12 +51,13 @@ void main() {
       final (recorderStatus, recorderRows) =
           await recorder.send('GET', '/rest/v1/committee_device', query: select);
       expect(recorderStatus, 200, reason: '$recorderRows');
+      // A device-handoff admission names no person (#5): the phone passes from hand to hand.
       expect(recorderRows, [
         {
           'id': recorder.admissionId,
           'role': 'recorder',
           'course_id': day.raceAreaIds['Bravo'],
-          'person': 'Jo Volunteer',
+          'person': null,
         },
       ]);
     });

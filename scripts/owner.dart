@@ -1,15 +1,22 @@
 // The owner's tooling for the pilot. A club admin acts through the owner's service_role scripts
 // (groom decision G27), so this is where clubs, events, race areas and admission codes come from.
-// #63 adds its first subcommand and #65 its codes; revoke (#72) and the sign-in mode (#5) extend it.
+// #63 adds its first subcommand, #65 its codes and #5 the sign-in mode; revoke (#72) extends it.
 //
 //   dart run scripts/owner.dart provision --club <name> --event <name> --date <yyyy-mm-dd>
 //       --race-area <name> [--race-area <name> ...] [--project <ref>]
+//   dart run scripts/owner.dart sign-in-mode --club <name>
+//       --mode device_handoff|named_volunteers|both [--project <ref>]
 //
 // provision reuses the club of exactly that name, or provisions one when there is none. It then
 // creates the event and its race areas, and prints every id and the event's admission codes: one
 // for each event-wide role, and one per race area for each bound role (groom decisions G26 and
 // G38). A code admits a phone to exactly its role and race area. Each is printed once and stored
 // only as a hash.
+//
+// sign-in-mode switches how the club's phones sign in (groom decision G39): device_handoff admits
+// an anonymous sign-in, named_volunteers a named account signed in by magic link, and both either.
+// A club starts at both. The switch applies to phones admitted after it; a phone already admitted
+// is unaffected, and nothing is reinstalled.
 //
 // With no --project it targets the local stack, taking the stack's URL and secret key from
 // `supabase status`. It reaches a live project only when --project names it, and then reads that
@@ -34,7 +41,12 @@ const secretKeyName = 'SUPABASE_SECRET_KEY';
 const codeAlphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 
 const usage = 'usage: dart run scripts/owner.dart provision --club <name> --event <name> '
-    '--date <yyyy-mm-dd> --race-area <name> [--race-area <name> ...] [--project <ref>]';
+    '--date <yyyy-mm-dd> --race-area <name> [--race-area <name> ...] [--project <ref>]\n'
+    '       dart run scripts/owner.dart sign-in-mode --club <name> '
+    '--mode device_handoff|named_volunteers|both [--project <ref>]';
+
+/// How a club's phones may sign in (groom decision G39), spelled as the server stores them.
+const signInModes = ['device_handoff', 'named_volunteers', 'both'];
 
 class UsageError implements Exception {
   UsageError(this.message);
@@ -103,10 +115,48 @@ ProvisionArgs parseProvision(List<String> args) {
   if (raceAreas.toSet().length != raceAreas.length) {
     throw UsageError('a race area is named twice; each name is one race area of the event');
   }
+  requireProjectRef(project);
+  return ProvisionArgs(club: club, event: event, date: date, raceAreas: raceAreas, project: project);
+}
+
+void requireProjectRef(String? project) {
   if (project != null && !RegExp(r'^[a-z]{20}$').hasMatch(project)) {
     throw UsageError('--project takes a project ref: 20 lowercase letters');
   }
-  return ProvisionArgs(club: club, event: event, date: date, raceAreas: raceAreas, project: project);
+}
+
+class SignInModeArgs {
+  SignInModeArgs({required this.club, required this.mode, this.project});
+
+  final String club;
+  final String mode;
+  final String? project;
+}
+
+/// The arguments after `sign-in-mode`. Every flag takes a value, and none repeats.
+SignInModeArgs parseSignInMode(List<String> args) {
+  String? club, mode, project;
+  for (var i = 0; i < args.length; i += 2) {
+    final flag = args[i];
+    if (i + 1 >= args.length) throw UsageError('$flag needs a value');
+    final value = args[i + 1].trim();
+    switch (flag) {
+      case '--club':
+        club = value;
+      case '--mode':
+        mode = value;
+      case '--project':
+        project = value;
+      default:
+        throw UsageError('unknown flag $flag');
+    }
+  }
+  if (club == null || club.isEmpty) throw UsageError('--club is required');
+  if (mode == null || !signInModes.contains(mode)) {
+    throw UsageError('--mode must be one of ${signInModes.join(', ')}');
+  }
+  requireProjectRef(project);
+  return SignInModeArgs(club: club, mode: mode, project: project);
 }
 
 /// True for a yyyy-mm-dd that names a day on the calendar. DateTime.parse would roll 2026-02-30
@@ -220,7 +270,8 @@ class ServiceApi {
     }
   }
 
-  /// Calls a function with named arguments and returns the id it answers with.
+  /// Calls a function with named arguments and returns the text it answers with: an id, or for
+  /// set_sign_in_mode the mode it replaced.
   Future<String> rpc(String function, Map<String, Object?> args) async =>
       await _send('POST', '/rest/v1/rpc/$function', body: args) as String;
 
@@ -229,6 +280,13 @@ class ServiceApi {
     final rows =
         await _send('GET', '/rest/v1/club', query: {'select': 'id', 'name': 'eq.$name'}) as List;
     return [for (final row in rows) (row as Map)['id'] as String];
+  }
+
+  /// The sign-in mode the club [id] holds, read back from the server.
+  Future<String> signInModeOf(String id) async {
+    final rows =
+        await _send('GET', '/rest/v1/club', query: {'select': 'sign_in_mode', 'id': 'eq.$id'}) as List;
+    return (rows.single as Map)['sign_in_mode'] as String;
   }
 }
 
@@ -295,32 +353,76 @@ Future<Provisioned> provision(ServiceApi api, ProvisionArgs args, StringSink out
   return (clubId: clubId, eventId: eventId, raceAreaIds: courseIds, codes: codes);
 }
 
+/// What each mode admits, in the words the script prints.
+const _modeAdmits = {
+  'device_handoff': 'by device handoff only: an anonymous sign-in presenting a role\'s code',
+  'named_volunteers': 'as named volunteers only: a named account, signed in by magic link, '
+      'presenting a role\'s code',
+  'both': 'either way: by device handoff, or as a named volunteer',
+};
+
+/// Switches the club named exactly [args.club] to [args.mode] and returns the mode it replaced,
+/// writing what changed to [out]. When no club, or more than one, has that name, nothing changes.
+/// The mode printed is the one read back from the server after the switch, never the one asked for.
+Future<String> setSignInMode(ServiceApi api, SignInModeArgs args, StringSink out) async {
+  out.writeln('target      ${api.target.label}');
+  final ids = await api.clubIdsNamed(args.club);
+  if (ids.length != 1) {
+    throw StateError(ids.isEmpty
+        ? 'no club is named "${args.club}"; nothing was changed'
+        : '${ids.length} clubs are named "${args.club}"; nothing was changed');
+  }
+  final before = await api.rpc('set_sign_in_mode', {'p_club': ids.single, 'p_mode': args.mode});
+  out.writeln('club        ${ids.single}  ${args.club}');
+  final now = await api.signInModeOf(ids.single);
+  if (now != args.mode) {
+    throw StateError('the club reads $now after the switch to ${args.mode} (it was $before)');
+  }
+  out.writeln('sign-in     $now${before == now ? ' (unchanged)' : ' (was $before)'}');
+  out.writeln('Phones admitted from now on sign in ${_modeAdmits[now]}. A phone already admitted '
+      'is unaffected.');
+  return before;
+}
+
+/// A parsed subcommand: the project it targets, if any, and what it does there.
+typedef Command = ({String? project, Future<void> Function(ServiceApi api, StringSink out) act});
+
+/// The subcommand [args] names. A missing or unknown one is a [UsageError] with no message.
+Command parseCommand(List<String> args) {
+  switch (args.firstOrNull) {
+    case 'provision':
+      final parsed = parseProvision(args.sublist(1));
+      return (project: parsed.project, act: (api, out) => provision(api, parsed, out));
+    case 'sign-in-mode':
+      final parsed = parseSignInMode(args.sublist(1));
+      return (project: parsed.project, act: (api, out) => setSignInMode(api, parsed, out));
+    default:
+      throw UsageError('');
+  }
+}
+
 Future<int> run(
   List<String> args, {
   StringSink? out,
   Map<String, String>? environment,
   StatusReader? localStatus,
 }) async {
-  if (args.isEmpty || args.first != 'provision') {
-    stderr.writeln(usage);
-    return 64;
-  }
-  final ProvisionArgs parsed;
+  final Command command;
   try {
-    parsed = parseProvision(args.sublist(1));
+    command = parseCommand(args);
   } on UsageError catch (e) {
-    stderr.writeln('$e\n$usage');
+    stderr.writeln(e.message.isEmpty ? usage : '$e\n$usage');
     return 64;
   }
   final envFile = File('.env.local').existsSync()
       ? parseEnvFile(File('.env.local').readAsStringSync())
       : <String, String>{};
   try {
-    final target = await resolveTarget(parsed.project,
+    final target = await resolveTarget(command.project,
         environment: environment ?? Platform.environment,
         envFile: envFile,
         localStatus: localStatus ?? readLocalStatus);
-    await provision(ServiceApi(target), parsed, out ?? stdout);
+    await command.act(ServiceApi(target), out ?? stdout);
     return 0;
   } on StateError catch (e) {
     stderr.writeln(e.message);
