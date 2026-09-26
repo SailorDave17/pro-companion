@@ -27,6 +27,36 @@ jobs:
         working-directory: packages/core
       - run: flutter build apk --debug
 
+  # Server-facing tests (#41) against a local Supabase built from this repo's own
+  # migrations (ADR 005). supabase start applies every file under
+  # supabase/migrations to a fresh database, and db reset applies them again from
+  # empty, so a migration that fails to apply fails the job. The whole suite then
+  # runs with PRO_COMPANION_LOCAL_STACK=1, which un-skips every local-stack test
+  # with nothing to register; the rest run a second time, beside the emulator job.
+  local-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # ghcr.io refused supabase start's pulls across whole runs on 2026-09-23 while
+      # ECR served them. ECR throttles too: a start that dies in under a minute
+      # pulling images is a rerun, not a finding.
+      SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.44.9"
+          cache: true
+      # The CLI is pinned, and the owner script's readLocalStatus runs the same version.
+      - name: Start the local stack from supabase/migrations
+        run: npx --yes supabase@2.117.0 start -x studio,imgproxy,inbucket,mailpit,edge-runtime,logflare,vector,supavisor
+      - name: Reset the database, applying every migration again
+        run: npx --yes supabase@2.117.0 db reset --local
+      - run: flutter test
+        env:
+          PRO_COMPANION_LOCAL_STACK: "1"
+
   # On-device tests (#16): force-kill, headless-core and manifest criteria can
   # only be proven on Android, so every integration_test/ file runs here on an
   # API 34 emulator. Standard 2-vCPU Linux runners get KVM once the udev rule

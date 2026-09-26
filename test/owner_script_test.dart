@@ -8,8 +8,8 @@ import '../scripts/owner.dart' as owner;
 
 /// #63: scripts/owner.dart provision, and since #65 the admission codes it issues. The unit tests
 /// run everywhere. The local-stack tests run only with PRO_COMPANION_LOCAL_STACK=1 and the stack
-/// started (README, Server side), because CI has no stack until #41; once asked for, a stack that is
-/// down fails them rather than skipping them.
+/// started (README, Server side): in CI, that is the local-stack job (#41). Once asked for, a stack
+/// that is down fails them rather than skipping them.
 void main() {
   group('arguments', () {
     test('provision takes a club, an event, a date and one or more race areas', () {

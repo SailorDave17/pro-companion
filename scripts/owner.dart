@@ -232,10 +232,20 @@ class ServiceApi {
   }
 }
 
+/// What [provision] made. [codes] is keyed by role, and for a bound role by role and race area
+/// (`overall_pro`, `recorder Alpha`), in the order [codeSlots] gives.
+typedef Provisioned = ({
+  String clubId,
+  String eventId,
+  Map<String, String> raceAreaIds,
+  Map<String, String> codes,
+});
+
 /// Reuses or provisions the club, then creates the event, its race areas and its codes, writing each
 /// line to [out] as soon as the thing it names exists. So a failure part-way leaves a record of what
-/// was made, and a code is shown once its hash is stored.
-Future<void> provision(ServiceApi api, ProvisionArgs args, StringSink out) async {
+/// was made, and a code is shown once its hash is stored. Returns the same, for the local-stack test
+/// helper (#41).
+Future<Provisioned> provision(ServiceApi api, ProvisionArgs args, StringSink out) async {
   out.writeln('target      ${api.target.label}');
 
   final existing = await api.clubIdsNamed(args.club);
@@ -264,6 +274,7 @@ Future<void> provision(ServiceApi api, ProvisionArgs args, StringSink out) async
   // The server refuses one code standing for two slots of an event, so a repeat is drawn again
   // here rather than failing the run part-way.
   final issued = <String>{};
+  final codes = <String, String>{};
   for (final slot in codeSlots(args.raceAreas)) {
     String code;
     do {
@@ -275,11 +286,13 @@ Future<void> provision(ServiceApi api, ProvisionArgs args, StringSink out) async
       'p_code': code,
       'p_course': slot.raceArea == null ? null : courseIds[slot.raceArea],
     });
+    codes[slot.raceArea == null ? slot.role : '${slot.role} ${slot.raceArea}'] = code;
     out.writeln('code        $code  ${slot.role}${slot.raceArea == null ? '' : '  ${slot.raceArea}'}');
   }
   out.writeln('A code admits a phone to this event as the role it is printed with and, for a bound '
       'role, on its race area. The codes are stored only as hashes, so this is the only time they '
       'are shown.');
+  return (clubId: clubId, eventId: eventId, raceAreaIds: courseIds, codes: codes);
 }
 
 Future<int> run(
