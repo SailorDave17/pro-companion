@@ -409,6 +409,12 @@ class _HeldCore implements CoreClient {
   Future<String> deviceId() => _inner.deviceId();
 
   @override
+  Future<String?> admissionId() => _inner.admissionId();
+
+  @override
+  Future<void> setAdmissionId(String admissionId) => _inner.setAdmissionId(admissionId);
+
+  @override
   Future<void> close() => _inner.close();
 }
 

@@ -21,6 +21,7 @@ class FakeCore implements CoreClient {
   final int Function() _clock;
   final _events = <EventEnvelope>[];
   final _random = Random(24);
+  String? _admissionId;
 
   /// When set, every call fails with it, for testing how the UI copes.
   CoreException? failWith;
@@ -54,6 +55,7 @@ class FakeCore implements CoreClient {
           seq: seq,
           person: event.person,
           role: event.role,
+          admissionId: _admissionId,
           gps: event.gps,
           source: event.source,
           kind: event.kind,
@@ -81,6 +83,15 @@ class FakeCore implements CoreClient {
 
   @override
   Future<String> deviceId() => _call(Wire.deviceId, () => deviceIdValue);
+
+  @override
+  Future<String?> admissionId() => _call(Wire.admissionId, () => _admissionId);
+
+  @override
+  Future<void> setAdmissionId(String admissionId) => _call(Wire.setAdmissionId, () {
+        validateAdmissionId(admissionId);
+        _admissionId = admissionId;
+      });
 
   @override
   Future<void> close() => _call(Wire.close, () {});

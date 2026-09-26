@@ -9,6 +9,7 @@ void main() {
   test('an appended event carries every ADR 001 envelope field', () {
     final store = openStore(tempDbPath(), clock: steppingClock([1000, 1727190000123]));
     final original = store.append(const NewEvent(kind: 'finish', source: 'tap'));
+    store.setAdmissionId('3f6c1a52-8d0e-4b7a-9c21-5e4f0a9b7d13');
 
     final e = store.append(NewEvent(
       kind: 'finish.correction',
@@ -29,6 +30,7 @@ void main() {
     expect(stored.seq, 2, reason: 'per-device sequence number');
     expect(stored.person, 'volunteer@example.org');
     expect(stored.role, 'recorder');
+    expect(stored.admissionId, '3f6c1a52-8d0e-4b7a-9c21-5e4f0a9b7d13', reason: 'the admission it was written under (#49)');
     expect(stored.gps, const GpsFix(lat: 33.4, lon: -86.8, accuracyM: 4.5));
     expect(stored.source, 'tap');
     expect(stored.kind, 'finish.correction');
@@ -39,13 +41,13 @@ void main() {
     expect(stored.payload, {'sail': '12345'});
   });
 
-  test('person, role, GPS and corrects-ULID may all be null; a first event chains from genesis', () {
+  test('person, role, admission, GPS and corrects-ULID may all be null; a first event chains from genesis', () {
     final store = openStore(tempDbPath());
     expect(store.readAll(), isEmpty);
 
     store.append(const NewEvent(kind: 'note', source: 'tap'));
     final e = store.readAll().single;
-    expect([e.person, e.role, e.gps, e.correctsUlid], everyElement(isNull));
+    expect([e.person, e.role, e.admissionId, e.gps, e.correctsUlid], everyElement(isNull));
     expect(e.prevHash, genesisHash, reason: '#28');
     expect(e.seq, 1);
   });
@@ -60,6 +62,7 @@ void main() {
       'seq',
       'person',
       'role',
+      'admission_id',
       'gps',
       'source',
       'kind',

@@ -17,9 +17,19 @@ makes the case: an alteration, a removal or a gap.
 vector produced by running the verifier would pass that verifier by construction.
 
 The events were written by `packages/core/tool/write_chain_vectors.dart`, from the core's own
-serialiser. Two independent implementations checked them when they were made: Python's `hashlib` for
-every hash, and Trail of Bits' `rfc8785` package for every canonical text. When a verifier disagrees
-with a vector, the vector is re-derived from the specification before either side changes.
+serialiser. Two independent implementations checked them when they were made, and again when #49
+regenerated them: Python's `hashlib` for every hash, and Trail of Bits' `rfc8785` package for every
+canonical text. When a verifier disagrees with a vector, the vector is re-derived from the
+specification before either side changes.
+
+## The admission id (#49)
+
+Since #49 every event carries `admission_id`, the admission its phone held when it wrote it. Here
+device A holds `00000000-0000-0000-0000-0000000000a1` all day and device B holds
+`00000000-0000-0000-0000-0000000000b1`. Regenerating the set for #49 changed every hash and no
+verdict, because a verifier hashes the text it is given. A verifier that rebuilt each text from the
+fields it knew before #49, instead of hashing the text as given, would drop the admission id and fail
+every vector here.
 
 ## Format: `pro-companion-chain-vector/1`
 

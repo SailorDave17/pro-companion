@@ -20,6 +20,15 @@ abstract interface class CoreClient {
   /// This install's device id.
   Future<String> deviceId();
 
+  /// The admission this phone holds (#49), or null when it has never been
+  /// admitted.
+  Future<String?> admissionId();
+
+  /// Caches [admissionId], `admit_device`'s answer, so that every event
+  /// appended from now on carries it (#49). A re-admission calls this again;
+  /// events already stored keep the admission they were written under.
+  Future<void> setAdmissionId(String admissionId);
+
   /// Closes the store and stops the core.
   Future<void> close();
 }
@@ -61,6 +70,14 @@ class PortCoreClient implements CoreClient {
 
   @override
   Future<String> deviceId() async => await _call(Wire.deviceId, const {}) as String;
+
+  @override
+  Future<String?> admissionId() async => await _call(Wire.admissionId, const {}) as String?;
+
+  @override
+  Future<void> setAdmissionId(String admissionId) async {
+    await _call(Wire.setAdmissionId, {'admission_id': admissionId});
+  }
 
   @override
   Future<void> close() async {

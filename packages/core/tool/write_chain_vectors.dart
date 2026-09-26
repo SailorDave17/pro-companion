@@ -8,7 +8,9 @@
 // verifier: a vector made by the code it checks would pass that code by
 // construction. Re-running this rewrites the files. Review the diff, check the
 // hashes with a second SHA-256, and update fixtures/chain/SHA256SUMS in the
-// same commit.
+// same commit. Since #49, test/chain_vectors_test.dart fails when the committed
+// files are not exactly what vectorFiles() writes, so the vectors cannot fall
+// behind the envelope the core writes.
 
 import 'dart:convert';
 import 'dart:io';
@@ -22,6 +24,12 @@ const deviceA = '01J8Z0D0000000000000000001';
 const deviceB = '01J8Z0D0000000000000000002';
 const dayStart = 1727190000000;
 
+/// The admission each device held all day (#49): a committee_device row's id.
+const admissionOf = {
+  deviceA: '00000000-0000-0000-0000-0000000000a1',
+  deviceB: '00000000-0000-0000-0000-0000000000b1',
+};
+
 /// A fixed, valid ULID for event [n].
 String ulid(int n) => '01J8Z0E${n.toString().padLeft(19, '0')}';
 
@@ -33,6 +41,7 @@ EventEnvelope event(int n, String device, int seq, String kind, String source, M
       deviceId: device,
       seq: seq,
       role: role,
+      admissionId: admissionOf[device],
       gps: gps,
       source: source,
       kind: kind,
@@ -76,7 +85,8 @@ List<String> chain(List<EventEnvelope> events, {String first = genesisHash}) {
   return texts;
 }
 
-void write(String name, String description, List<String> texts, Map<String, Map<String, Object?>> expected) {
+/// One vector file's text.
+String render(String name, String description, List<String> texts, Map<String, Map<String, Object?>> expected) {
   final vector = {
     'format': format,
     'name': name,
@@ -86,14 +96,18 @@ void write(String name, String description, List<String> texts, Map<String, Map<
     ],
     'expected': expected,
   };
-  File('$outDir/$name.json').writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(vector)}\n');
+  return '${const JsonEncoder.withIndent('  ').convert(vector)}\n';
 }
 
 Map<String, Object?> broken(int atSeq, String atUlid, {int? afterSeq}) =>
     {'verdict': 'broken', 'at_seq': atSeq, 'at_ulid': atUlid, 'after_seq': ?afterSeq};
 
-void main() {
-  Directory(outDir).createSync(recursive: true);
+/// Every vector file, by file name, exactly as [main] writes it.
+Map<String, String> vectorFiles() {
+  final files = <String, String>{};
+  void write(String name, String description, List<String> texts, Map<String, Map<String, Object?>> expected) =>
+      files['$name.json'] = render(name, description, texts, expected);
+
   final a = chain(dayA);
 
   write('intact', "Device A's whole day, seq 1 to 6, every link as written.", a, {
@@ -149,4 +163,10 @@ void main() {
     deviceA: {'verdict': 'intact'},
     deviceB: {'verdict': 'intact'},
   });
+  return files;
+}
+
+void main() {
+  Directory(outDir).createSync(recursive: true);
+  vectorFiles().forEach((name, text) => File('$outDir/$name').writeAsStringSync(text));
 }

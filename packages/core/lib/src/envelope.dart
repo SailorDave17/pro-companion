@@ -94,6 +94,7 @@ class EventEnvelope {
     required this.payload,
     this.person,
     this.role,
+    this.admissionId,
     this.gps,
     this.correctsUlid,
     this.prevHash,
@@ -111,6 +112,13 @@ class EventEnvelope {
   final int seq;
   final String? person;
   final String? role;
+
+  /// The admission its phone held when it wrote this event: the id of the
+  /// phone's committee_device row, as `admit_device` returned it and the core
+  /// cached it (#49, groom decision G44). Null on a phone never admitted, as
+  /// in single-phone use. The core stamps it, never the caller, and it is part
+  /// of the canonical text, so the chain's hash covers it.
+  final String? admissionId;
   final GpsFix? gps;
 
   /// Who produced it: a tap, a hand-typed time (`manual`), `race-timer`...
@@ -138,6 +146,7 @@ class EventEnvelope {
     'seq',
     'person',
     'role',
+    'admission_id',
     'gps',
     'source',
     'kind',
@@ -155,6 +164,7 @@ class EventEnvelope {
         'seq': seq,
         'person': person,
         'role': role,
+        'admission_id': admissionId,
         'gps': gps?.toWire(),
         'source': source,
         'kind': kind,
@@ -171,6 +181,7 @@ class EventEnvelope {
         seq: w['seq'] as int,
         person: w['person'] as String?,
         role: w['role'] as String?,
+        admissionId: w['admission_id'] as String?,
         gps: GpsFix.fromWire(w['gps']),
         source: w['source'] as String,
         kind: w['kind'] as String,
@@ -207,6 +218,20 @@ String newUlid(int millis, Random random) {
 }
 
 bool isUlid(String s) => _ulidPattern.hasMatch(s);
+
+final _admissionIdPattern = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+/// True when [s] can be an admission id: a committee_device row's id, a UUID
+/// in the lowercase hyphenated form Postgres prints it in (#49).
+bool isAdmissionId(String s) => _admissionIdPattern.hasMatch(s);
+
+/// Refuses an admission id before the core caches it. Every later event's
+/// canonical text would carry it, and nothing can take a stored event back.
+void validateAdmissionId(String id) {
+  if (!isAdmissionId(id)) {
+    throw ArgumentError.value(id, 'admissionId', 'is not a UUID in the form Postgres prints');
+  }
+}
 
 /// Refuses a [NewEvent] the core must not store, before anything is written.
 void validateNewEvent(NewEvent e) {

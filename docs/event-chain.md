@@ -11,7 +11,8 @@
 An event is hashed as its **canonical text**: the [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785)
 JSON Canonicalization Scheme applied to its wire form. The wire form is the ADR 001 envelope,
 `EventEnvelope.toWire()`, with every field present even when null, plus any field a newer core
-wrote.
+wrote. Since #49 that includes `admission_id`, the admission the event was written under, so the
+hash covers it too.
 
 RFC 8785 fixes every choice JSON leaves open:
 
@@ -26,7 +27,9 @@ RFC 8785 fixes every choice JSON leaves open:
 body, #40 keeps it beside the typed columns, and the phone sends it through #48's `append_event`.
 **A verifier hashes the text it was given and never a re-serialisation of it.** A newer core may add
 envelope fields an older one would write as missing. Re-serialising would then change the text, and
-the hash with it, on an event nobody touched.
+the hash with it, on an event nobody touched. `admission_id` (#49) is the first such field: an event
+written before #49 has none, and a newer core that read it into an envelope and wrote it back would
+add `"admission_id":null` and change its hash.
 
 ## The hash and the link
 
@@ -37,7 +40,9 @@ the hash with it, on an event nobody touched.
 - **Genesis:** a device's first event (`seq` 1) carries 64 zeros as its `prev_hash`.
 
 A device is an install. A phone handed to another volunteer mid-race keeps its device id and its
-chain. A replacement phone is a new device, with its own chain from genesis.
+chain. A replacement phone is a new device, with its own chain from genesis. The chain is per
+device, not per admission: a re-admission (#49) changes the `admission_id` the device's later events
+carry, and the chain continues across it.
 
 ## Verdicts
 
