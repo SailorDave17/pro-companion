@@ -13,8 +13,10 @@ select plan(31);
 
 -- Fixed ids so the file needs no client-side variables.
 -- clubs:   …c01 Hoover, …c02 Other
--- events:  …e01 on Hoover (code gull-1234), …e02 on Other (code tern-5678)
+-- events:  …e01 on Hoover, …e02 on Other
 -- courses: …ca01 on e01, …cb01 on e02 (since #58 every fleet names its race area)
+-- codes:   since #65 a code grants one role: e01's mark boat on ca01 (gull-1234), e01's recorder
+--          on ca01 (gull-5678), e02's overall PRO (tern-5678)
 -- devices: …aa01 anonymous, …aa02 named volunteer
 
 -- 1–4. RLS is on for every spine table (mutation: `alter table … disable row level security` on
@@ -34,15 +36,21 @@ select is((select count(*) from auth.users), 0::bigint, 'provisioning created no
 insert into public.club (id, name) values
   ('00000000-0000-0000-0000-000000000c01', 'Hoover (fixture)'),
   ('00000000-0000-0000-0000-000000000c02', 'Other (fixture)');
-select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27', 'gull-1234',
+select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e01');
-select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27', 'tern-5678',
+select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e02');
 select public.create_course('00000000-0000-0000-0000-000000000e01', 'Main', '00000000-0000-0000-0000-00000000ca01');
 select public.create_course('00000000-0000-0000-0000-000000000e02', 'Main', '00000000-0000-0000-0000-00000000cb01');
+select public.issue_admission_code('00000000-0000-0000-0000-000000000e01', 'mark_boat', 'gull-1234',
+                                   '00000000-0000-0000-0000-00000000ca01');
+select public.issue_admission_code('00000000-0000-0000-0000-000000000e01', 'recorder', 'gull-5678',
+                                   '00000000-0000-0000-0000-00000000ca01');
+select public.issue_admission_code('00000000-0000-0000-0000-000000000e02', 'overall_pro', 'tern-5678');
 
 -- 9. The hash is not the code.
-select isnt((select admission_code_hash from public.event where id = '00000000-0000-0000-0000-000000000e01'),
+select isnt((select code_hash from public.admission_code
+             where event_id = '00000000-0000-0000-0000-000000000e01' and role = 'mark_boat'),
             'gull-1234', 'admission code is stored hashed');
 
 -- Device A: anonymous sign-in (device-handoff path).
@@ -55,11 +63,11 @@ select is((select count(*) from public.club), 0::bigint, 'an un-admitted phone s
 select is((select count(*) from public.committee_device), 0::bigint, 'an un-admitted phone sees no device row');
 
 -- 12–14. Admission with the right code; wrong code and unknown event are refused alike.
-select lives_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'mark_boat', 'gull-1234')$$,
+select lives_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'gull-1234')$$,
                 'anonymous device is admitted with the right code');
-select throws_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e02', 'overall_pro', 'wrong-code')$$,
+select throws_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e02', 'wrong-code')$$,
                  '28000', null, 'wrong admission code is refused');
-select throws_ok($$select public.admit_device('00000000-0000-0000-0000-0000000000ff', 'overall_pro', 'gull-1234')$$,
+select throws_ok($$select public.admit_device('00000000-0000-0000-0000-0000000000ff', 'gull-1234')$$,
                  '28000', null, 'unknown event is refused with the same message');
 
 -- 15–19. What the admitted phone can see: its own device row, its own club and event, nothing of the other club.
@@ -72,8 +80,8 @@ select is((select count(*) from public.club where id = '00000000-0000-0000-0000-
           'the other club is invisible');
 
 -- 20–21. Withheld columns fail loudly rather than leak.
-select throws_ok($$select admission_code_hash from public.event$$, '42501', null,
-                 'admission_code_hash is not granted to clients');
+select throws_ok($$select code_hash from public.admission_code$$, '42501', null,
+                 'admission code hashes are not granted to clients');
 select throws_ok($$select auth_uid from public.committee_device$$, '42501', null,
                  'auth_uid is not granted to clients');
 
@@ -92,7 +100,7 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa02","role":"authenticated","is_anonymous":false}', true);
 
 -- 25–27. Same tables, same policies, same cross-club refusal.
-select lives_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'recorder', 'gull-1234', 'Jo Volunteer')$$,
+select lives_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'gull-5678', 'Jo Volunteer')$$,
                 'named volunteer is admitted with the right code');
 select is((select person from public.committee_device), 'Jo Volunteer', 'named volunteer''s row carries the person');
 select is((select count(*) from public.club where id = '00000000-0000-0000-0000-000000000c02'), 0::bigint,
@@ -110,7 +118,7 @@ select set_config('request.jwt.claims',
 select throws_ok($$insert into public.fleet (event_id, course_id, name)
                    values ('00000000-0000-0000-0000-000000000e01', '00000000-0000-0000-0000-00000000ca01', 'Optis')$$,
                  '42501', null, 'revoked device''s write is refused');
-select throws_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'mark_boat', 'gull-1234')$$,
+select throws_ok($$select public.admit_device('00000000-0000-0000-0000-000000000e01', 'gull-1234')$$,
                  '42501', null, 'revoked device cannot re-admit itself with the code');
 select isnt((select revoked_at from public.committee_device), null, 'revoked device still reads its own row, marked revoked');
 

@@ -69,7 +69,9 @@ For the pilot a club admin acts through the owner's scripts (groom decision G27)
 
 - It reuses the club of exactly that name, or provisions one when there is none.
 - It creates the event and its race areas.
-- It prints every id and the event's admission code.
+- It prints every id and the event's admission codes. There is one for each event-wide role
+  (overall PRO, scorer, safety), and one per race area for each bound role (course PRO, recorder,
+  mark boat). `docs/roles.md` says which role is which.
 
 ```
 dart run scripts/owner.dart provision --club "Hoover Sailing Club" --event "Club night" \
@@ -80,8 +82,10 @@ dart run scripts/owner.dart provision --club "Hoover Sailing Club" --event "Club
   secret key from `supabase status`. It reaches the live project only when you name it, with
   `--project pxywvqhdywgrysmwvbxy`. It then reads the project's secret key from
   `SUPABASE_SECRET_KEY`, in your shell or in the git-ignored `.env.local`.
-- **The admission code** is printed once and stored only as a hash. Hand it to the committee; the
-  script never writes it to a file.
+- **The admission codes** are printed once and stored only as hashes. A code admits a phone as the
+  role printed beside it, and for a bound role on its race area, so hand each one to the volunteer
+  doing that job. The phone never names its role, so no code but the overall PRO's makes a phone
+  overall PRO. The script never writes a code to a file.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses

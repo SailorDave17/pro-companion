@@ -2,9 +2,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import '../scripts/owner.dart' as owner;
+
 /// #57 criterion 4: docs/roles.md lists groom decision G28's six roles, marks
 /// the three that G38 binds to one race area, and says the signal boat is the
 /// PRO. supabase/tests/roles_test.sql holds the server's check to the same six.
+/// Since #65 the owner script issues its codes from the same split.
 void main() {
   final doc = File('docs/roles.md').readAsStringSync();
 
@@ -34,6 +37,14 @@ void main() {
     for (final role in ['overall_pro', 'scorer', 'safety']) {
       expect(scope[role], '**Event-wide**', reason: role);
     }
+  });
+
+  test('#65: the owner script issues per-race-area codes for exactly the roles the table binds', () {
+    final scope = scopes();
+    expect(owner.raceAreaRoles.toSet(),
+        {for (final e in scope.entries) if (e.value == '**One race area**') e.key});
+    expect(owner.eventWideRoles.toSet(),
+        {for (final e in scope.entries) if (e.value == '**Event-wide**') e.key});
   });
 
   test('the doc says the signal boat is the PRO, and lists no role for it (G28)', () {

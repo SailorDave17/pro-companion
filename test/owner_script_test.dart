@@ -6,9 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../scripts/owner.dart' as owner;
 
-/// #63: scripts/owner.dart provision. The unit tests run everywhere. The local-stack tests run only
-/// with PRO_COMPANION_LOCAL_STACK=1 and the stack started (README, Server side), because CI has no
-/// stack until #41; once asked for, a stack that is down fails them rather than skipping them.
+/// #63: scripts/owner.dart provision, and since #65 the admission codes it issues. The unit tests
+/// run everywhere. The local-stack tests run only with PRO_COMPANION_LOCAL_STACK=1 and the stack
+/// started (README, Server side), because CI has no stack until #41; once asked for, a stack that is
+/// down fails them rather than skipping them.
 void main() {
   group('arguments', () {
     test('provision takes a club, an event, a date and one or more race areas', () {
@@ -100,6 +101,21 @@ void main() {
       expect(owner.newAdmissionCode(Random(7)), owner.newAdmissionCode(Random(7)),
           reason: 'the code comes from the random source it is given');
     });
+
+    test('#65: one code per event-wide role, then one per race area for each bound role', () {
+      expect(owner.codeSlots(['Alpha', 'Bravo']), [
+        (role: 'overall_pro', raceArea: null),
+        (role: 'scorer', raceArea: null),
+        (role: 'safety', raceArea: null),
+        (role: 'course_pro', raceArea: 'Alpha'),
+        (role: 'recorder', raceArea: 'Alpha'),
+        (role: 'mark_boat', raceArea: 'Alpha'),
+        (role: 'course_pro', raceArea: 'Bravo'),
+        (role: 'recorder', raceArea: 'Bravo'),
+        (role: 'mark_boat', raceArea: 'Bravo'),
+      ]);
+      expect(owner.codeSlots(['Alpha']), hasLength(6));
+    });
   });
 
   final localStack = Platform.environment['PRO_COMPANION_LOCAL_STACK'] == '1';
@@ -133,6 +149,16 @@ void main() {
       expect(match, isNotNull, reason: 'no "$label" line in:\n$output');
       return match!.group(1)!;
     }
+
+    /// Every printed code line, keyed by its role and race area: `overall_pro`, `recorder Alpha`.
+    Map<String, String> codes(String output) => {
+          for (final m in RegExp(r'^code +(\S+)  (\S+)(?:  (.+))?$', multiLine: true).allMatches(output))
+            [m.group(2), m.group(3)].whereType<String>().join(' '): m.group(1)!,
+        };
+
+    /// The race area id printed for [name].
+    String raceAreaId(String output, String name) =>
+        RegExp('^race area +(\\S+)  ${RegExp.escape(name)}\$', multiLine: true).firstMatch(output)!.group(1)!;
 
     Future<(int, Object?)> call(String method, Uri uri, Map<String, String> headers,
         [Object? body]) async {
@@ -172,14 +198,26 @@ void main() {
       treeAfter = await gitStatus();
     });
 
-    test('provision prints the club it made, the event, a code and each race area', () {
+    test('provision prints the club it made, the event and each race area', () {
       expect(firstRun, contains('target      the local stack'));
       expect(firstRun, matches(RegExp(r'^club +\S+  .+ \(provisioned\)$', multiLine: true)));
-      expect(field(firstRun, 'code'), matches(RegExp(r'^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$')));
       expect(RegExp(r'^race area +\S+  (\S+)$', multiLine: true)
           .allMatches(firstRun)
           .map((m) => m.group(1))
           .toList(), ['Alpha', 'Bravo']);
+    });
+
+    test('#65: it prints one code per event-wide role and one per race area for each bound role', () {
+      final printed = codes(firstRun);
+      expect(printed.keys, [
+        'overall_pro', 'scorer', 'safety',
+        'course_pro Alpha', 'recorder Alpha', 'mark_boat Alpha',
+        'course_pro Bravo', 'recorder Bravo', 'mark_boat Bravo',
+      ]);
+      for (final code in printed.values) {
+        expect(code, matches(RegExp(r'^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$')));
+      }
+      expect(printed.values.toSet(), hasLength(9), reason: 'no code is printed for two roles');
     });
 
     test('a second run for the same club reuses it instead of provisioning another', () {
@@ -188,16 +226,32 @@ void main() {
       expect(field(secondRun, 'event'), isNot(field(firstRun, 'event')));
     });
 
-    test('a phone presenting the printed code is admitted to the event', () async {
+    /// Admits a new anonymous phone with [code] and returns its token and its own admission row.
+    Future<(String, Map)> admit(String code) async {
       final phone = await anonymousPhone();
       final (statusCode, body) = await call('POST', api.replace(path: '/rest/v1/rpc/admit_device'),
-          asPhone(phone), {
-        'p_event': field(firstRun, 'event'),
-        'p_role': 'recorder',
-        'p_admission_code': field(firstRun, 'code'),
-      });
+          asPhone(phone), {'p_event': field(firstRun, 'event'), 'p_admission_code': code});
       expect(statusCode, 200, reason: '$body');
       expect(body, matches(RegExp(r'^[0-9a-f-]{36}$')), reason: 'the new admission id');
+      final (readStatus, rows) = await call(
+          'GET',
+          api.replace(path: '/rest/v1/committee_device', queryParameters: {'select': 'role,course_id'}),
+          asPhone(phone));
+      expect(readStatus, 200, reason: '$rows');
+      return (phone, (rows as List).single as Map);
+    }
+
+    test('#65: a phone presenting a printed code is admitted as its role, on its race area', () async {
+      // Three phones, not nine: the stack allows 30 anonymous sign-ins an hour, and
+      // admission_code_test.sql admits one phone per code. Two recorders on two race areas, so a
+      // race area read off the role alone fails.
+      final printed = codes(firstRun);
+      final (_, pro) = await admit(printed['overall_pro']!);
+      expect(pro, {'role': 'overall_pro', 'course_id': null});
+      final (phone, alpha) = await admit(printed['recorder Alpha']!);
+      expect(alpha, {'role': 'recorder', 'course_id': raceAreaId(firstRun, 'Alpha')});
+      final (_, bravo) = await admit(printed['recorder Bravo']!);
+      expect(bravo, {'role': 'recorder', 'course_id': raceAreaId(firstRun, 'Bravo')});
 
       final (readStatus, courses) = await call(
           'GET',
@@ -217,8 +271,7 @@ void main() {
       final (statusCode, body) = await call('POST', api.replace(path: '/rest/v1/rpc/admit_device'),
           asPhone(phone), {
         'p_event': field(firstRun, 'event'),
-        'p_role': 'recorder',
-        'p_admission_code': field(secondRun, 'code'),
+        'p_admission_code': codes(secondRun)['overall_pro'],
       });
       expect(statusCode, isNot(200));
       expect((body as Map)['code'], '28000', reason: '$body');

@@ -14,10 +14,12 @@ select plan(32);
 
 -- Fixed ids so the file needs no client-side variables.
 -- clubs:   …c01 Hoover, …c02 Other
--- events:  …e01 Hoover's club night (gull-1234), …e03 Hoover's second day (wren-9012),
---          …e02 the other club's regatta (tern-5678)
+-- events:  …e01 Hoover's club night, …e03 Hoover's second day, …e02 the other club's regatta
 -- courses: …ca01 e01 Alpha, …ca02 e01 Bravo, …ca03 e03 Alpha, …cb01 e02 Alpha
--- devices: …aa01 admitted to e01, …aa02 admitted to e02, …aa03 admitted to nothing
+-- codes:   e01's overall PRO (gull-1234), e02's scorer (tern-5678)
+-- devices: …aa01 admitted to e01, …aa02 admitted to e02, …aa03 admitted to nothing. Both admitted
+--          phones are event-wide, so the fleet tests below are about the race area's key alone.
+--          A phone bound to one race area (#65) is admission_code_test.sql's.
 -- fleets:  …f101 on e01's Alpha, …f102 on e01's Bravo
 
 -- 1–5. The table, its RLS, and fleet's key onto it.
@@ -33,12 +35,14 @@ select fk_ok('public', 'fleet', array['course_id', 'event_id'], 'public', 'cours
 insert into public.club (id, name) values
   ('00000000-0000-0000-0000-000000000c01', 'Hoover (fixture)'),
   ('00000000-0000-0000-0000-000000000c02', 'Other (fixture)');
-select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27', 'gull-1234',
+select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e01');
-select public.create_event('00000000-0000-0000-0000-000000000c01', 'Second day', date '2026-09-28', 'wren-9012',
+select public.create_event('00000000-0000-0000-0000-000000000c01', 'Second day', date '2026-09-28',
                            '00000000-0000-0000-0000-000000000e03');
-select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27', 'tern-5678',
+select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e02');
+select public.issue_admission_code('00000000-0000-0000-0000-000000000e01', 'overall_pro', 'gull-1234');
+select public.issue_admission_code('00000000-0000-0000-0000-000000000e02', 'scorer', 'tern-5678');
 
 -- 6–10. create_course as the owner's tooling calls it: service_role.
 set local role service_role;
@@ -78,10 +82,10 @@ select throws_ok($$select public.create_course('00000000-0000-0000-0000-00000000
 set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa01","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e01', 'recorder', 'gull-1234');
+select public.admit_device('00000000-0000-0000-0000-000000000e01', 'gull-1234');
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa02","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e02', 'recorder', 'tern-5678');
+select public.admit_device('00000000-0000-0000-0000-000000000e02', 'tern-5678');
 
 -- 13–18. Who reads race areas: only a phone admitted to their event.
 select set_config('request.jwt.claims',
