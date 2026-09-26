@@ -46,6 +46,7 @@ void main() {
   // The CI emulator is a 320 x 640 dp phone. Back from FLEETS, the keyboard
   // is still up while home lays out, and with SEQUENCE added the column no
   // longer fit in what the keyboard left (#25, PR #94's integration job).
+  // RESULTS (#7) is the fourth button, and must fit too.
   testWidgets('home still fits on a 320 x 640 phone with the keyboard still up', (tester) async {
     tester.view.physicalSize = const Size(640, 1280);
     tester.view.devicePixelRatio = 2.0;
@@ -57,7 +58,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(ProCompanionApp(confirmation: quiet, core: FakeCore()));
     await tester.pumpAndSettle();
-    for (final label in ['FLEETS', 'SEQUENCE', 'FINISHES']) {
+    for (final label in ['FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS']) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
   });

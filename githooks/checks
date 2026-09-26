@@ -5,8 +5,8 @@
 # push is gated on the suite rather than on nothing.
 #
 # It mirrors the CI job's host-side steps (#16). The emulator job is not here:
-# it needs a device, so run it by hand with flutter test integration_test and
-# sh integration_test/force_kill.sh.
+# it needs a device, so run it by hand with flutter test integration_test,
+# sh integration_test/force_kill.sh and sh integration_test/offline_results.sh.
 flutter analyze
 flutter test
 cd packages/core && dart test
