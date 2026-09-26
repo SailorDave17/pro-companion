@@ -51,8 +51,9 @@ notes. A phone with no admission in the club leaves nothing behind (G43).
 ### Tests against the local stack
 
 Some Dart tests talk to the local stack through its API, as a phone or as the owner's tooling:
-`test/local_stack_test.dart`, and the local-stack group in `test/owner_script_test.dart`. They
-skip unless `PRO_COMPANION_LOCAL_STACK=1`, so with the stack started:
+`test/local_stack_test.dart`, `test/append_event_test.dart`, `test/sign_in_path_test.dart`, and the
+local-stack group in `test/owner_script_test.dart`. They skip unless `PRO_COMPANION_LOCAL_STACK=1`,
+so with the stack started:
 
 ```
 PRO_COMPANION_LOCAL_STACK=1 flutter test
@@ -60,7 +61,11 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
 
 - **`test/support/local_stack.dart` is the helper.** A test asks it for a race day and for phones:
   - The club, event, race areas and codes come from the owner's tooling (`scripts/owner.dart`).
-  - Each phone signs in anonymously, through the stack's own auth.
+  - A device-handoff phone signs in anonymously, through the stack's own auth.
+  - A named volunteer's phone signs in by magic link (#5). A test cannot click an email link, so the
+    helper creates the account and generates its link through the stack's admin API, with the
+    secret key. The phone then verifies the link's token with the publishable key, the request the
+    link makes when it opens.
   - Each phone is admitted by `admit_device` with one of the printed codes, and never by the
     secret key.
   - A row no client can write, like the event log's, is seeded as the table owner through `psql`
@@ -75,8 +80,10 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
     `failed to pull docker image`, printed after its own three tries, which both ECR and ghcr.io
     throttles cause on some days. Any other failure fails at once, a migration that fails to apply
     among them.
-- **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each phone
-  is one. A full run signs in 11 phones, so a long mutation pass can reach the limit.
+- **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
+  device-handoff phone is one. A full run signs in 16 of them, so a second full run within the hour
+  can reach the limit; run one file at a time while working. A named volunteer's phone spends a
+  token verification instead, which the stack also allows 30 of an hour. A full run spends 4.
 
 ### Applying a migration to the live project
 
@@ -138,6 +145,40 @@ dart run scripts/owner.dart provision --club "Hoover Sailing Club" --event "Club
   role printed beside it, and for a bound role on its race area, so hand each one to the volunteer
   doing that job. The phone never names its role, so no code but the overall PRO's makes a phone
   overall PRO. The script never writes a code to a file.
+
+### How a club's phones sign in
+
+A club chooses how its committee phones sign in (groom decision G39). Both ways end in a role's
+admission code, presented to `admit_device`:
+
+- **Device handoff.** The phone signs in anonymously. Its admission is tied to the event, club, role
+  and race area, and never to a person, because the phone passes from hand to hand. A
+  device-handoff phone that names a person is refused.
+- **Named volunteers.** The phone signs in by magic link as the volunteer's own account, so the
+  account holds the admission. It may also name a person.
+
+The club's `sign_in_mode` says which of the two admits a new phone: `device_handoff`,
+`named_volunteers` or `both`. Every club starts at `both`. The owner switches it:
+
+```
+dart run scripts/owner.dart sign-in-mode --club "Hoover Sailing Club" --mode named_volunteers
+```
+
+- **A switch applies to phones admitted after it.** A phone on a path the mode excludes is refused
+  with HTTP 403, code `42501`, and `details` naming the mode and the path it signed in by, such as
+  `sign_in_mode=named_volunteers path=device_handoff`. A phone already admitted gets its admission
+  back whatever the mode, and goes on writing. Nothing is reinstalled.
+- **The path is read from the phone's token.** Its `is_anonymous` claim is true on device handoff
+  and false for a named account. A token without the claim is neither, so only `both` admits it.
+- **A replacement phone** presents the same role's code and gets an admission of its own. The phone
+  it replaces is not revoked.
+- **The script prints the mode it reads back** after the switch, not the one it asked for, and fails
+  when they differ. It finds its target and key as `provision` does.
+
+Not built yet: the phone's sign-in screens (the code entry is #71), revoking a phone (#72), stamping
+each event with the admission it was written under (#49, checked by the server in #73), sync after
+a phone signs in again (#6), and magic-link mail and its redirect on the live project, which are
+held for the pilot's sixth milestone.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses
