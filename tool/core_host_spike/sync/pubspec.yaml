@@ -1,0 +1,14 @@
+name: core_host_spike_sync
+description: >-
+  The sync client the #47 spike runs inside the headless core engine (ADR 003).
+  Pure Dart: package:supabase, never supabase_flutter. A spike, not part of the app.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  # Pinned: the spike measures this version, and its session and refresh
+  # behaviour is what docs/adr/006 records.
+  supabase: 2.16.1

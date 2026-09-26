@@ -6,20 +6,27 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
 
+import 'package:core_host_spike_sync/sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// Name the core publishes its SendPort under, process-wide.
 const corePortName = 'pro_companion.core';
 
+/// Prefix of an intent payload carrying a sync command (#47): `sync:` then the command's JSON,
+/// base64url-encoded so it survives `adb shell` quoting.
+const syncPrefix = 'sync:';
+
 /// The headless core (#14). Started by CoreService in its own FlutterEngine, with
 /// no widget tree. It writes a TICK line every 10 s, writes every forwarded intent,
-/// and answers the UI over an isolate port.
+/// and answers the UI over an isolate port. Since #47 it also hosts the sync client,
+/// driven by `sync:` intents (see [SyncCommands]).
 @pragma('vm:entry-point')
 Future<void> coreMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('core_host/intents');
   late final File log;
+  late final SyncCommands sync;
 
   void write(String line) {
     final stamped = '${DateTime.now().toUtc().toIso8601String()} $line';
@@ -28,11 +35,20 @@ Future<void> coreMain() async {
   }
 
   channel.setMethodCallHandler((call) async {
-    if (call.method == 'intent') write('INTENT ${call.arguments}');
+    if (call.method != 'intent') return;
+    final payload = '${call.arguments}';
+    if (payload.startsWith(syncPrefix)) {
+      sync.enqueue(payload.substring(syncPrefix.length));
+    } else {
+      write('INTENT $payload');
+    }
   });
   final dir = await channel.invokeMethod<String>('ready');
   log = File('$dir/core_tick.log');
-  write('START');
+  sync = SyncCommands(dir!, write);
+  write('START pid=$pid');
+  // Not awaited: a refresh on an unreachable network must not hold up the port or the ticks.
+  unawaited(sync.resume());
 
   final inbox = ReceivePort();
   IsolateNameServer.removePortNameMapping(corePortName);

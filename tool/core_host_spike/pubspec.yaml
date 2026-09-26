@@ -1,5 +1,5 @@
 name: core_host_spike
-description: "Core-host spike for pro-companion #14 (ADR 003). A spike, not part of the app."
+description: "Core-host spike for pro-companion #14 (ADR 003) and its sync client (#47). A spike, not part of the app."
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # #47: the sync client, in a package of its own so the network stays out of
+  # everything else (docs/adr/006).
+  core_host_spike_sync:
+    path: sync
 
 dev_dependencies:
   flutter_test:
