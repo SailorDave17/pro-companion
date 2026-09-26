@@ -76,7 +76,7 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
     throttles cause on some days. Any other failure fails at once, a migration that fails to apply
     among them.
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each phone
-  is one. A full run signs in 9 phones, so a long mutation pass can reach the limit.
+  is one. A full run signs in 11 phones, so a long mutation pass can reach the limit.
 
 ### Applying a migration to the live project
 
