@@ -26,6 +26,28 @@ The companion owns the server it syncs to — its own Supabase project, separate
 - `supabase/config.toml` — the local stack. `npx supabase start`, then `npx supabase db reset` to
   apply the migrations and `npx supabase test db` to run the tests. Needs Docker.
 
+### The event log, and the events it refuses
+
+A phone sends every event through one function, `append_event(event, canonical text)`. No client
+writes the log (`event_log`) any other way. The function stores an event the phone is admitted to
+write, exactly as sent, and a re-send of a stored event is a no-op.
+
+It refuses an event from a phone that is revoked or not admitted to that race day. It also refuses a
+text that cannot be stored as an event, and a different event under a ULID already stored. A
+refusal answers HTTP 422 with code `append_event_refused` and the reason in `details`. It is final,
+where a transient failure is a network error or a 5xx, so the phone keeps a refused event and does
+not send it again.
+
+**The server keeps data it refused.** When the phone that sent a refused event holds any admission
+in that club, active, superseded or revoked, the server keeps the event in `event_refusal`
+(groom decision G37). It is kept with its exact bytes: the full payload, including GPS, names and
+notes. A phone with no admission in the club leaves nothing behind (G43).
+
+- **Only service_role and the owner's tooling can read the refusals.** No phone can read, write,
+  change or delete one.
+- **They are kept as long as the event's log, with no separate purge** (G45). Like the log, they
+  cannot be updated or deleted by any role, the owner included.
+
 ### Tests against the local stack
 
 Some Dart tests talk to the local stack through its API, as a phone or as the owner's tooling:
