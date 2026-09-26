@@ -5,6 +5,7 @@ import 'confirmation.dart';
 import 'core_bootstrap.dart';
 import 'finish/finish_screen.dart';
 import 'fleets/fleets_screen.dart';
+import 'results/results_screen.dart';
 import 'sequence/sequence_screen.dart';
 import 'ui/bars.dart';
 import 'ui/clock.dart';
@@ -49,7 +50,7 @@ class ProCompanionApp extends StatelessWidget {
 }
 
 /// The app's home. Stands in for the PRO's role home until #20 adds role
-/// homes; the sequence and finish screens are one tap from here.
+/// homes; the sequence, finish and results screens are one tap from here.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.core, required this.confirmation, this.clock = systemClock});
 
@@ -136,6 +137,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ElevatedButton(
                   onPressed: () => _open(() => FinishScreen(core: widget.core, confirmation: widget.confirmation)),
                   child: const Text('FINISHES'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Provisional results come after the finishes (#7).
+              SizedBox(
+                width: double.infinity,
+                height: Bars.minTargetDp + 8,
+                child: OutlinedButton(
+                  onPressed: () => _open(() => ResultsScreen(core: widget.core, confirmation: widget.confirmation)),
+                  child: const Text('RESULTS'),
                 ),
               ),
             ],

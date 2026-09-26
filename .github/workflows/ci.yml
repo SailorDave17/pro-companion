@@ -90,8 +90,10 @@ jobs:
           target: google_apis
           arch: x86_64
           # Each line runs as its own `sh -c`. The force-kill criterion (#24)
-          # needs two app processes and a kill between them, so a script
-          # drives it rather than the plain sweep.
+          # needs two app processes and a kill between them, and the offline
+          # results criterion (#7) needs airplane mode, so a script drives
+          # each rather than the plain sweep.
           script: |
             flutter test integration_test -d emulator-5554
             sh integration_test/force_kill.sh emulator-5554
+            sh integration_test/offline_results.sh emulator-5554
