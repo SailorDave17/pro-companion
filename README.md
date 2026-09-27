@@ -14,6 +14,13 @@ Scope of record: the tiered feature scope and the owner decisions behind it live
 `burgee/docs/charter.md` (this app is burgee's RC companion, ADR 004, standalone-capable by
 design).
 
+## Field builds
+
+Phones on the water run a release APK signed with the owner's upload key, never a debug build.
+The key lives outside the repo, and a release build without it stops and names what is missing.
+How to make the key, point the build at it, check the signature and sideload the APK:
+`docs/field-builds.md` (#23).
+
 ## Server side
 
 The companion owns the server it syncs to — its own Supabase project, separate from burgee's
