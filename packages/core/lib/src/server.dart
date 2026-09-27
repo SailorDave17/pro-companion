@@ -61,6 +61,8 @@ class CoreServer {
       case Wire.setAdmissionId:
         store.setAdmissionId(args['admission_id'] as String);
         return null;
+      case Wire.uploadStatus:
+        return store.uploadStatus().toWire();
       case Wire.close:
         store.close();
         return null;

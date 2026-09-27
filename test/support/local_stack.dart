@@ -80,6 +80,12 @@ class LocalStack {
   /// (`publishable` or `secret`) and `+token` marks a phone's bearer token.
   final List<String> phoneRequests = [];
 
+  /// The publishable key, for a client a test builds the way the app would (#6's sync engine).
+  String get publishableKey => _publishableKey;
+
+  /// The secret key, only so a test can show sync refusing it. Nothing a phone does uses it.
+  String get secretKeyForRefusal => _secretKey;
+
   /// Connects to the running stack, reading its URL and keys from `supabase status`.
   static Future<LocalStack> connect() async {
     final status = await owner.readLocalStatus();
@@ -132,6 +138,20 @@ class LocalStack {
         email: email);
   }
 
+  /// A named volunteer's magic link, for a phone that verifies it itself (#6's sync engine): the
+  /// account [email] is created confirmed the first time, and each call generates a new link.
+  /// Returns the link's token hash. Each verification spends one of the stack's 30 per 5 minutes.
+  Future<String> magicLink(String email) async {
+    try {
+      await _admin('/auth/v1/admin/users', {'email': email, 'email_confirm': true});
+    } on StateError catch (e) {
+      // Signing in again: the account is already there.
+      if (!'$e'.contains('email_exists')) rethrow;
+    }
+    final link = await _admin('/auth/v1/admin/generate_link', {'type': 'magiclink', 'email': email});
+    return link['hashed_token'] as String;
+  }
+
   /// A phone admitted to [day] on the device-handoff path with the code for [role], and for a bound
   /// role [raceArea]'s code: signed in anonymously, then admitted by admit_device. It names no
   /// person, which only a named volunteer's admission may (#5).
@@ -175,6 +195,32 @@ class LocalStack {
         '\$e\$$canonical\$e\$);');
     return (ulid: ulid, canonical: canonical);
   }
+
+  /// Stores [canonical] in [eventId]'s log as the table owner, as another phone's upload would.
+  Future<void> seedCanonical(String eventId, String canonical) =>
+      _psql("insert into public.event_log (event_id, canonical) values ('$eventId', \$e\$$canonical\$e\$);");
+
+  /// Every row in [eventId]'s log, read as the table owner, ordered by the ADR 001 rule (device
+  /// time, then device, then sequence number): `ulid`, `canonical`, `device_id`, `seq`,
+  /// `device_ts`, `received_at` (milliseconds since the epoch, the server's clock) and `hash`, the
+  /// SHA-256 of the stored text as the server computes it.
+  Future<List<Map<String, Object?>>> eventLogRows(String eventId) async {
+    final out = await _psql("select coalesce(json_agg(json_build_object('ulid', ulid, 'canonical', canonical, "
+        "'device_id', device_id, 'seq', seq, 'device_ts', device_ts, "
+        "'received_at', (extract(epoch from received_at) * 1000)::bigint, "
+        "'hash', encode(sha256(convert_to(canonical, 'UTF8')), 'hex')) "
+        "order by device_ts, device_id, seq), '[]') from public.event_log where event_id = '$eventId';");
+    return [for (final row in jsonDecode(out) as List) Map<String, Object?>.from(row as Map)];
+  }
+
+  /// The race day [ulid] is stored under, read as the table owner; null when there is no row.
+  Future<String?> eventOf(String ulid) async {
+    final out = await _psql("select event_id from public.event_log where ulid = '$ulid';");
+    return out.isEmpty ? null : out;
+  }
+
+  /// Revokes the admission [admissionId], as the owner's revoke_device does (service_role only).
+  Future<void> revoke(String admissionId) => _psql("select public.revoke_device('$admissionId');");
 
   /// The canonical text stored under [ulid], read as the table owner; null when there is no row.
   Future<String?> eventLogCanonical(String ulid) async {

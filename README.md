@@ -35,8 +35,9 @@ write, exactly as sent, and a re-send of a stored event is a no-op.
 It refuses an event from a phone that is revoked or not admitted to that race day. It also refuses a
 text that cannot be stored as an event, and a different event under a ULID already stored. A
 refusal answers HTTP 422 with code `append_event_refused` and the reason in `details`. It is final,
-where a transient failure is a network error or a 5xx, so the phone keeps a refused event and does
-not send it again.
+so the phone keeps a refused event and does not send it again. Every other failure is retried: a
+network error, a 5xx, and any error whose code is not `append_event_refused`, since an error the
+function raises can arrive as a 4xx (#6 keys on the code, never on the status).
 
 **The server keeps data it refused.** When the phone that sent a refused event holds any admission
 in that club, active, superseded or revoked, the server keeps the event in `event_refusal`
@@ -48,11 +49,35 @@ notes. A phone with no admission in the club leaves nothing behind (G43).
 - **They are kept as long as the event's log, with no separate purge** (G45). Like the log, they
   cannot be updated or deleted by any role, the owner included.
 
+### Sync: the phone's own events, up to the log
+
+`packages/sync` (#6, ADR 006) uploads each of the phone's own events through `append_event`,
+exactly once, and keeps every outcome in the core's store beside the log. It is pure Dart, for the
+headless core engine; the UI never imports it (`test/import_boundary_test.dart`).
+
+- **Each event goes as its stored text, byte for byte**, to the race day its own admission belongs
+  to. A re-send is harmless, so a lost answer is simply retried.
+- **Accepted and refused are final**, kept in the core's append-only upload tables, and the UI reads
+  them, with how the last run ended, through `CoreClient.uploadStatus()`. A refusal found after an
+  earlier send's answer was lost is flagged as maybe already on shore.
+- **Nothing is sent to a race day the signed-in user holds no admission to.** A lost session, or a
+  new user not yet admitted, pauses sync rather than turning events into refusals. Events written
+  before the phone was ever admitted stay on the phone.
+- **It keeps trying on its own** while anything is waiting, backing off to 15 s between runs, with
+  every request bounded at 10 s, so an upload starts within 30 s of signal returning.
+- **The session lives in one file**, rewritten on every change, in a directory that must not be
+  backed up (a restored copy is a refresh token many rotations old). Sync never signs anyone in by
+  itself.
+- **Its tests:** `dart test` in `packages/sync` against a scripted server (the real Supabase client,
+  only the transport faked), and `test/sync_test.dart` against the local stack.
+- **Not yet in the app.** Starting it from the core host, with the project's URL and key, is
+  #113's, after #32 builds the host. The `INTERNET` permission is #46's.
+
 ### Tests against the local stack
 
 Some Dart tests talk to the local stack through its API, as a phone or as the owner's tooling:
-`test/local_stack_test.dart`, `test/append_event_test.dart`, `test/sign_in_path_test.dart`, and the
-local-stack group in `test/owner_script_test.dart`. They skip unless `PRO_COMPANION_LOCAL_STACK=1`,
+`test/local_stack_test.dart`, `test/append_event_test.dart`, `test/sign_in_path_test.dart`,
+`test/sync_test.dart`, and the local-stack group in `test/owner_script_test.dart`. They skip unless `PRO_COMPANION_LOCAL_STACK=1`,
 so with the stack started:
 
 ```
@@ -81,9 +106,10 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
     throttles cause on some days. Any other failure fails at once, a migration that fails to apply
     among them.
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
-  device-handoff phone is one. A full run signs in 16 of them, so a second full run within the hour
+  device-handoff phone is one. A full run signs in 18 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack also allows 30 of an hour. A full run spends 4.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 16,
+  12 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 
 ### Applying a migration to the live project
 
@@ -175,10 +201,10 @@ dart run scripts/owner.dart sign-in-mode --club "Hoover Sailing Club" --mode nam
 - **The script prints the mode it reads back** after the switch, not the one it asked for, and fails
   when they differ. It finds its target and key as `provision` does.
 
-Not built yet: the phone's sign-in screens (the code entry is #71), revoking a phone (#72), stamping
-each event with the admission it was written under (#49, checked by the server in #73), sync after
-a phone signs in again (#6), and magic-link mail and its redirect on the live project, which are
-held for the pilot's sixth milestone.
+Not built yet: the phone's sign-in screens (the code entry is #71, the magic link #104), revoking a
+phone (#72), the server's check of the admission each event carries (#73), starting sync in the app
+(#113, after #32), and magic-link mail and its redirect on the live project, which are held for
+the pilot's sixth milestone.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses

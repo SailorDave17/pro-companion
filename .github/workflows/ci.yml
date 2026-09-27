@@ -30,6 +30,10 @@ jobs:
       # flutter test does not run its tests.
       - run: dart test
         working-directory: packages/core
+      # Sync (#6) is one too. Its tests here meet a scripted server; the ones
+      # against the local stack are under test/ and run in the local-stack job.
+      - run: dart test
+        working-directory: packages/sync
       - run: flutter build apk --debug
 
   # Server-facing tests (#41) against a local Supabase built from this repo's own
