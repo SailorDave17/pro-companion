@@ -7,6 +7,7 @@ import 'dart:math';
 
 import 'src/client.dart';
 import 'src/envelope.dart';
+import 'src/uploads.dart';
 import 'src/wire.dart';
 
 /// Behaves like the real core - sequence numbers, ULIDs, ADR 001 order - and
@@ -41,6 +42,9 @@ class FakeCore implements CoreClient {
 
   /// Adds events as though they were already in the log.
   void seed(Iterable<EventEnvelope> events) => _events.addAll(events);
+
+  /// What [uploadStatus] answers. The fake runs no sync, so a test sets it.
+  UploadStatus uploadStatusValue = UploadStatus.empty;
 
   @override
   Future<EventEnvelope> append(NewEvent event) => _call(Wire.append, () {
@@ -91,6 +95,15 @@ class FakeCore implements CoreClient {
   Future<void> setAdmissionId(String admissionId) => _call(Wire.setAdmissionId, () {
         validateAdmissionId(admissionId);
         _admissionId = admissionId;
+      });
+
+  @override
+  Future<UploadStatus> uploadStatus() => _call(Wire.uploadStatus, () {
+        // Through the wire form, so a status the real core could not send
+        // fails here too.
+        final wire = uploadStatusValue.toWire();
+        requireWireSafe(wire, 'uploadStatus');
+        return UploadStatus.fromWire(wire);
       });
 
   @override

@@ -10,3 +10,4 @@
 flutter analyze
 flutter test
 cd packages/core && dart test
+cd packages/sync && dart test

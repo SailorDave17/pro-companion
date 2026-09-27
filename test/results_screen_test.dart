@@ -415,6 +415,9 @@ class _HeldCore implements CoreClient {
   Future<void> setAdmissionId(String admissionId) => _inner.setAdmissionId(admissionId);
 
   @override
+  Future<UploadStatus> uploadStatus() => _inner.uploadStatus();
+
+  @override
   Future<void> close() => _inner.close();
 }
 

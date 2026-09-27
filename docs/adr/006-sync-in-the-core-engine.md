@@ -52,6 +52,9 @@ destroyed:
    Flutter tool adds it for development), in the app as in the spike. A release build would have
    no network: this is reasoned, not measured, since the spike ran a profile build. Add it in the
    first story that ships a network call (#6, or #71 if it lands first).
+   *(2026-09-26, at #6: #6 ships the sync package but no network call from the app, since
+   starting sync in the core host is #113's. The permission is #46's, which already carries
+   it as a story.)*
 
 ## Measured
 

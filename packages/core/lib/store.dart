@@ -4,5 +4,6 @@ library;
 
 export 'src/chain.dart'
     show ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
-export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, newUlid;
+export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isAdmissionId, newUlid;
 export 'src/store.dart' show EventStore;
+export 'src/uploads.dart' show PendingUpload, RefusedUpload, UploadRun, UploadRunState, UploadStatus;

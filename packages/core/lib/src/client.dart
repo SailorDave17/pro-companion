@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'envelope.dart';
+import 'uploads.dart';
 import 'wire.dart';
 
 /// The only way the UI reaches the core (ADR 001, ADR 003). Every call is
@@ -28,6 +29,11 @@ abstract interface class CoreClient {
   /// appended from now on carries it (#49). A re-admission calls this again;
   /// events already stored keep the admission they were written under.
   Future<void> setAdmissionId(String admissionId);
+
+  /// Where this phone's own events stand on their way to shore (#6): how many
+  /// wait, how many the server holds, which it refused and why, and how sync's
+  /// latest run ended.
+  Future<UploadStatus> uploadStatus();
 
   /// Closes the store and stops the core.
   Future<void> close();
@@ -78,6 +84,10 @@ class PortCoreClient implements CoreClient {
   Future<void> setAdmissionId(String admissionId) async {
     await _call(Wire.setAdmissionId, {'admission_id': admissionId});
   }
+
+  @override
+  Future<UploadStatus> uploadStatus() async =>
+      UploadStatus.fromWire(await _call(Wire.uploadStatus, const {}) as Map);
 
   @override
   Future<void> close() async {

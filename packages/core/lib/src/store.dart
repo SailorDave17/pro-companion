@@ -5,6 +5,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'chain.dart';
 import 'envelope.dart';
+import 'uploads.dart';
 import 'wire.dart';
 
 /// The append-only event log on the phone (ADR 002): SQLite through
@@ -112,6 +113,70 @@ class EventStore {
         key TEXT PRIMARY KEY NOT NULL,
         value TEXT NOT NULL
       ) STRICT''');
+    _createUploadSchema(db);
+  }
+
+  /// What sync (#6) keeps about each event on its way to shore. The events
+  /// table refuses UPDATE, so an event's upload state is kept beside it, in
+  /// tables that are append-only the same way: each row records a fact that
+  /// never changes.
+  static void _createUploadSchema(sql.Database db) {
+    // The race day each admission belongs to. An admission's race day never
+    // changes, so an event is sent to the same race day on every retry: a
+    // re-send under another would come back as a ulid_conflict.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS upload_admission (
+        admission_id TEXT PRIMARY KEY NOT NULL,
+        event_id TEXT NOT NULL
+      ) STRICT''');
+    // Each send of an event, written before it goes out, so it survives a
+    // kill with the request in flight.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS upload_attempt (
+        ulid TEXT NOT NULL,
+        n INTEGER NOT NULL,
+        at INTEGER NOT NULL,
+        PRIMARY KEY (ulid, n)
+      ) STRICT''');
+    // A send whose failure proves the server stored nothing. A send with no
+    // row here and no outcome may have landed.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS upload_attempt_void (
+        ulid TEXT NOT NULL,
+        n INTEGER NOT NULL,
+        PRIMARY KEY (ulid, n)
+      ) STRICT''');
+    // One final answer per event: accepted, or refused with its reason.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS upload_outcome (
+        ulid TEXT PRIMARY KEY NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN ('accepted', 'refused')),
+        reason TEXT,
+        server_hash TEXT,
+        may_be_on_shore INTEGER NOT NULL CHECK (may_be_on_shore IN (0, 1)),
+        at INTEGER NOT NULL,
+        CHECK ((outcome = 'refused') = (reason IS NOT NULL))
+      ) STRICT''');
+    for (final (table, key) in const [
+      ('upload_admission', 'admission_id = NEW.admission_id'),
+      ('upload_attempt', 'ulid = NEW.ulid AND n = NEW.n'),
+      ('upload_attempt_void', 'ulid = NEW.ulid AND n = NEW.n'),
+      ('upload_outcome', 'ulid = NEW.ulid'),
+    ]) {
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_update BEFORE UPDATE ON $table
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: UPDATE refused'); END''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_delete BEFORE DELETE ON $table
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: DELETE refused'); END''');
+      // As on events: INSERT OR REPLACE would delete without the delete
+      // trigger, and INSERT OR IGNORE and ON CONFLICT reach this too, so every
+      // idempotent write below checks before it inserts.
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_replace BEFORE INSERT ON $table
+        WHEN EXISTS (SELECT 1 FROM $table WHERE $key)
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: an existing row cannot be replaced'); END''');
+    }
   }
 
   static String _deviceId(sql.Database db, int Function() clock, Random random) {
@@ -165,8 +230,162 @@ class EventStore {
   }
 
   /// Stores an event exactly as given - one of this device's, or one written
-  /// by another phone and arriving through sync (#6). Never replaces one.
+  /// by another phone and pulled down to this one (#64). Never replaces one.
   void insert(EventEnvelope e) => _store(e);
+
+  // Sync's records (#6) -------------------------------------------------------
+
+  /// This device's own events that have no outcome yet, by sequence number,
+  /// each with its body exactly as stored. Events another phone wrote are
+  /// never here: each phone uploads its own.
+  List<PendingUpload> pendingUploads() => [
+        for (final r in _db.select(
+            'SELECT e.ulid, e.seq, e.body FROM events e '
+            'WHERE e.device_id = ? AND NOT EXISTS (SELECT 1 FROM upload_outcome o WHERE o.ulid = e.ulid) '
+            'ORDER BY e.seq',
+            [deviceId]))
+          PendingUpload(
+            ulid: r['ulid'] as String,
+            seq: r['seq'] as int,
+            admissionId: _admissionOf(r['body'] as String),
+            canonical: r['body'] as String,
+          ),
+      ];
+
+  static String? _admissionOf(String body) {
+    try {
+      final id = (jsonDecode(body) as Map)['admission_id'];
+      return id is String ? id : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Records that [admissionId] admits this phone to race day [eventId]. An
+  /// admission's race day never changes: recording it again is a no-op, and
+  /// recording another race day for it is refused.
+  void recordAdmissionEvent(String admissionId, String eventId) {
+    validateAdmissionId(admissionId);
+    if (!isAdmissionId(eventId)) {
+      throw ArgumentError.value(eventId, 'eventId', 'is not a UUID in the form Postgres prints');
+    }
+    final known = admissionEvent(admissionId);
+    if (known == eventId) return;
+    if (known != null) {
+      throw StateError('admission $admissionId is for race day $known, not $eventId');
+    }
+    _db.execute('INSERT INTO upload_admission (admission_id, event_id) VALUES (?, ?)', [admissionId, eventId]);
+  }
+
+  /// The race day [admissionId] admits this phone to, or null when sync has
+  /// not learned it.
+  String? admissionEvent(String admissionId) {
+    final rows = _db.select('SELECT event_id FROM upload_admission WHERE admission_id = ?', [admissionId]);
+    return rows.isEmpty ? null : rows.first['event_id'] as String;
+  }
+
+  /// Records that send [n] of [ulid] is about to go out, before it does, and
+  /// says whether an earlier send's outcome is unknown: one that may have
+  /// reached the server, since it was neither answered nor proved to have
+  /// stored nothing ([voidAttempt]).
+  ({int n, bool earlierUnknown}) beginAttempt(String ulid) {
+    _requireOwnEvent(ulid);
+    final rows = _db.select(
+      'SELECT coalesce(max(a.n), 0) AS last, '
+      'count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM upload_attempt_void v '
+      'WHERE v.ulid = a.ulid AND v.n = a.n)) AS unknown '
+      'FROM upload_attempt a WHERE a.ulid = ?',
+      [ulid],
+    );
+    final n = (rows.first['last'] as int) + 1;
+    _db.execute('INSERT INTO upload_attempt (ulid, n, at) VALUES (?, ?, ?)', [ulid, n, _clock()]);
+    return (n: n, earlierUnknown: (rows.first['unknown'] as int) > 0);
+  }
+
+  /// Records that send [n] of [ulid] failed in a way that proves the server
+  /// stored nothing. Recording it again is a no-op.
+  void voidAttempt(String ulid, int n) {
+    if (_db.select('SELECT 1 FROM upload_attempt WHERE ulid = ? AND n = ?', [ulid, n]).isEmpty) {
+      throw StateError('$ulid has no send $n to void');
+    }
+    if (_db.select('SELECT 1 FROM upload_attempt_void WHERE ulid = ? AND n = ?', [ulid, n]).isNotEmpty) return;
+    _db.execute('INSERT INTO upload_attempt_void (ulid, n) VALUES (?, ?)', [ulid, n]);
+  }
+
+  /// Records that the server holds [ulid], answering with [serverHash].
+  void recordAccepted(String ulid, String serverHash) =>
+      _recordOutcome(ulid, 'accepted', null, serverHash, mayBeOnShore: false);
+
+  /// Records that the server refused [ulid] for [reason]. It is final: the
+  /// event stays on the phone, flagged, and is never sent again (#6).
+  void recordRefused(String ulid, String reason, {required bool mayBeOnShore}) {
+    if (reason.isEmpty) throw ArgumentError.value(reason, 'reason', 'must not be empty');
+    _recordOutcome(ulid, 'refused', reason, null, mayBeOnShore: mayBeOnShore);
+  }
+
+  void _recordOutcome(String ulid, String outcome, String? reason, String? serverHash,
+      {required bool mayBeOnShore}) {
+    _requireOwnEvent(ulid);
+    final existing = _db.select(
+        'SELECT outcome, reason, server_hash, may_be_on_shore FROM upload_outcome WHERE ulid = ?', [ulid]);
+    if (existing.isNotEmpty) {
+      final r = existing.first;
+      if (r['outcome'] == outcome &&
+          r['reason'] == reason &&
+          r['server_hash'] == serverHash &&
+          r['may_be_on_shore'] == (mayBeOnShore ? 1 : 0)) {
+        return;
+      }
+      throw StateError('$ulid already has an outcome: ${r['outcome']}');
+    }
+    _db.execute(
+      'INSERT INTO upload_outcome (ulid, outcome, reason, server_hash, may_be_on_shore, at) '
+      'VALUES (?, ?, ?, ?, ?, ?)',
+      [ulid, outcome, reason, serverHash, mayBeOnShore ? 1 : 0, _clock()],
+    );
+  }
+
+  void _requireOwnEvent(String ulid) {
+    if (_db.select('SELECT 1 FROM events WHERE ulid = ? AND device_id = ?', [ulid, deviceId]).isEmpty) {
+      throw ArgumentError.value(ulid, 'ulid', "is not one of this device's events");
+    }
+  }
+
+  /// Keeps [run] as sync's latest, replacing the one before: the one piece of
+  /// sync's state that is a current value rather than a fact.
+  void recordUploadRun(UploadRun run) {
+    if (!UploadRunState.all.contains(run.state)) {
+      throw ArgumentError.value(run.state, 'state', 'is not an upload run state');
+    }
+    _db.execute(
+      "INSERT INTO meta (key, value) VALUES ('upload_run', ?) "
+      'ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+      [jsonEncode(run.toWire())],
+    );
+  }
+
+  /// Where this device's own events stand on their way to shore.
+  UploadStatus uploadStatus() {
+    var pending = 0;
+    var neverAdmitted = 0;
+    for (final p in pendingUploads()) {
+      p.admissionId == null ? neverAdmitted++ : pending++;
+    }
+    final accepted = _db.select("SELECT count(*) AS n FROM upload_outcome WHERE outcome = 'accepted'").first['n'] as int;
+    final refused = [
+      for (final r in _db.select("SELECT ulid, reason, may_be_on_shore FROM upload_outcome "
+          "WHERE outcome = 'refused' ORDER BY at, ulid"))
+        RefusedUpload(ulid: r['ulid'] as String, reason: r['reason'] as String, mayBeOnShore: r['may_be_on_shore'] == 1),
+    ];
+    final run = _db.select("SELECT value FROM meta WHERE key = 'upload_run'");
+    return UploadStatus(
+      pending: pending,
+      accepted: accepted,
+      neverAdmitted: neverAdmitted,
+      refused: refused,
+      lastRun: run.isEmpty ? null : UploadRun.fromWire(jsonDecode(run.first['value'] as String) as Map),
+    );
+  }
 
   String _store(EventEnvelope e) {
     final wire = e.toWire();

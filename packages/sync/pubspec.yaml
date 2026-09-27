@@ -1,0 +1,31 @@
+name: pro_companion_sync
+description: >-
+  Sync (#6, ADR 006): uploads the phone's own events to the companion's server
+  through append_event, exactly once, and keeps each one's outcome in the
+  core's store. Pure Dart - no Flutter - so it runs in the headless core
+  engine and is tested with dart test.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.12.2
+
+resolution: workspace
+
+dependencies:
+  # Pinned: ADR 006 measured this version (gotrue 2.27.2, postgrest 2.9.1),
+  # and its session and refresh behaviour is what sync is built against.
+  supabase: 2.16.1
+  # The versions supabase 2.16.1 resolves, pinned the same way: the transport
+  # sync hands the client, the JSON codec it hands it in place of a helper
+  # isolate, and the clock its backoff reads, which tests fake.
+  http: 1.6.0
+  yet_another_json_isolate: 2.1.1
+  clock: 1.1.2
+  pro_companion_core: any
+
+dev_dependencies:
+  # The version flutter_test already resolves for the workspace.
+  fake_async: 1.3.3
+  lints: any
+  test: any

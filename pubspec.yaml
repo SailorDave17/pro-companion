@@ -6,11 +6,12 @@ version: 0.1.0+1
 environment:
   sdk: ^3.12.2
 
-# One resolution for the app and the local core (#24), so a single
-# `flutter pub get` at the root resolves both and root `flutter analyze` sees
-# the core's dev dependencies on a fresh checkout.
+# One resolution for the app, the local core (#24) and sync (#6), so a single
+# `flutter pub get` at the root resolves all three and root `flutter analyze`
+# sees each package's dev dependencies on a fresh checkout.
 workspace:
   - packages/core
+  - packages/sync
 
 dependencies:
   flutter:
@@ -28,6 +29,15 @@ dev_dependencies:
   # SHA256SUMS over fixtures/scoring/ (#83); pinned to the version already
   # resolved transitively, so the lockfile only changes its dependency kind.
   crypto: 3.0.7
+  # The local-stack sync tests under test/ drive the real sync engine (#6).
+  # A dev dependency only: the app under lib/ never imports sync (ADR 006
+  # decision 4, held by test/import_boundary_test.dart).
+  pro_companion_sync: any
+  # Those tests hand the engine a transport they can cut and fault, and read
+  # the client's own errors. Pinned to the versions sync resolves, so the
+  # lockfile only changes their dependency kind; lib/ is barred from both.
+  http: 1.6.0
+  supabase: 2.16.1
 
 flutter:
   uses-material-design: true
