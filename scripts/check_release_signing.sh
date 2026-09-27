@@ -47,6 +47,7 @@ if [ -z "${APKSIGNER:-}" ]; then
   APKSIGNER="$TOOLS/apksigner"
   [ -f "$APKSIGNER" ] || APKSIGNER="$TOOLS/apksigner.bat"
 fi
+echo "release-signing: apksigner is $APKSIGNER"
 
 WORK=$(mktemp -d)
 WROTE_KEY_PROPERTIES=0
@@ -119,8 +120,13 @@ build_and_verify() {
     echo "FAIL: apksigner could not verify the APK ($1)"
     exit 1
   fi
-  signers=$(tr -d '\r' <"$WORK/$1.certs" | grep -c 'certificate SHA-256 digest:')
-  got=$(tr -d '\r' <"$WORK/$1.certs" | sed -n 's/^Signer #1 certificate SHA-256 digest: *//p')
+  # The digest line's prefix is apksigner's wording, and it moves between build-tools versions:
+  # 36.0.0 prints "Signer #1 certificate SHA-256 digest:", the CI runner's "V2 Signer: certificate
+  # SHA-256 digest:" (one line per scheme). So read every SHA-256 digest whatever precedes it, and
+  # hold the APK to exactly one distinct certificate.
+  digests=$(tr -d '\r' <"$WORK/$1.certs" | sed -n 's/.*certificate SHA-256 digest: *\([0-9a-f]*\).*/\1/p' | sort -u)
+  signers=$(printf '%s\n' "$digests" | grep -c .)
+  got=$(printf '%s\n' "$digests" | head -n 1)
   if [ "$signers" != 1 ] || [ "$got" != "$EXPECTED" ]; then
     cat "$WORK/$1.certs"
     echo "FAIL: ($1) signed by $signers signer(s), first '$got'; expected only the throwaway key, $EXPECTED"
