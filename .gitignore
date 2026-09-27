@@ -20,6 +20,13 @@ migrate_working_dir/
 # ignored at any depth; only the names-only template is tracked.
 .env*
 !.env.example
+# Release signing (#23): the owner's upload keystore and android/key.properties
+# live outside git, at any depth, and so do copies of them (key.properties.bak,
+# upload.jks.orig). test/no_secrets_in_tree_test.dart fails if one is ever
+# tracked anyway (git add -f gets past an ignore rule).
+*.jks*
+*.keystore*
+key.properties*
 
 # IntelliJ related
 *.iml
