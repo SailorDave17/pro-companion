@@ -1,0 +1,110 @@
+# pro-companion #15, beyond the criteria: each mechanism while the core host is down
+# Emulator Pixel_9_API_36 (google_apis, x86_64, API 36); profile build of the tree committed with
+# this file. For each case the core is started from the activity, the activity is closed, the
+# companion's process is killed (kill -9 as root), and the harness at once emits 10 events 500 ms
+# apart over one mechanism, or nothing for the `none` control.
+#   ADB=<adb> sh tool/core_host_spike/link_kill_probe.sh 10 500     (2026-10-06, 16:57-17:01 UTC)
+# Reading it: with no traffic the core is back 1.4 s after the kill. An event that reaches the
+# process first turns the pending restart into a background start of a location foreground
+# service, which is refused; CoreService.onCreate throws and the process crashes. Broadcast: 10
+# told "sent", 0 stored. Bound: 10 told "no_core", first in 405 ms (the process start), the rest
+# in 1.7-5.9 ms. Provider: the first call never returned, so nothing more was emitted. After the
+# last crash the system scheduled CoreService's next restart 30 minutes out.
+# An earlier run of the same probe the same day (pre-commit tree, identical on API 36) differed
+# only in the provider case: two calls returned null before the third blocked for 3.5 minutes,
+# until the run was stopped.
+
+== none: killed pid 11323; 15 s later pid '11372', core service records 1
+  12:57:45.695 I/ActivityManager(  694): Process com.procompanion.core_host_spike (pid 11323) has died: fg +50 FGS 
+  12:57:45.697 W/ActivityManager(  694): Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+  12:57:46.719 I/ActivityManager(  694): Start proc 11372:com.procompanion.core_host_spike/u0a216 for service {com.procompanion.core_host_spike/com.procompanion.core_host_spike.CoreService}
+  12:57:47.139 I/flutter (11372): CORE 2026-10-06T16:57:47.135552Z START pid=11372
+== broadcast: killed pid 11418; 15 s later pid '', core service records 0
+  12:58:08.610 I/ActivityManager(  694): Process com.procompanion.core_host_spike (pid 11418) has died: fg +50 FGS 
+  12:58:08.613 W/ActivityManager(  694): Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+  12:58:08.762 I/ActivityManager(  694): Start proc 11473:com.procompanion.core_host_spike/u0a216 for broadcast {com.procompanion.core_host_spike/com.procompanion.core_host_spike.LinkReceiver}
+  12:58:09.131 W/ActivityManager(  694): Background started FGS: Disallowed [callingPackage: com.procompanion.core_host_spike; callingUid: 10216; uidState: SVC ; uidBFSL: n/a; intent: Intent { cmp=com.procompanion.core_host_spike/
+  12:58:09.131 W/ActivityManager(  694): Service.startForeground() not allowed due to mAllowStartForeground false: service com.procompanion.core_host_spike/.CoreService
+  12:58:09.135 E/AndroidRuntime(11473): FATAL EXCEPTION: main
+  12:58:09.135 E/AndroidRuntime(11473): java.lang.RuntimeException: Unable to create service com.procompanion.core_host_spike.CoreService: android.app.ForegroundServiceStartNotAllowedException: Service.startForeground() not allowe
+  12:58:09.135 E/AndroidRuntime(11473): Caused by: android.app.ForegroundServiceStartNotAllowedException: Service.startForeground() not allowed due to mAllowStartForeground false: service com.procompanion.core_host_spike/.CoreServ
+  12:58:09.164 I/ActivityManager(  694): Process com.procompanion.core_host_spike (pid 11473) has died: fg  SVC 
+  12:58:09.166 W/ActivityManager(  694): Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 4000ms for start-requested
+  12:58:09.274 I/ActivityManager(  694): Start proc 11489:com.procompanion.core_host_spike/u0a216 for broadcast {com.procompanion.core_host_spike/com.procompanion.core_host_spike.LinkReceiver}
+  12:58:09.617 W/ActivityManager(  694): Service.startForeground() not allowed due to mAllowStartForeground false: service com.procompanion.core_host_spike/.CoreService
+  12:58:09.623 E/AndroidRuntime(11489): FATAL EXCEPTION: main
+  12:58:09.623 E/AndroidRuntime(11489): java.lang.RuntimeException: Unable to create service com.procompanion.core_host_spike.CoreService: android.app.ForegroundServiceStartNotAllowedException: Service.startForeground() not allowe
+  12:58:09.623 E/AndroidRuntime(11489): Caused by: android.app.ForegroundServiceStartNotAllowedException: Service.startForeground() not allowed due to mAllowStartForeground false: service com.procompanion.core_host_spike/.CoreServ
+  12:58:09.631 W/ActivityManager(  694): Process com.procompanion.core_host_spike has crashed too many times, killing! Reason: crashed quickly
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=1 status=sent send_us=4941 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=2 status=sent send_us=3615 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=3 status=sent send_us=1373 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=4 status=sent send_us=1189 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=5 status=sent send_us=1039 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=6 status=sent send_us=2479 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=7 status=sent send_us=1500 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=8 status=sent send_us=1220 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=9 status=sent send_us=1306 idle=false
+  EMIT run=killed-broadcast-20261006T165737Z mech=broadcast n=10 status=sent send_us=1041 idle=false
+== bound: killed pid 11527; 15 s later pid '11581', core service records 1
+  12:58:36.944 I/ActivityManager(  694): Process com.procompanion.core_host_spike (pid 11527) has died: fg +50 FGS 
+  12:58:36.946 W/ActivityManager(  694): Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+  12:58:37.031 I/ActivityManager(  694): Start proc 11581:com.procompanion.core_host_spike/u0a216 for service {com.procompanion.core_host_spike/com.procompanion.core_host_spike.LinkService}
+  12:58:37.307 E/AndroidRuntime(11581): FATAL EXCEPTION: main
+  12:58:37.307 E/AndroidRuntime(11581): java.lang.RuntimeException: Unable to create service com.procompanion.core_host_spike.CoreService: java.lang.SecurityException: Starting FGS with type location callerApp=ProcessRecord{f043e4
+  12:58:37.307 E/AndroidRuntime(11581): Caused by: java.lang.SecurityException: Starting FGS with type location callerApp=ProcessRecord{f043e47 11581:com.procompanion.core_host_spike/u0a216} targetSDK=36 requires permissions: all 
+  12:58:37.307 E/AndroidRuntime(11581): Caused by: android.os.RemoteException: Remote stack trace:
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=1 status=no_core send_us=405156 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=2 status=no_core send_us=4292 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=3 status=no_core send_us=2205 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=4 status=no_core send_us=2459 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=5 status=no_core send_us=1835 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=6 status=no_core send_us=5895 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=7 status=no_core send_us=2509 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=8 status=no_core send_us=2644 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=9 status=no_core send_us=1755 idle=false
+  EMIT run=killed-bound-20261006T165737Z mech=bound n=10 status=no_core send_us=4317 idle=false
+== provider: the harness did not finish its run in 120 s; a call into the companion was still blocked
+== provider: killed pid 11622; 15 s later pid '', core service records 2
+  12:59:05.281 I/ActivityManager(  694): Process com.procompanion.core_host_spike (pid 11622) has died: fg +50 FGS 
+  12:59:05.285 W/ActivityManager(  694): Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1000ms for start-requested
+  12:59:05.369 I/ActivityManager(  694): Start proc 11679:com.procompanion.core_host_spike/u0a216 for content provider {com.procompanion.core_host_spike/com.procompanion.core_host_spike.LinkProvider}
+  12:59:05.660 E/AndroidRuntime(11679): FATAL EXCEPTION: main
+  12:59:05.660 E/AndroidRuntime(11679): java.lang.RuntimeException: Unable to create service com.procompanion.core_host_spike.CoreService: java.lang.SecurityException: Starting FGS with type location callerApp=ProcessRecord{5b7f8c
+  12:59:05.660 E/AndroidRuntime(11679): Caused by: java.lang.SecurityException: Starting FGS with type location callerApp=ProcessRecord{5b7f8c8 11679:com.procompanion.core_host_spike/u0a216} targetSDK=36 requires permissions: all 
+  12:59:05.660 E/AndroidRuntime(11679): Caused by: android.os.RemoteException: Remote stack trace:
+  12:59:05.681 I/ActivityManager(  694): Process com.procompanion.core_host_spike (pid 11679) has died: fg  BFGS
+  12:59:05.687 W/ActivityManager(  694): Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 4000ms for start-requested
+  12:59:09.709 I/ActivityManager(  694): Start proc 11697:com.procompanion.core_host_spike/u0a216 for service {com.procompanion.core_host_spike/com.procompanion.core_host_spike.CoreService}
+  12:59:10.028 E/AndroidRuntime(11697): FATAL EXCEPTION: main
+  12:59:10.028 E/AndroidRuntime(11697): java.lang.RuntimeException: Unable to create service com.procompanion.core_host_spike.CoreService: java.lang.SecurityException: Starting FGS with type location callerApp=ProcessRecord{9222cc
+  12:59:10.028 E/AndroidRuntime(11697): Caused by: java.lang.SecurityException: Starting FGS with type location callerApp=ProcessRecord{9222cc5 11697:com.procompanion.core_host_spike/u0a216} targetSDK=36 requires permissions: all 
+  12:59:10.028 E/AndroidRuntime(11697): Caused by: android.os.RemoteException: Remote stack trace:
+  12:59:10.048 I/ActivityManager(  694): Process com.procompanion.core_host_spike (pid 11697) has died: fg  SVC 
+  12:59:10.051 W/ActivityManager(  694): Scheduling restart of crashed service com.procompanion.core_host_spike/.CoreService in 1800000ms for start-requested
+== report (build/link_kill_probe_20261006T165737Z.log)
+killed-broadcast-20261006T165737Z  (broadcast, interval 500 ms, sdk 36)
+  emitted 10 of 10, device idle at 0 of them; harness told: sent 10
+  endpoint received 2; core stored 0 distinct (its own count reached 0), 0 duplicates
+  DELIVERED 0/10  missing: n=1 n=2 n=3 n=4 n=5 n=6 n=7 n=8 n=9 n=10
+  send call (harness) us: p50 1306, p95 4941, max 4941
+  emit -> endpoint us:    p50 259199, p95 263738, max 263738
+  emit -> core ms:        -
+  done: run=killed-broadcast-20261006T165737Z mech=broadcast emitted=10 ok=10 refused=0 errors=0 idle=false
+killed-bound-20261006T165737Z  (bound, interval 500 ms, sdk 36)
+  emitted 10 of 10, device idle at 0 of them; harness told: no_core 10
+  endpoint received 10; core stored 0 distinct (its own count reached 0), 0 duplicates
+  DELIVERED 0/10  missing: n=1 n=2 n=3 n=4 n=5 n=6 n=7 n=8 n=9 n=10
+  send call (harness) us: p50 2509, p95 405156, max 405156
+  emit -> endpoint us:    p50 654, p95 266978, max 266978
+  emit -> core ms:        -
+  done: run=killed-bound-20261006T165737Z mech=bound emitted=10 ok=0 refused=0 errors=10 idle=false
+killed-provider-20261006T165737Z  (provider, interval 500 ms, sdk 36)
+  emitted 0 of 10, device idle at 0 of them; harness told: 
+  endpoint received 0; core stored 0 distinct (its own count reached 0), 0 duplicates
+  DELIVERED 0/0
+  send call (harness) us: -
+  emit -> endpoint us:    -
+  emit -> core ms:        -
+  done: NO DONE LINE
+refusals logged: 0

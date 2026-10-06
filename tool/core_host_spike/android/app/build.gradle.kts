@@ -24,6 +24,19 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // #15: who may send race-timer link events (LinkTrust). link_build.sh passes the
+        // harness's package and its trusted key's SHA-256. With no certificate pinned,
+        // nothing is trusted.
+        val linkPackage = (findProperty("linkTrustedPackage") as String?) ?: "com.procompanion.link_harness"
+        val linkCerts = (findProperty("linkTrustedCerts") as String?) ?: ""
+        resValue("string", "link_trusted_package", linkPackage)
+        resValue("string", "link_trusted_certs", linkCerts)
+        manifestPlaceholders["linkTrustedPackage"] = linkPackage
+    }
+
+    buildFeatures {
+        resValues = true
     }
 
     buildTypes {
