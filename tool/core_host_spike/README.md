@@ -45,3 +45,48 @@ clubs, users and fleets otherwise stay in the shared stack.
 Commands reach the running service as `am startservice … --es payload sync:<base64url JSON>`
 from a root shell, because the service is not exported. The phone reaches the stack at its own
 127.0.0.1 over `adb reverse`. No line the run writes carries a key, a token or an admission code.
+
+## The race-timer link (#15, ADR 004)
+
+#15 extended the spike again, to pick how race-timer's sequence events reach the companion on the
+same phone with the companion backgrounded and the screen off. The spike app is the companion:
+three candidate endpoints hand each event to the headless core, which writes it as a `LINK` line.
+A second, plain Kotlin app stands in for race-timer. **Verdict: a bound service**, which answered
+every event, including `no_core` while the core host was down. The broadcast lost events silently
+there, and a provider call blocked its caller. The numbers are in `docs/adr/004-race-timer-link.md`.
+
+| what | where |
+|---|---|
+| The three endpoints: an explicit broadcast, a bound service, a content provider's `call()` | `android/app/src/main/kotlin/.../LinkEndpoints.kt` |
+| Who may send: the pinned package, signed by a pinned certificate, judged at runtime | `.../LinkTrust.kt`, called first by `.../LinkInbox.kt` |
+| The core's side: one `LINK` line per event, counted per run and de-duplicated by id | `lib/main.dart` (`LinkLog`) |
+| The race-timer stand-in: a foreground service emitting a scripted day over one mechanism | `android/harness/` (package `com.procompanion.link_harness`) |
+| Build, sign the harness with a trusted and an imposter key, install | `link_build.sh` |
+| Criteria 1 and 2: 50 events per mechanism, backgrounded, then destroyed + forced Doze | `link_run.sh`, read by `link_report.dart` |
+| Criterion 3: an imposter-signed harness is refused, a trusted one accepted | `LinkTrustTest` (instrumented), run by `link_tests.sh` |
+| Beyond the criteria: each mechanism while the core host is down (killed), with a no-traffic control | `link_kill_probe.sh` (needs `adb root`) |
+| The runs committed | `results/2026-10-06-link-run.txt`, `results/2026-10-06-link-kill-probe.txt` |
+
+With one device or emulator attached, API 34 or later:
+
+```sh
+ADB=path/to/adb sh tool/core_host_spike/link_run.sh [count] [interval_ms]   # default 50, 5000
+ADB=path/to/adb sh tool/core_host_spike/link_tests.sh
+ADB=path/to/adb sh tool/core_host_spike/link_kill_probe.sh [count] [interval_ms]   # default 10, 500
+```
+
+**#21 on the club phone** runs the chosen mechanism only, at 50 events over 30 minutes, with the
+phone screen-off in a pocket: `sh link_build.sh profile trusted`, start the core from the app, close
+it, then `adb shell am start-foreground-service -n com.procompanion.link_harness/.EmitService --es
+mech bound --ei count 50 --ei interval_ms 36000 --es run club-phone`, with
+`adb logcat -v time -s LINK:V flutter:V > club-phone.log` running throughout. Then
+`dart link_report.dart club-phone.log` reports it.
+
+`link_build.sh` makes two throwaway keys under `build/link_keys/` on first use and builds the
+companion with the trusted one's SHA-256 pinned. The harness is never signed with the companion's
+key, because race-timer never will be. A run is started by hand with
+`adb shell am start-foreground-service -n com.procompanion.link_harness/.EmitService --es mech
+<broadcast|bound|provider> --ei count 50 --ei interval_ms 5000 --es run <id>`, and its `EMIT`,
+`RECV`, `LINK` and `DONE` lines are read from logcat (tags `LINK` and `flutter`). The harness holds
+a partial wake lock for the run, as race-timer's own sequence does, so on a real phone (#21) a gap
+is the link's and not the stand-in's.

@@ -4,6 +4,9 @@
 - Builds on: pro-companion ADR 001 (the local core, UI never calls the network) and ADR 002 (the
   store is package:sqlite3, which is synchronous and wants to live off the UI isolate)
 - Evidence: `tool/core_host_spike/` (service, headless entry point, instrumented tests, Doze run)
+- Amended 2026-10-06 by pro-companion #15 (ADR 004): a sticky restart of the host is refused when
+  another component starts the process first, and the host as written then crash-loops. See
+  "Consequences and limits".
 
 ## Context
 
@@ -117,6 +120,19 @@ connect.
   any order.
 - **Plugins in the headless engine.** Any plugin the core uses must work without an activity. #24
   checks that for each one it adds.
+- **A sticky restart is refused when something else starts the process first** (amended
+  2026-10-06, #15, measured on the Pixel 9 API 36 emulator by
+  `tool/core_host_spike/link_kill_probe.sh`). After a `kill -9` with nothing else running, the
+  system restarted `CoreService` and the core wrote `START` 1.5 s later, as #47 measured on API 34.
+  The probe then sent a race-timer link event right after the kill. The event started the process,
+  for the link's receiver, service or provider, before the pending restart, which then ran in that
+  process as a background start. `startForeground(…, LOCATION)` was refused, as
+  `ForegroundServiceStartNotAllowedException` or as a `SecurityException` on the `location` type.
+  `onCreate` does not catch it, so the process crashed. After quick repeat crashes, the system either
+  gave up on the service or scheduled its next restart 30 minutes out, and every restart in between
+  was refused the same way (`results/2026-10-06-link-kill-probe.txt`). **The real host (#32) must catch a refused `startForeground`,
+  stop itself and leave the process running**, so anything else in it can answer for itself. Any
+  exported component in the core host's process is a way in, not only the link.
 
 ## Kill condition
 

@@ -1,0 +1,77 @@
+# pro-companion #15, criteria 1 and 2: the race-timer link, per mechanism
+# Emulator Pixel_9_API_36 (google_apis, x86_64, API 36); profile build of the tree committed with
+# this file; harness signed with the trusted key, companion pinning it.
+#   ADB=<adb> sh tool/core_host_spike/link_run.sh 50 5000      (2026-10-06, 16:32-16:57 UTC)
+# Criterion 1: companion backgrounded (HOME, screen on). Criterion 2: its activity destroyed
+# (BACK), screen off, `dumpsys deviceidle force-idle`. "companion activities" counts dumpsys lines
+# naming MainActivity (0 = destroyed); "core service" counts lines naming CoreService.
+# "emit -> endpoint" is on elapsedRealtime, shared exactly by both processes; "emit -> core" is
+# wall clock at millisecond resolution, from race-timer's at_ms to the core's write.
+
+== criterion 1: companion backgrounded
+  before: screen Awake, deep idle ACTIVE, companion activities 9, core service 3, resumed: ActivityRecord{77895862 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}
+16:32:23 background-broadcast-20261006T163207Z
+  after background-broadcast-20261006T163207Z: screen Awake, deep idle ACTIVE, companion activities 9, core service 3, resumed: ActivityRecord{77895862 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}
+16:36:34 background-bound-20261006T163207Z
+  after background-bound-20261006T163207Z: screen Awake, deep idle ACTIVE, companion activities 9, core service 3, resumed: ActivityRecord{77895862 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}
+16:40:45 background-provider-20261006T163207Z
+  after background-provider-20261006T163207Z: screen Awake, deep idle ACTIVE, companion activities 9, core service 3, resumed: ActivityRecord{77895862 u0 com.google.android.apps.nexuslauncher/.NexusLauncherActivity t2}
+== criterion 2: activity destroyed, screen off, forced Doze
+Warning: Activity not started, its current task has been brought to the front
+  before: screen Dozing, deep idle IDLE, companion activities 0, core service 3, resumed: 
+16:45:03 doze-broadcast-20261006T163207Z
+  after doze-broadcast-20261006T163207Z: screen Asleep, deep idle IDLE, companion activities 0, core service 3, resumed: 
+16:49:13 doze-bound-20261006T163207Z
+  after doze-bound-20261006T163207Z: screen Asleep, deep idle IDLE, companion activities 0, core service 3, resumed: 
+16:53:24 doze-provider-20261006T163207Z
+  after doze-provider-20261006T163207Z: screen Asleep, deep idle IDLE, companion activities 0, core service 3, resumed: 
+== report (build/link_run_20261006T163207Z.log)
+background-broadcast-20261006T163207Z  (broadcast, interval 5000 ms, sdk 36)
+  emitted 50 of 50, device idle at 0 of them; harness told: sent 50
+  endpoint received 50; core stored 50 distinct (its own count reached 50), 0 duplicates
+  DELIVERED 50/50
+  send call (harness) us: p50 1221, p95 2105, max 29171
+  emit -> endpoint us:    p50 2270, p95 3048, max 25322
+  emit -> core ms:        p50 5, p95 6, max 90
+  done: run=background-broadcast-20261006T163207Z mech=broadcast emitted=50 ok=50 refused=0 errors=0 idle=false
+background-bound-20261006T163207Z  (bound, interval 5000 ms, sdk 36)
+  emitted 50 of 50, device idle at 0 of them; harness told: accepted 50
+  endpoint received 50; core stored 50 distinct (its own count reached 50), 0 duplicates
+  DELIVERED 50/50
+  send call (harness) us: p50 1841, p95 2871, max 7861
+  emit -> endpoint us:    p50 457, p95 725, max 5352
+  emit -> core ms:        p50 2, p95 6, max 8
+  done: run=background-bound-20261006T163207Z mech=bound emitted=50 ok=50 refused=0 errors=0 idle=false
+background-provider-20261006T163207Z  (provider, interval 5000 ms, sdk 36)
+  emitted 50 of 50, device idle at 0 of them; harness told: accepted 50
+  endpoint received 50; core stored 50 distinct (its own count reached 50), 0 duplicates
+  DELIVERED 50/50
+  send call (harness) us: p50 3917, p95 4673, max 8201
+  emit -> endpoint us:    p50 1428, p95 1823, max 3697
+  emit -> core ms:        p50 3, p95 4, max 7
+  done: run=background-provider-20261006T163207Z mech=provider emitted=50 ok=50 refused=0 errors=0 idle=false
+doze-broadcast-20261006T163207Z  (broadcast, interval 5000 ms, sdk 36)
+  emitted 50 of 50, device idle at 50 of them; harness told: sent 50
+  endpoint received 50; core stored 50 distinct (its own count reached 50), 0 duplicates
+  DELIVERED 50/50
+  send call (harness) us: p50 1259, p95 1753, max 4576
+  emit -> endpoint us:    p50 2386, p95 3609, max 6832
+  emit -> core ms:        p50 5, p95 6, max 6
+  done: run=doze-broadcast-20261006T163207Z mech=broadcast emitted=50 ok=50 refused=0 errors=0 idle=true
+doze-bound-20261006T163207Z  (bound, interval 5000 ms, sdk 36)
+  emitted 50 of 50, device idle at 50 of them; harness told: accepted 50
+  endpoint received 50; core stored 50 distinct (its own count reached 50), 0 duplicates
+  DELIVERED 50/50
+  send call (harness) us: p50 1809, p95 2720, max 6161
+  emit -> endpoint us:    p50 418, p95 750, max 4168
+  emit -> core ms:        p50 2, p95 3, max 4
+  done: run=doze-bound-20261006T163207Z mech=bound emitted=50 ok=50 refused=0 errors=0 idle=true
+doze-provider-20261006T163207Z  (provider, interval 5000 ms, sdk 36)
+  emitted 50 of 50, device idle at 50 of them; harness told: accepted 50
+  endpoint received 50; core stored 50 distinct (its own count reached 50), 0 duplicates
+  DELIVERED 50/50
+  send call (harness) us: p50 4084, p95 5332, max 5656
+  emit -> endpoint us:    p50 1555, p95 2057, max 2994
+  emit -> core ms:        p50 3, p95 4, max 4
+  done: run=doze-provider-20261006T163207Z mech=provider emitted=50 ok=50 refused=0 errors=0 idle=true
+refusals logged: 0

@@ -2,6 +2,7 @@
 // ignore_for_file: avoid_print
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
@@ -17,10 +18,42 @@ const corePortName = 'pro_companion.core';
 /// base64url-encoded so it survives `adb shell` quoting.
 const syncPrefix = 'sync:';
 
+/// Prefix of a payload carrying a race-timer link event (#15), handed in by the
+/// Kotlin link endpoints once the caller is trusted: `link:` then
+/// `{"mech", "recv_ns", "handed_ns", "event"}`.
+const linkPrefix = 'link:';
+
+/// The core's side of the #15 link spike: one `LINK` line per event that reaches
+/// it, with the run's count of distinct event ids, so a lost log line cannot hide
+/// a delivery and a duplicate cannot pass as one.
+class LinkLog {
+  LinkLog(this._write);
+
+  final void Function(String line) _write;
+  final _seen = <String>{};
+  final _perRun = <String, int>{};
+
+  void receive(String json) {
+    final forwarded = jsonDecode(json) as Map<String, Object?>;
+    final event = forwarded['event']! as Map<String, Object?>;
+    final id = event['id']! as String;
+    final run = '${event['x_run'] ?? '-'}';
+    final dup = !_seen.add(id);
+    final count = dup ? (_perRun[run] ?? 0) : (_perRun[run] = (_perRun[run] ?? 0) + 1);
+    // race-timer's own timestamp against the core's clock: the same wall clock, read in
+    // two processes, so this is end to end at millisecond resolution.
+    final atMs = event['at_ms'] as int?;
+    final e2e = atMs == null ? '-' : '${DateTime.now().millisecondsSinceEpoch - atMs}';
+    _write('LINK run=$run mech=${forwarded['mech']} n=${event['x_n']} id=$id '
+        'kind=${event['kind']} count=$count dup=$dup e2e_ms=$e2e');
+  }
+}
+
 /// The headless core (#14). Started by CoreService in its own FlutterEngine, with
 /// no widget tree. It writes a TICK line every 10 s, writes every forwarded intent,
 /// and answers the UI over an isolate port. Since #47 it also hosts the sync client,
-/// driven by `sync:` intents (see [SyncCommands]).
+/// driven by `sync:` intents (see [SyncCommands]), and since #15 it logs race-timer
+/// link events (see [LinkLog]).
 @pragma('vm:entry-point')
 Future<void> coreMain() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,11 +67,15 @@ Future<void> coreMain() async {
     print('CORE $stamped');
   }
 
+  final link = LinkLog(write);
+
   channel.setMethodCallHandler((call) async {
     if (call.method != 'intent') return;
     final payload = '${call.arguments}';
     if (payload.startsWith(syncPrefix)) {
       sync.enqueue(payload.substring(syncPrefix.length));
+    } else if (payload.startsWith(linkPrefix)) {
+      link.receive(payload.substring(linkPrefix.length));
     } else {
       write('INTENT $payload');
     }

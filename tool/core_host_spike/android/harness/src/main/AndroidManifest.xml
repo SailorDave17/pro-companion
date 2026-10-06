@@ -1,0 +1,27 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- #15: a debug-only stand-in for race-timer. It emits link events to the
+         companion (the core host spike) from a foreground service, as race-timer
+         would while it runs a sequence. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- Android 11+ package visibility: binding to the companion's service and
+         calling its provider both need the companion to be visible. -->
+    <queries>
+        <package android:name="com.procompanion.core_host_spike"/>
+    </queries>
+
+    <application android:label="Link harness (race-timer stand-in)">
+        <!-- Exported so adb (and the companion's instrumented test, through the
+             shell) can start a run. A spike harness: nothing ships with it. -->
+        <service
+            android:name=".EmitService"
+            android:exported="true"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Debug-only race-timer stand-in emitting test events (pro-companion #15)"/>
+        </service>
+    </application>
+</manifest>

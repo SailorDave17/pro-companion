@@ -24,3 +24,6 @@ plugins {
 }
 
 include(":app")
+// #15: the debug-only race-timer stand-in that emits link events to :app. A plain
+// Android app (no Flutter), as race-timer is.
+include(":harness")
