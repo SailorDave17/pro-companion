@@ -119,10 +119,13 @@ jobs:
           target: google_apis
           arch: x86_64
           # Each line runs as its own `sh -c`. The force-kill criterion (#24)
-          # needs two app processes and a kill between them, and the offline
-          # results criterion (#7) needs airplane mode, so a script drives
-          # each rather than the plain sweep.
+          # needs two app processes and a kill between them, the offline
+          # results criterion (#7) needs airplane mode, and the volume key (#19)
+          # needs keys injected through the input system, which only an
+          # instrumented test can, so a script drives each rather than the
+          # plain sweep. The volume-key script clears the app's log, so it runs last.
           script: |
             flutter test integration_test -d emulator-5554
             sh integration_test/force_kill.sh emulator-5554
             sh integration_test/offline_results.sh emulator-5554
+            sh integration_test/volume_key.sh emulator-5554

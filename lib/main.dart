@@ -4,6 +4,7 @@ import 'package:pro_companion_core/core.dart';
 import 'confirmation.dart';
 import 'core_bootstrap.dart';
 import 'finish/finish_screen.dart';
+import 'finish/volume_key.dart';
 import 'fleets/fleets_screen.dart';
 import 'results/results_screen.dart';
 import 'sequence/sequence_screen.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   runApp(ProCompanionApp(
     core: await startCore(),
     confirmation: ConfirmationService(const PlatformConfirmationDevice()),
+    volumeKeys: PlatformVolumeKeyCapture(),
   ));
 }
 
@@ -26,6 +28,7 @@ class ProCompanionApp extends StatelessWidget {
     required this.confirmation,
     this.navigatorObservers = const [],
     this.clock = systemClock,
+    this.volumeKeys = const NoVolumeKeyCapture(),
   });
 
   /// The only way UI code reaches the log (ADR 001, ADR 003).
@@ -38,13 +41,16 @@ class ProCompanionApp extends StatelessWidget {
   /// The phone's clock, which a gun's typed time is held to (#25).
   final int Function() clock;
 
+  /// The volume-down key, which logs a finish on the finish screen (#19).
+  final VolumeKeyCapture volumeKeys;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'PRO Companion',
       theme: sunlightTheme(),
       navigatorObservers: navigatorObservers,
-      home: HomeScreen(core: core, confirmation: confirmation, clock: clock),
+      home: HomeScreen(core: core, confirmation: confirmation, clock: clock, volumeKeys: volumeKeys),
     );
   }
 }
@@ -52,11 +58,18 @@ class ProCompanionApp extends StatelessWidget {
 /// The app's home. Stands in for the PRO's role home until #20 adds role
 /// homes; the sequence, finish and results screens are one tap from here.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.core, required this.confirmation, this.clock = systemClock});
+  const HomeScreen({
+    super.key,
+    required this.core,
+    required this.confirmation,
+    this.clock = systemClock,
+    this.volumeKeys = const NoVolumeKeyCapture(),
+  });
 
   final CoreClient core;
   final ConfirmationService confirmation;
   final int Function() clock;
+  final VolumeKeyCapture volumeKeys;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -135,7 +148,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: double.infinity,
                 height: 96,
                 child: ElevatedButton(
-                  onPressed: () => _open(() => FinishScreen(core: widget.core, confirmation: widget.confirmation)),
+                  onPressed: () => _open(() => FinishScreen(
+                        core: widget.core,
+                        confirmation: widget.confirmation,
+                        volumeKeys: widget.volumeKeys,
+                      )),
                   child: const Text('FINISHES'),
                 ),
               ),

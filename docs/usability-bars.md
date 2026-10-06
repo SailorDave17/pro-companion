@@ -36,6 +36,17 @@ confirmed by feel and sound. These numbers make that testable.
   recommended alarm, so a phone with its ringer on silent or vibrate gets the buzz alone.
 - A failed append fires neither, and the screen says "Not logged. Tap again."
 
+## The volume key (#19)
+
+- On the finish screen, **volume-down logs a finish** exactly as FINISH does, buzz and beep
+  included, with `source: volume-key`. FINISH reads "or volume down" while it does. A held key is
+  one finish, and the press moves no volume, so another app's cues (race-timer's) keep theirs.
+- Only while the finish screen is the one showing and the screen is on (groom decision G4). On
+  every other screen, and for volume-up everywhere, the keys change the volume as normal (owner
+  decisions 2026-10-06, with no switch to turn it off).
+- Proven on a device by `integration_test/volume_key.sh`, which injects the key through the input
+  system. Whether a gloved thumb finds the rocker without looking is amended #8's to observe.
+
 ## What the bar-check helper cannot see
 
 - A target touching the screen edge or a scrollable's edge is skipped. That's Flutter's
