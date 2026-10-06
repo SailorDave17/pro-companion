@@ -10,7 +10,7 @@ export 'src/chain.dart'
 export 'src/client.dart' show CoreClient;
 export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isUlid;
 export 'src/finishes.dart'
-    show FinishEntry, FinishEvents, FinishKinds, finishOrder, lastUndoable, lastUndoableFinish;
+    show FinishEntry, FinishEvents, FinishKinds, FinishSources, finishOrder, lastUndoable, lastUndoableFinish;
 export 'src/fleets.dart'
     show Fleet, FleetEvents, FleetKinds, fleetOf, fleetPayloadKey, fleets, lastFleetSwitch, recentFleets, selectedFleet;
 export 'src/kinds.dart' show EventKinds;

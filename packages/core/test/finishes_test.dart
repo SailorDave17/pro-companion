@@ -34,6 +34,20 @@ void main() {
     expect(order().first.deviceTs, a.deviceTs);
   });
 
+  test('a volume-key finish (#19) is the finish a tap appends but for its source', () {
+    final tap = store.append(FinishEvents.finish(fleet: 'f1'));
+    final key = store.append(FinishEvents.finish(fleet: 'f1', source: FinishSources.volumeKey));
+    expect(tap.source, 'tap');
+    expect(key.source, 'volume-key');
+    // All but what makes each event its own: identity, time, chain place, source.
+    Map<String, Object?> asLogged(EventEnvelope e) => Map.of(e.toWire())
+      ..removeWhere((k, _) => const {'ulid', 'device_ts', 'seq', 'prev_hash', 'source'}.contains(k));
+    expect(asLogged(key), asLogged(tap));
+    expect([for (final e in finishOrder(store.readAll(), fleet: 'f1')) e.ulid], [tap.ulid, key.ulid],
+        reason: 'it takes a place in its fleet like a tapped one');
+    expect(lastUndoable(store.readAll(), fleet: 'f1'), key.ulid, reason: 'and UNDO LAST takes it back');
+  });
+
   test('undo appends a correction naming the original, which is left unchanged', () {
     final a = store.append(FinishEvents.finish(fleet: null));
     final b = store.append(FinishEvents.finish(fleet: null));

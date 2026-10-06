@@ -5,10 +5,12 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
+import android.os.PowerManager
 import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -16,12 +18,26 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * The confirmation buzz and beep (#4): lib/confirmation.dart calls
  * `pro_companion/confirm` once the core has committed an event.
+ *
+ * The volume key (#19): lib/finish/volume_key.dart arms and disarms it over
+ * `pro_companion/volume_key`, and each taken press is sent back as `press`.
  */
 class MainActivity : FlutterActivity() {
     private val tones = mutableMapOf<Int, ToneGenerator>()
+    private val volumeKey = VolumeKeyFinish()
+    private var volumeKeyChannel: MethodChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        volumeKeyChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pro_companion/volume_key").apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "arm" -> { volumeKey.armed = true; result.success(true) }
+                    "disarm" -> { volumeKey.armed = false; result.success(null) }
+                    else -> result.notImplemented()
+                }
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pro_companion/confirm")
             .setMethodCallHandler { call, result ->
                 try {
@@ -34,6 +50,21 @@ class MainActivity : FlutterActivity() {
                     result.error("confirm_failed", e.message, null)
                 }
             }
+    }
+
+    /**
+     * Before Flutter or the system sees it: a taken volume-down press never
+     * reaches the window's fallback, which is what would hand it to the active
+     * media session or the suggested stream. The screen off, nothing is taken
+     * (groom decision G4), even a key injected while it is off.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val screenOn = (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive && hasWindowFocus()
+        return when (volumeKey.judge(event, screenOn)) {
+            VolumeKeyFinish.Verdict.FINISH -> { volumeKeyChannel?.invokeMethod("press", null); true }
+            VolumeKeyFinish.Verdict.SWALLOW -> true
+            VolumeKeyFinish.Verdict.PASS -> super.dispatchKeyEvent(event)
+        }
     }
 
     /**
@@ -77,6 +108,9 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        volumeKeyChannel?.setMethodCallHandler(null)
+        volumeKeyChannel = null
+        volumeKey.armed = false
         tones.values.forEach { it.release() }
         tones.clear()
         super.onDestroy()

@@ -58,6 +58,10 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // The volume-key test (#19) is an instrumented test: a key injected through the
+        // input system reaches MainActivity the way a hardware press does, which no test
+        // inside Flutter can do. integration_test/volume_key.sh runs it.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -103,4 +107,15 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// The integration_test plugin puts androidx.test:runner 1.3.0 (and monitor 1.3.0) on the debug
+// app's classpath, and AGP's consistent resolution holds the test APK to the same versions: asking
+// for a newer runner fails the build ("strictly 1.3.0"). So these are that generation's. No
+// androidx.test.ext:junit: its androidx.test:core 1.3.0 declares activities without
+// android:exported, which the manifest merge refuses at this target SDK, and the runner needs
+// neither to run a JUnit 4 class.
+dependencies {
+    androidTestImplementation("androidx.test:runner:1.3.0")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.2.0")
 }

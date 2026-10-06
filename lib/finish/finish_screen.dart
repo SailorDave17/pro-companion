@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import '../ui/digit_keypad.dart';
 import '../ui/fit_label.dart';
 import '../ui/race_time.dart';
 import '../ui/sunlight.dart';
+import 'volume_key.dart';
 
 /// Finish capture (#4): one big tap per boat, confirmed by a buzz and a beep,
 /// with undo instead of confirm prompts. FINISH is anchored at the bottom and
@@ -22,11 +24,21 @@ import '../ui/sunlight.dart';
 /// title and one tap switches (owner's layout, 2026-09-24). The screen shows
 /// the selected fleet's finishes only, each finish carries that fleet, and
 /// right after a switch UNDO LAST takes the switch back.
+///
+/// The volume key (#19): while this is the screen showing, volume-down logs a
+/// finish exactly as FINISH does, and FINISH says so. It is armed only while
+/// nothing covers this screen, so every other screen keeps the key.
 class FinishScreen extends StatefulWidget {
-  const FinishScreen({super.key, required this.core, required this.confirmation});
+  const FinishScreen({
+    super.key,
+    required this.core,
+    required this.confirmation,
+    this.volumeKeys = const NoVolumeKeyCapture(),
+  });
 
   final CoreClient core;
   final ConfirmationService confirmation;
+  final VolumeKeyCapture volumeKeys;
 
   @override
   State<FinishScreen> createState() => _FinishScreenState();
@@ -42,9 +54,18 @@ class _FinishScreenState extends State<FinishScreen> {
   String? _keypadFor;
   String _digits = '';
 
+  /// This screen is the one showing, so it holds the volume key.
+  bool _current = false;
+
+  /// The phone took the key, which FINISH then shows.
+  bool _volumeArmed = false;
+  late final StreamSubscription<void> _volumePresses;
+
   @override
   void initState() {
     super.initState();
+    _volumePresses = widget.volumeKeys.presses
+        .listen((_) => _append(FinishEvents.finish(fleet: _fleet, source: FinishSources.volumeKey)));
     Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
@@ -78,8 +99,28 @@ class _FinishScreenState extends State<FinishScreen> {
     if (chosen != null && mounted) await _switchTo(chosen);
   }
 
+  // A screen pushed over this one (FleetPicker) makes this route not current,
+  // and popping it makes it current again; either way this is called.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.of(context)?.isCurrent ?? true;
+    if (current == _current) return;
+    _current = current;
+    if (current) {
+      widget.volumeKeys.arm().then((armed) {
+        if (mounted && _current) setState(() => _volumeArmed = armed);
+      });
+    } else {
+      _volumeArmed = false;
+      widget.volumeKeys.disarm();
+    }
+  }
+
   @override
   void dispose() {
+    _volumePresses.cancel();
+    if (_current) widget.volumeKeys.disarm();
     _scroll.dispose();
     super.dispose();
   }
@@ -281,7 +322,7 @@ class _FinishScreenState extends State<FinishScreen> {
                     style: FilledButton.styleFrom(
                       textStyle: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: 2),
                     ),
-                    child: const FitLabel('FINISH'),
+                    child: _volumeArmed ? const _FinishWithVolumeKey() : const FitLabel('FINISH'),
                   ),
                 ),
               ),
@@ -289,6 +330,40 @@ class _FinishScreenState extends State<FinishScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// FINISH's label while volume-down logs a finish too (#19): the key is named
+/// on the action it performs, read with it by a screen reader, and costs the
+/// list no room.
+class _FinishWithVolumeKey extends StatelessWidget {
+  const _FinishWithVolumeKey();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Flexible(child: FitLabel('FINISH')),
+        const SizedBox(height: 4),
+        Flexible(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // An icon does not follow the text size on its own; at 200% a fixed one
+                // drew at half the height of its words (the emulator render, #19).
+                Icon(Icons.volume_down, size: MediaQuery.textScalerOf(context).scale(28)),
+                const SizedBox(width: 8),
+                const Text('or volume down',
+                    maxLines: 1, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: 0)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

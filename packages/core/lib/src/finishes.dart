@@ -27,11 +27,18 @@ abstract final class FinishKinds {
   static const all = {finish, missed, sail, undo};
 }
 
+/// What logged a finish: the envelope's `source`. A volume-key finish (#19) is
+/// otherwise exactly the finish a tap appends.
+abstract final class FinishSources {
+  static const tap = 'tap';
+  static const volumeKey = 'volume-key';
+}
+
 /// Builds the events a finish screen appends.
 abstract final class FinishEvents {
-  /// A finish for [fleet] (null on a single-fleet day).
-  static NewEvent finish({required String? fleet}) =>
-      NewEvent(kind: FinishKinds.finish, source: 'tap', payload: {fleetPayloadKey: fleet});
+  /// A finish for [fleet] (null on a single-fleet day), logged by [source].
+  static NewEvent finish({required String? fleet, String source = FinishSources.tap}) =>
+      NewEvent(kind: FinishKinds.finish, source: source, payload: {fleetPayloadKey: fleet});
 
   static NewEvent undo(String entryUlid) =>
       NewEvent(kind: FinishKinds.undo, source: 'tap', correctsUlid: entryUlid);
