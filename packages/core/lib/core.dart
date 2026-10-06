@@ -20,6 +20,19 @@ export 'src/results.dart'
 export 'src/scoring.dart'
     show DiscardStep, Discards, Race, RaceScore, ScoreCode, Series, Standing, scoreSeries;
 export 'src/starts.dart'
-    show FleetRaceState, StartEvents, StartKinds, anchorTime, elapsedAnchor, gunTime, lastUndoableStart, raceState, sequenceOf;
+    show
+        FleetRaceState,
+        OcsEntry,
+        StartEvents,
+        StartKinds,
+        anchorTime,
+        elapsedAnchor,
+        gunTime,
+        individualRecallsOf,
+        knownSails,
+        lastUndoableStart,
+        ocsAt,
+        raceState,
+        sequenceOf;
 export 'src/uploads.dart' show RefusedUpload, UploadRun, UploadRunState, UploadStatus;
 export 'src/wire.dart' show CoreException, isWireSafe;

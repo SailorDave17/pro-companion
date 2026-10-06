@@ -42,4 +42,6 @@ const raceTimeActionIds = {
   'general-recall',
   'fix-gun-time',
   'sequence-undo',
+  'individual-recall',
+  'ocs',
 };

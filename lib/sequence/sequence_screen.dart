@@ -12,6 +12,7 @@ import '../ui/digit_keypad.dart';
 import '../ui/fit_label.dart';
 import '../ui/race_time.dart';
 import '../ui/sunlight.dart';
+import 'ocs_panel.dart';
 
 /// The sequence card (#25): the selected fleet's start, logged by hand when
 /// race-timer is not running. That is ADR 001's fallback, marked
@@ -24,6 +25,10 @@ import '../ui/sunlight.dart';
 /// their own row in the log. A late or wrong gun is fixed by tapping it and
 /// typing the time it really went (owner's choice, 2026-09-25): a correction
 /// event, with the gun kept as it was tapped.
+///
+/// Boats over early at the gun (#29): INDIVIDUAL RECALL logs the recall
+/// against the start, and OCS opens [OcsPanel] in the card's place, where each
+/// boat over is logged by her sail number and cleared when she comes back.
 class SequenceScreen extends StatefulWidget {
   const SequenceScreen({super.key, required this.core, required this.confirmation, this.clock = systemClock});
 
@@ -47,14 +52,29 @@ class _SequenceScreenState extends State<SequenceScreen> {
   String? _fixing;
   String _digits = '';
 
+  /// The gun the OCS panel is open for, or null while it is shut.
+  String? _ocsFor;
+
+  /// True while a sail number is typed on the OCS panel's keypad.
+  bool _typingSail = false;
+  String _sailDigits = '';
+
+  /// The OCS boat selected to be cleared.
+  String? _ocsSelected;
+
+  /// The boats the OCS panel shows, in the order it opened with. It is held
+  /// for as long as the panel is open, so a boat logged never moves another.
+  List<String> _ocsOrder = const [];
+
   @override
   void initState() {
     super.initState();
     Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
-        _events.addAll((r[0] as List<EventEnvelope>)
-            .where((e) => StartKinds.all.contains(e.kind) || FleetKinds.all.contains(e.kind)));
+        // Finishes too: their sail numbers are the boats the OCS panel knows.
+        _events.addAll((r[0] as List<EventEnvelope>).where((e) =>
+            StartKinds.all.contains(e.kind) || FleetKinds.all.contains(e.kind) || FinishKinds.all.contains(e.kind)));
         _deviceId = r[1] as String;
         _loaded = true;
       });
@@ -80,8 +100,10 @@ class _SequenceScreenState extends State<SequenceScreen> {
 
   /// Appends [event] and, once the core confirms it, shows it. A failed
   /// append shows "Not logged" and fires no confirmation, and leaves the
-  /// keypad as it was for the retry. Anything logged shuts the keypad: the
-  /// gun it was fixing may no longer be the one that anchors.
+  /// keypad as it was for the retry. Anything logged shuts the time keypad:
+  /// the gun it was fixing may no longer be the one that anchors. The OCS
+  /// panel stays open for the next boat, and shows only while its gun
+  /// anchors.
   Future<void> _append(NewEvent event) async {
     try {
       final stored = await widget.confirmation.confirm(() => widget.core.append(event));
@@ -91,10 +113,69 @@ class _SequenceScreenState extends State<SequenceScreen> {
         _failed = false;
         _fixing = null;
         _digits = '';
+        _sailDigits = '';
+        _ocsSelected = null;
       });
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
+  }
+
+  void _openOcs(EventEnvelope gun) => setState(() {
+        _ocsFor = gun.ulid;
+        _ocsOrder = knownSails(_events, fleet: _fleet, day: gunTime(_events, gun));
+        _typingSail = false;
+        _sailDigits = '';
+        _ocsSelected = null;
+      });
+
+  /// The OCS panel for [gun], or its keypad while a sail number is typed.
+  Widget _ocs(EventEnvelope gun, String? fleet) {
+    final over = ocsAt(_events, gun);
+    final logged = {for (final o in over) o.sail};
+    if (_typingSail) {
+      final already = logged.contains(_sailDigits);
+      return DigitKeypad(
+        title: 'OCS sail · gun ${clockText(gunTime(_events, gun))}',
+        display: _sailDigits.isEmpty
+            ? '—'
+            : already
+                ? '$_sailDigits · already logged'
+                : _sailDigits,
+        onDigit: (d) => setState(() {
+          if (_sailDigits.length < 7) _sailDigits += d;
+        }),
+        onDelete: () => setState(
+            () => _sailDigits = _sailDigits.isEmpty ? '' : _sailDigits.substring(0, _sailDigits.length - 1)),
+        // Back to the panel. Boats saved on the way stay saved.
+        onClose: () => setState(() {
+          _typingSail = false;
+          _sailDigits = '';
+        }),
+        onSave: _sailDigits.isEmpty || already
+            ? null
+            : () => _append(StartEvents.ocs(gun.ulid, fleet: fleet, sail: _sailDigits)),
+      );
+    }
+    final selected = over.where((o) => o.ulid == _ocsSelected && !o.cleared).firstOrNull;
+    return OcsPanel(
+      gunAt: gunTime(_events, gun),
+      // A boat over that the panel did not open with - typed, or arrived
+      // since - joins the end, where she moves no other boat.
+      boats: {..._ocsOrder, ...logged}.toList(),
+      over: over,
+      selected: selected,
+      onSail: (sail) => _append(StartEvents.ocs(gun.ulid, fleet: fleet, sail: sail)),
+      onSelect: (o) => setState(() => _ocsSelected = o.ulid == _ocsSelected ? null : o.ulid),
+      onClear: () {
+        if (selected != null) _append(StartEvents.clearOcs(selected.ulid));
+      },
+      onType: () => setState(() {
+        _typingSail = true;
+        _sailDigits = '';
+      }),
+      onClose: () => setState(() => _ocsFor = null),
+    );
   }
 
   /// The digits typed so far as HH:MM:SS, a blank for each still to come.
@@ -144,6 +225,10 @@ class _SequenceScreenState extends State<SequenceScreen> {
         StartKinds.postponement => 'UNDO POSTPONE',
         StartKinds.generalRecall => 'UNDO RECALL',
         StartKinds.timeCorrected => 'UNDO TIME FIX',
+        StartKinds.individualRecall => 'UNDO INDIVIDUAL RECALL',
+        StartKinds.ocs => 'UNDO OCS (${target!.payload['sail']})',
+        StartKinds.ocsCleared =>
+          'UNDO CLEARED (${_events.where((e) => e.ulid == target!.correctsUlid).firstOrNull?.payload['sail'] ?? '?'})',
         _ => 'UNDO LAST',
       };
 
@@ -158,6 +243,10 @@ class _SequenceScreenState extends State<SequenceScreen> {
     // is a spare: _append already shuts it on anything logged, and a test
     // deleting either one alone stays green; deleting both reddens (#25).
     final fixing = anchor != null && anchor.ulid == _fixing ? anchor : null;
+    // The OCS panel likewise shows only while its gun anchors: a new gun, a
+    // recall or a fleet switch puts the card back.
+    final ocsFor = anchor != null && anchor.ulid == _ocsFor ? anchor : null;
+    final stillOver = anchor == null ? 0 : ocsAt(_events, anchor).where((o) => !o.cleared).length;
     final height = MediaQuery.sizeOf(context).height;
 
     // UNDO LAST takes back whichever came last: this fleet's last sequence
@@ -214,7 +303,9 @@ class _SequenceScreenState extends State<SequenceScreen> {
             Expanded(
               child: fixing != null
                   ? _keypad(fixing)
-                  : !_loaded && !_failed
+                  : ocsFor != null
+                      ? _ocs(ocsFor, fleet)
+                      : !_loaded && !_failed
                       ? const Center(child: Text('Reading the log…'))
                       // Room to scroll, never to overflow: on a short phone at
                       // 200% text, with "Not logged" up, the card and the
@@ -234,6 +325,8 @@ class _SequenceScreenState extends State<SequenceScreen> {
                                     anchor: anchor,
                                     anchorAt: anchor == null ? null : gunTime(_events, anchor),
                                     latest: latest,
+                                    individualRecall:
+                                        anchor != null && individualRecallsOf(_events, anchor).isNotEmpty,
                                     onFix: anchor == null
                                         ? null
                                         : () => setState(() {
@@ -267,6 +360,42 @@ class _SequenceScreenState extends State<SequenceScreen> {
                                               onPressed: () =>
                                                   _append(StartEvents.generalRecall(fleet: fleet, source: 'manual')),
                                               child: const FitLabel('GENERAL RECALL'),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Both need a gun to name, so neither does
+                                  // anything before the first or after a
+                                  // general recall (#29).
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: RaceTimeAction(
+                                          id: 'individual-recall',
+                                          child: SizedBox(
+                                            height: Bars.minTargetDp + 8,
+                                            child: OutlinedButton(
+                                              onPressed: anchor == null
+                                                  ? null
+                                                  : () => _append(StartEvents.individualRecall(anchor.ulid,
+                                                      fleet: fleet, source: 'manual')),
+                                              child: const FitLabel('INDIVIDUAL RECALL'),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: RaceTimeAction(
+                                          id: 'ocs',
+                                          child: SizedBox(
+                                            height: Bars.minTargetDp + 8,
+                                            child: OutlinedButton(
+                                              onPressed: anchor == null ? null : () => _openOcs(anchor),
+                                              child: FitLabel(stillOver == 0 ? 'OCS' : 'OCS · $stillOver'),
                                             ),
                                           ),
                                         ),
@@ -341,7 +470,13 @@ class _SequenceScreenState extends State<SequenceScreen> {
 /// elapsed time, or why there is none. With a gun, the card is the way to fix
 /// its time, so it is a button; without one there is nothing to fix.
 class _StartCard extends StatelessWidget {
-  const _StartCard({required this.anchor, required this.anchorAt, required this.latest, required this.onFix});
+  const _StartCard({
+    required this.anchor,
+    required this.anchorAt,
+    required this.latest,
+    required this.individualRecall,
+    required this.onFix,
+  });
 
   final EventEnvelope? anchor;
 
@@ -350,6 +485,9 @@ class _StartCard extends StatelessWidget {
 
   /// The fleet's latest sequence event, not undone.
   final EventEnvelope? latest;
+
+  /// True once an individual recall of the anchor is logged (#29).
+  final bool individualRecall;
   final VoidCallback? onFix;
 
   @override
@@ -361,6 +499,7 @@ class _StartCard extends StatelessWidget {
           [
             if (anchorAt != gun.deviceTs) 'tapped ${clockText(gun.deviceTs)}',
             if (last != null && last.kind == StartKinds.postponement) 'postponed ${clockText(last.deviceTs)}',
+            if (individualRecall) 'individual recall',
             'tap to fix the time',
           ].join(' · '),
         ),
