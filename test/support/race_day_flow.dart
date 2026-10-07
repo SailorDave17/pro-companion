@@ -12,13 +12,18 @@ import 'package:pro_companion_core/core.dart';
 /// first row on the CI emulator's 320 x 640 phone (#95), and naming boats is
 /// #4's, proven there.
 ///
-/// Expects [core] to hold nothing yet, and leaves the results screen open
+/// Expects [core] to hold nothing yet, so the app opens on the role picker,
+/// where the day starts by picking PRO (#20). Leaves the results screen open
 /// with one discard set.
 Future<void> raceDayToResults(WidgetTester tester, CoreClient core) async {
   Future<void> open(String label) async {
     await tester.tap(find.text(label));
     await tester.pumpAndSettle();
   }
+
+  await tester.tap(find.byKey(const ValueKey('pick-${Roles.overallPro}')));
+  await tester.pumpAndSettle();
+  expect(find.text('SEQUENCE'), findsOneWidget, reason: "the PRO's home");
 
   Future<void> back() async {
     await tester.tap(find.byTooltip('Back'));
@@ -47,6 +52,7 @@ Future<void> raceDayToResults(WidgetTester tester, CoreClient core) async {
         if (e.kind == FinishKinds.finish && !named.contains(e.ulid)) e,
     ]..sort(happened);
     expect(tapped, hasLength(sails.length), reason: 'one finish per tap');
+    expect([for (final e in tapped) e.role], everyElement(Roles.overallPro), reason: 'each carries the role picked (#20)');
     for (var i = 0; i < sails.length; i++) {
       await tester.runAsync(() => core.append(FinishEvents.assignSail(tapped[i].ulid, sails[i])));
     }

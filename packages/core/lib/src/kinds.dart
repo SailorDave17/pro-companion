@@ -1,6 +1,7 @@
 import 'finishes.dart';
 import 'fleets.dart';
 import 'results.dart';
+import 'roles.dart';
 import 'starts.dart';
 
 /// Every event kind the core writes, in one place (#6). Each feature keeps its
@@ -14,5 +15,6 @@ abstract final class EventKinds {
     ...FleetKinds.all,
     ...StartKinds.all,
     ...ResultsKinds.all,
+    ...RoleKinds.all,
   };
 }

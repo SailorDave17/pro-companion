@@ -5,6 +5,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'chain.dart';
 import 'envelope.dart';
+import 'roles.dart';
 import 'uploads.dart';
 import 'wire.dart';
 
@@ -28,6 +29,12 @@ class EventStore {
     _count = _db.prepare('SELECT count(*) AS n FROM events');
     _all = _db.prepare('SELECT body FROM events ORDER BY device_ts, device_id, ulid');
     _canonical = _db.prepare('SELECT body FROM events ORDER BY device_id, seq');
+    // The canonical text has no spaces (RFC 8785), so every role event's body
+    // holds this, and LIKE narrows the read to them before the kind is checked.
+    for (final r in _db.select(
+        'SELECT body FROM events WHERE device_id = ? AND body LIKE ?', [deviceId, '%"kind":"role.%'])) {
+      _noteRoleEvent(EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map));
+    }
   }
 
   /// Opens (creating if needed) the log at [path]. The device id is minted on
@@ -80,6 +87,19 @@ class EventStore {
   /// id, so a restart keeps it. Every event appended carries it. Null until
   /// the phone is admitted.
   String? get admissionId => _admissionId;
+
+  /// This device's own role picks and their undos (#20), read from the log
+  /// when it opens and kept as they are appended.
+  final _roleEvents = <EventEnvelope>[];
+
+  /// The role this phone runs as (#20), from its latest role pick not undone.
+  /// Every event appended without a role of its own carries it. Null until a
+  /// role is picked.
+  String? get role => currentRole(_roleEvents, deviceId);
+
+  void _noteRoleEvent(EventEnvelope e) {
+    if (e.deviceId == deviceId && RoleKinds.all.contains(e.kind)) _roleEvents.add(e);
+  }
 
   static void _createSchema(sql.Database db) {
     db.execute('''
@@ -202,8 +222,9 @@ class EventStore {
   }
 
   /// Appends [event] as this device's next event, chained to its last one
-  /// (#28) and stamped with the admission the phone holds (#49), and returns
-  /// it as stored. When this returns, it is committed.
+  /// (#28), stamped with the admission the phone holds (#49) and, unless it
+  /// names a role of its own, with the role the phone runs as (#20), and
+  /// returns it as stored. When this returns, it is committed.
   EventEnvelope append(NewEvent event) {
     validateNewEvent(event);
     final now = _clock();
@@ -213,7 +234,7 @@ class EventStore {
       deviceId: deviceId,
       seq: _nextSeq,
       person: event.person,
-      role: event.role,
+      role: event.role ?? role,
       admissionId: _admissionId,
       gps: event.gps,
       source: event.source,
@@ -226,12 +247,16 @@ class EventStore {
     final text = _store(envelope);
     _nextSeq++;
     _prevHash = chainHash(text);
+    _noteRoleEvent(envelope);
     return envelope;
   }
 
   /// Stores an event exactly as given - one of this device's, or one written
   /// by another phone and pulled down to this one (#64). Never replaces one.
-  void insert(EventEnvelope e) => _store(e);
+  void insert(EventEnvelope e) {
+    _store(e);
+    _noteRoleEvent(e);
+  }
 
   // Sync's records (#6) -------------------------------------------------------
 

@@ -11,6 +11,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/roles.dart';
 
 /// #7 criterion 1 on the results screen, driven against the fake core: the
 /// PRO opens provisional results from home and reads each boat's points in
@@ -25,7 +26,7 @@ void main() {
 
   setUp(() {
     now = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
-    core = FakeCore(clock: () => now);
+    core = withRole(FakeCore(clock: () => now));
     device = FakeConfirmationDevice();
   });
 
@@ -94,7 +95,8 @@ void main() {
       await finish(tester, '11');
       core.calls.clear();
       await openResults(tester);
-      expect(core.calls, {'count': 1, 'readAll': 1}, reason: "home's count, then the results screen's one read");
+      expect(core.calls, {'readAll': 2, 'deviceId': 1, 'count': 1},
+          reason: "the role from the log (#20), home's count, then the results screen's one read");
     });
 
     testWidgets('a day with nothing finished says so', (tester) async {
@@ -343,7 +345,7 @@ void main() {
     testWidgets('the results screen passes the bar-check helper at ${(scale * 100).round()}% text', (tester) async {
       final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
         var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
-        final seeded = FakeCore(clock: () => t += 1000);
+        final seeded = withRole(FakeCore(clock: () => t += 1000));
         var seq = 0;
         EventEnvelope event(String ulid, String kind, Map<String, Object?> payload) => EventEnvelope(
               ulid: ulid,

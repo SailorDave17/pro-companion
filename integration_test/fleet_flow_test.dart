@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pro_companion/main.dart' as app;
 
+import 'pro_home.dart';
+
 /// #18 on a device, against the real core: fleets are named on the FLEETS
 /// screen, switched from the finish screen's row, each keeps its own
 /// finishes, and a wrong switch is undone. The widget tests drive a fake core.
@@ -13,6 +15,7 @@ void main() {
       (tester) async {
     await app.main();
     await tester.pumpAndSettle();
+    await openProHome(tester);
 
     // The log on a device outlives a run, so the names are new each time.
     final tag = (DateTime.now().millisecondsSinceEpoch % 100000).toString();

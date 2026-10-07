@@ -9,6 +9,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/roles.dart';
 
 /// #25 on the app, driven against the fake core: the sequence card logs a
 /// gun, a postponement and a general recall by hand as source=manual, a late
@@ -29,7 +30,7 @@ void main() {
 
   setUp(() {
     now = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
-    core = FakeCore(clock: () => now += 1000);
+    core = withRole(FakeCore(clock: () => now += 1000));
     device = FakeConfirmationDevice();
     popups = _Popups();
   });
@@ -54,7 +55,10 @@ void main() {
     expect(gunButton, findsOneWidget);
   }
 
-  Future<List<EventEnvelope>> events(WidgetTester tester) async => (await tester.runAsync(core.readAll))!;
+  // The log less the PRO pick seeded to open the app on its home (#20): what
+  // the sequence card appended.
+  Future<List<EventEnvelope>> events(WidgetTester tester) async =>
+      [for (final e in (await tester.runAsync(core.readAll))!) if (e.ulid != seededRolePick) e];
 
   Future<List<String>> defineFleets(WidgetTester tester, List<String> names) async => [
         for (final n in names) (await tester.runAsync(() => core.append(FleetEvents.define(n))))!.ulid,
@@ -257,7 +261,7 @@ void main() {
     FakeCore raceDay() {
       var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
       var seq = 0;
-      final day = FakeCore(clock: () => t += 1000);
+      final day = withRole(FakeCore(clock: () => t += 1000));
       EventEnvelope event(String kind, Map<String, Object?> payload, {String source = 'tap', String? corrects}) =>
           EventEnvelope(
             ulid: '01J8${(seq + 1).toString().padLeft(22, '0')}',

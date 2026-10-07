@@ -17,6 +17,7 @@ export 'src/kinds.dart' show EventKinds;
 export 'src/order.dart' show happened;
 export 'src/results.dart'
     show BetweenRaces, DuplicateSail, ProvisionalResults, ResultsEvents, ResultsKinds, UnnamedFinish, discardsSet, placeholderId, provisionalResults, raceStarts, racesOf;
+export 'src/roles.dart' show RoleEvents, RoleKinds, Roles, currentRole, currentRolePick;
 export 'src/scoring.dart'
     show DiscardStep, Discards, Race, RaceScore, ScoreCode, Series, Standing, scoreSeries;
 export 'src/starts.dart'

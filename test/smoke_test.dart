@@ -6,11 +6,12 @@ import 'package:pro_companion_core/testing.dart';
 import 'support/fake_confirmation.dart';
 
 void main() {
-  testWidgets('renders the app name on the home screen', (tester) async {
+  testWidgets('renders the app name on the role picker, where a new phone opens', (tester) async {
     await tester.pumpWidget(ProCompanionApp(
       core: FakeCore(),
       confirmation: ConfirmationService(FakeConfirmationDevice()),
     ));
+    await tester.pumpAndSettle();
     expect(find.text('PRO Companion'), findsOneWidget);
   });
 }
