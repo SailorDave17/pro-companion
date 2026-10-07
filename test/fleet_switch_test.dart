@@ -7,6 +7,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/roles.dart';
 
 /// #18 on the app, driven against the fake core: fleets are named on the
 /// FLEETS screen, switched from a row on the finish screen, and every finish
@@ -21,7 +22,7 @@ void main() {
 
   setUp(() {
     now = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
-    core = FakeCore(clock: () => now += 1000);
+    core = withRole(FakeCore(clock: () => now += 1000));
     device = FakeConfirmationDevice();
     popups = _Popups();
   });
@@ -293,7 +294,7 @@ void main() {
     FakeCore fleetDay(List<String> names) {
       var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
       var seq = 0;
-      final day = FakeCore(clock: () => t += 1000);
+      final day = withRole(FakeCore(clock: () => t += 1000));
       EventEnvelope event(String kind, Map<String, Object?> payload, String tail, {String source = 'tap'}) =>
           EventEnvelope(
             ulid: '01J8${kind.replaceAll('.', '').toUpperCase().padRight(14, '0').substring(0, 14)}$tail',

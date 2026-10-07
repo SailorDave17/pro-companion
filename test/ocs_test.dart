@@ -10,6 +10,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/roles.dart';
 
 /// #29 on the app, driven against the fake core: INDIVIDUAL RECALL and the
 /// OCS panel on the sequence card (owner's layout, 2026-10-06). A boat over
@@ -39,7 +40,7 @@ void main() {
 
   setUp(() {
     now = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
-    core = FakeCore(clock: () => now += 1000);
+    core = withRole(FakeCore(clock: () => now += 1000));
     device = FakeConfirmationDevice();
     popups = _Popups();
   });
@@ -315,7 +316,7 @@ void main() {
     FakeCore raceDay() {
       var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
       var seq = 0;
-      final day = FakeCore(clock: () => t += 1000);
+      final day = withRole(FakeCore(clock: () => t += 1000));
       EventEnvelope event(String kind, Map<String, Object?> payload, {String source = 'tap', String? corrects}) =>
           EventEnvelope(
             ulid: '01J8${(seq + 1).toString().padLeft(22, '0')}',

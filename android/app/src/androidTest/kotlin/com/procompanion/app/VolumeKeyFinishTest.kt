@@ -59,6 +59,13 @@ class VolumeKeyFinishTest {
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)!!
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         context.startActivity(launch)
+        // Since #20 a phone with no role opens on the role picker, as this one
+        // does after the script's pm clear; the first test picks PRO, and the
+        // pick, kept in the log, opens the rest on the PRO's home.
+        await(button("FINISHES") + button(PICKER))
+        if (device.findObject(By.desc(PICKER)) != null || device.findObject(By.text(PICKER)) != null) {
+            await(button("PRO")).click()
+        }
         await(button("FINISHES"))
     }
 
@@ -290,6 +297,7 @@ class VolumeKeyFinishTest {
     private companion object {
         // "Finishes · N", or "Finishes · <fleet> · N" once fleets are named (#18).
         val HEADING: Pattern = Pattern.compile("Finishes · (?:.+ · )?(\\d+)")
+        const val PICKER = "Pick your role"
         val STREAMS = listOf(
             AudioManager.STREAM_VOICE_CALL,
             AudioManager.STREAM_SYSTEM,

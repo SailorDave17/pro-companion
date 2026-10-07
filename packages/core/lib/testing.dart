@@ -7,6 +7,7 @@ import 'dart:math';
 
 import 'src/client.dart';
 import 'src/envelope.dart';
+import 'src/roles.dart';
 import 'src/uploads.dart';
 import 'src/wire.dart';
 
@@ -58,7 +59,9 @@ class FakeCore implements CoreClient {
           deviceId: deviceIdValue,
           seq: seq,
           person: event.person,
-          role: event.role,
+          // As the real core does (#20): the phone's role, unless the event
+          // names one. Seeded role picks count, as stored ones do there.
+          role: event.role ?? currentRole(_events, deviceIdValue),
           admissionId: _admissionId,
           gps: event.gps,
           source: event.source,

@@ -4,6 +4,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart' as app;
 
+import 'pro_home.dart';
+
 /// #4 on a device: the finish screen against the real core, and the real
 /// buzz-and-beep channel. The widget tests drive a fake of both. The
 /// confirmation service swallows platform errors on purpose, so only a direct
@@ -22,6 +24,7 @@ void main() {
   testWidgets('finish, finish, undo last - on the real core', (tester) async {
     await app.main();
     await tester.pumpAndSettle();
+    await openProHome(tester);
     await tester.tap(find.text('FINISHES'));
     await tester.pumpAndSettle();
 

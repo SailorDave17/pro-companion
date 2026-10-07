@@ -9,6 +9,7 @@ import 'package:pro_companion_core/testing.dart';
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
 import 'support/fake_volume_keys.dart';
+import 'support/roles.dart';
 
 /// #19 above MainActivity: what the app does with a volume-down press the
 /// phone reports, and when it asks the phone for the key. Criteria 2, 4, 5 and
@@ -26,7 +27,7 @@ void main() {
 
   setUp(() {
     now = DateTime(2026, 10, 6, 14, 30).millisecondsSinceEpoch;
-    core = FakeCore(clock: () => now);
+    core = withRole(FakeCore(clock: () => now));
     device = FakeConfirmationDevice();
     keys = FakeVolumeKeyCapture();
     popups = _Popups();
@@ -178,7 +179,7 @@ void main() {
         // A single-fleet day, as #4's bar check: no fleet switch to reach.
         final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
           var t = DateTime(2026, 10, 6, 14, 30).millisecondsSinceEpoch;
-          final seeded = FakeCore(clock: () => t += 1000);
+          final seeded = withRole(FakeCore(clock: () => t += 1000));
           String ulid(int n) => '01J8${n.toString().padLeft(22, '0')}';
           // The day's gun, so the sequence screen has a gun time to fix (#25),
           // then a full list, so rows, their actions and the scrolling exist.

@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pro_companion/main.dart' as app;
 
+import 'pro_home.dart';
+
 /// #25 on a device, against the real core and the real buzz-and-beep
 /// channel: a manual gun, its time fixed by hand, a general recall and its
 /// undo. The widget tests drive a fake of both.
@@ -12,6 +14,7 @@ void main() {
   testWidgets('gun, fix its time, general recall, undo the recall - on the real core', (tester) async {
     await app.main();
     await tester.pumpAndSettle();
+    await openProHome(tester);
 
     // The log on a device outlives a run, so the fleet is new each time and
     // starts with no sequence of its own.

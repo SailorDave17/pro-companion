@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pro_companion_core/core.dart';
 
 import '../scripts/owner.dart' as owner;
 
@@ -27,6 +28,10 @@ void main() {
   test('the table lists exactly the six roles of G28', () {
     expect(scopes().keys.toSet(),
         {'overall_pro', 'course_pro', 'recorder', 'mark_boat', 'safety', 'scorer'});
+  });
+
+  test("#20: the core's roles, which a phone's events carry, are the table's", () {
+    expect(Roles.all, scopes().keys.toSet());
   });
 
   test('course_pro, recorder and mark_boat work on one race area, the rest event-wide (G38)', () {

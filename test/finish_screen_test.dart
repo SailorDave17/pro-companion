@@ -8,6 +8,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/roles.dart';
 
 /// #4 criteria 4-9 on the finish screen, driven against the fake core with a
 /// fake clock. The core has no network path at all (#24's import boundary),
@@ -22,7 +23,7 @@ void main() {
 
   setUp(() {
     now = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
-    core = FakeCore(clock: () => now);
+    core = withRole(FakeCore(clock: () => now));
     device = FakeConfirmationDevice();
     popups = _Popups();
   });
@@ -44,7 +45,10 @@ void main() {
     expect(finishButton, findsOneWidget);
   }
 
-  Future<List<EventEnvelope>> events(WidgetTester tester) async => (await tester.runAsync(core.readAll))!;
+  // The log less the PRO pick seeded to open the app on its home (#20): what
+  // the finish screen appended.
+  Future<List<EventEnvelope>> events(WidgetTester tester) async =>
+      [for (final e in (await tester.runAsync(core.readAll))!) if (e.ulid != seededRolePick) e];
 
   Future<List<EventEnvelope>> finishes(WidgetTester tester) async =>
       [for (final e in await events(tester)) if (e.kind == FinishKinds.finish) e];
@@ -448,7 +452,7 @@ void main() {
       // to reach. #18's own bar check, with fleets, holds 'fleet-switch'.
       final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
         var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
-        final seeded = FakeCore(clock: () => t += 1000);
+        final seeded = withRole(FakeCore(clock: () => t += 1000));
         // The day's gun, so the sequence screen has a gun time to fix (#25).
         seeded.seed([
           EventEnvelope(
