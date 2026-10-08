@@ -34,4 +34,5 @@ of results (G24). Every other kind is open to any admitted role.
 - **One overall PRO, and one course PRO per race area (G28).** Admission does not enforce it. A
   phone warns when another active device writes as the same PRO (G48, #80).
 - **A day with no scorer is scored by the PRO (G28).** The scorer is a phone role, not a shore one.
-- **A mark boat's station is self-declared (G49).** It is recorded, not enforced (#26).
+- **A mark boat's station is self-declared (G49).** It is recorded, not enforced (#26). The marks it
+  can name, and how its events carry one, are in `docs/marks.md`.

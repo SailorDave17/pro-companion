@@ -8,6 +8,7 @@ import 'dart:math';
 import 'src/client.dart';
 import 'src/envelope.dart';
 import 'src/roles.dart';
+import 'src/stations.dart';
 import 'src/uploads.dart';
 import 'src/wire.dart';
 
@@ -68,7 +69,8 @@ class FakeCore implements CoreClient {
           kind: event.kind,
           payloadVersion: event.payloadVersion,
           correctsUlid: event.correctsUlid,
-          payload: event.payload,
+          // And the phone's station (#26), unless the event names a mark.
+          payload: withStation(event.payload, currentStation(_events, deviceIdValue)),
         );
         _events.add(e);
         return e;

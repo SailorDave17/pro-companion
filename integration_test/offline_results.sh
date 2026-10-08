@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
-# #7 criterion 2: provisional results with no network for the whole race day.
+# #7 criterion 2: provisional results with no network for the whole race day,
+# and #26 criterion 3: a mark boat's station with no network either.
 #
 #   sh integration_test/offline_results.sh [device-id]      (ADB=/path/to/adb to override)
 #
@@ -11,7 +12,8 @@
 #             two-race day runs from the app's home to provisional results on
 #             the real core, with the network tripwire armed on HTTP clients
 #             and sockets. It prints what its probe got and what the tripwire
-#             saw.
+#             saw. Since #26 (criterion 3) a second test in the same run sets
+#             a mark boat's station and takes it back, on a core of its own.
 set -u
 DEVICE="${1:-emulator-5554}"
 ADB="${ADB:-adb}"

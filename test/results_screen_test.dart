@@ -343,7 +343,7 @@ void main() {
   // reachable from it is held to the bar (as FLEETS is).
   for (final scale in [1.0, 2.0]) {
     testWidgets('the results screen passes the bar-check helper at ${(scale * 100).round()}% text', (tester) async {
-      final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
+      final violations = await barCheck(tester, actionIds: proRaceTimeActionIds.difference({'fleet-switch'}), (observer) {
         var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
         final seeded = withRole(FakeCore(clock: () => t += 1000));
         var seq = 0;

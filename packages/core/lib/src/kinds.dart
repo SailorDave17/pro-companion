@@ -3,6 +3,7 @@ import 'fleets.dart';
 import 'results.dart';
 import 'roles.dart';
 import 'starts.dart';
+import 'stations.dart';
 
 /// Every event kind the core writes, in one place (#6). Each feature keeps its
 /// own `*Kinds` class; this is their union, so a test that must cover every
@@ -16,5 +17,6 @@ abstract final class EventKinds {
     ...StartKinds.all,
     ...ResultsKinds.all,
     ...RoleKinds.all,
+    ...StationKinds.all,
   };
 }

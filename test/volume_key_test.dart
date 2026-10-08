@@ -177,7 +177,7 @@ void main() {
 
       testWidgets('the bar-check helper passes at $pct text with the volume key armed', (tester) async {
         // A single-fleet day, as #4's bar check: no fleet switch to reach.
-        final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
+        final violations = await barCheck(tester, actionIds: proRaceTimeActionIds.difference({'fleet-switch'}), (observer) {
           var t = DateTime(2026, 10, 6, 14, 30).millisecondsSinceEpoch;
           final seeded = withRole(FakeCore(clock: () => t += 1000));
           String ulid(int n) => '01J8${n.toString().padLeft(22, '0')}';

@@ -10,11 +10,13 @@ import 'package:pro_companion_core/host.dart';
 
 import '../test/support/network_tripwire.dart';
 import '../test/support/race_day_flow.dart';
+import '../test/support/station_flow.dart';
 
 /// #7 criterion 2 on a device: a whole race day through to provisional
 /// results on the real core, with the phone in airplane mode and the network
 /// tripwire armed on HTTP clients and sockets. The host half
-/// is test/results_offline_test.dart.
+/// is test/results_offline_test.dart. Since #26 (criterion 3), a mark boat's
+/// station too, in the same airplane-mode run.
 ///
 /// Not named *_test.dart, so a plain `flutter test integration_test` never
 /// runs it: it needs airplane mode, which only the host can turn on.
@@ -80,6 +82,35 @@ void main() {
 
     // ignore: avoid_print
     print('OFFLINE_RESULTS_ATTEMPTS ${wire.attempts.length} ${wire.attempts}');
+    expect(wire.attempts, isEmpty);
+  });
+
+  // #26 criterion 3 on a device: a mark boat sets its station on one phone
+  // in airplane mode, with no server and no PRO, on the real core. The host
+  // half is test/station_test.dart.
+  testWidgets("a mark boat's station, in airplane mode, reaches for no network", (tester) async {
+    final seen = await probe();
+    // ignore: avoid_print
+    print('OFFLINE_STATION_PROBE $seen');
+    expect(seen, isNot('connected'), reason: 'the network is up: run this through integration_test/offline_results.sh');
+
+    final wire = NetworkTripwire()..arm();
+    addTearDown(wire.disarm);
+
+    final dir = await (await getTemporaryDirectory()).createTemp('offline_station_');
+    final core = await spawnCore('${dir.path}${Platform.pathSeparator}core.db');
+    addTearDown(core.close);
+
+    await tester.pumpWidget(ProCompanionApp(
+      core: core,
+      confirmation: ConfirmationService(const PlatformConfirmationDevice()),
+    ));
+    await tester.pumpAndSettle();
+
+    await markBoatStationFlow(tester, core);
+
+    // ignore: avoid_print
+    print('OFFLINE_STATION_ATTEMPTS ${wire.attempts.length} ${wire.attempts}');
     expect(wire.attempts, isEmpty);
   });
 }
