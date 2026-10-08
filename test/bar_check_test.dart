@@ -204,6 +204,57 @@ void main() {
     expect(bad, contains(contains('"fix" needs 3 taps')));
   });
 
+  testWidgets('a race-time action the check does not hold fails, unless it is held elsewhere (#18, #26)',
+      (tester) async {
+    Widget withUndo(NavigatorObserver o) => miniApp(o,
+        screen: (_) => screen([
+              fullWidthFinish(),
+              RaceTimeAction(
+                id: 'undo',
+                child: SizedBox(width: 160, height: 72, child: OutlinedButton(onPressed: () {}, child: const Text('UNDO'))),
+              ),
+            ]));
+    final unheld = await barCheck(tester, withUndo, actionIds: ids);
+    expect(unheld, contains(contains('race-time action "undo" is not among the actions checked')));
+
+    final elsewhere = await barCheck(tester, withUndo, actionIds: ids, heldElsewhere: {'undo'});
+    expect(elsewhere, isEmpty, reason: 'met, not held to the tap limit here, and nothing else wrong');
+
+    // By default, only an action on a role's home itself is held elsewhere.
+    final onAHome = await barCheck(
+      tester,
+      (o) => miniApp(o,
+          screen: (_) => screen([
+                fullWidthFinish(),
+                RaceTimeAction(
+                  id: onHomeRaceTimeActionIds.single,
+                  child: SizedBox(width: 160, height: 72, child: OutlinedButton(onPressed: () {}, child: const Text('UNDO'))),
+                ),
+              ])),
+      actionIds: ids,
+    );
+    expect(onAHome, isEmpty);
+    expect(raceTimeActionIds, containsAll(onHomeRaceTimeActionIds), reason: "held by its own role's check");
+
+    // Held elsewhere excuses the action from this check's list, not the rest
+    // of the bar: a primary one is still held to the full width.
+    final narrow = await barCheck(
+      tester,
+      (o) => miniApp(o,
+          screen: (_) => screen([
+                fullWidthFinish(),
+                RaceTimeAction(
+                  id: 'undo',
+                  primary: true,
+                  child: SizedBox(width: 160, height: 72, child: OutlinedButton(onPressed: () {}, child: const Text('UNDO'))),
+                ),
+              ])),
+      actionIds: ids,
+      heldElsewhere: {'undo'},
+    );
+    expect(narrow, contains(contains('primary action "undo" is 160.0dp wide')));
+  });
+
   testWidgets('a dialog on a race-time route fails', (tester) async {
     final v = await barCheck(
       tester,

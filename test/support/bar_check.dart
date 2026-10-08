@@ -26,16 +26,28 @@ import 'package:pro_companion/ui/sunlight.dart';
 /// Across the whole exploration it checks that every race-time action in
 /// [actionIds] can be reached within the tap limit, its own tap included, and
 /// that every race-time action on screen is one of [actionIds] - which, for
-/// the app, is the registry [raceTimeActionIds]. An
+/// the app, is one role's set from the registry ([raceTimeActionIds]). It
+/// defaults to the PRO's, [proRaceTimeActionIds], since the whole-app checks
+/// open on the PRO's home; a check from another role's home passes that
+/// role's (#26). An
 /// item's own corrections may take one tap more, to select the item (owner
 /// decision 2026-09-24).
+///
+/// [heldElsewhere] names race-time actions the check may meet without holding
+/// them to the tap limit, because a check from their own role's home does. It
+/// defaults to the actions on a role's home itself,
+/// [onHomeRaceTimeActionIds]: every check reaches another role's home in two
+/// taps, UNDO ROLE and a pick (#26). Any other action from another role still
+/// fails the check, which is what holds the recorder away from the start
+/// sequence.
 ///
 /// [buildApp] must return a fresh app, with a fresh fake core, every call.
 /// Returns the violations found; an empty list is a pass.
 Future<List<String>> barCheck(
   WidgetTester tester,
   Widget Function(NavigatorObserver observer) buildApp, {
-  Set<String> actionIds = raceTimeActionIds,
+  Set<String> actionIds = proRaceTimeActionIds,
+  Set<String> heldElsewhere = onHomeRaceTimeActionIds,
   int maxTaps = Bars.maxTapsFromRoleHome,
 }) async {
   setPhoneSize(tester);
@@ -80,11 +92,11 @@ Future<List<String>> barCheck(
     for (final element in find.byType(RaceTimeAction).hitTestable().evaluate()) {
       final action = element.widget as RaceTimeAction;
       // An action this check does not hold to the tap limit - for the app,
-      // one missing from raceTimeActionIds - would pass unexamined, and
-      // nothing else would notice (#18).
-      if (!actionIds.contains(action.id)) {
+      // one missing from its role's set in the registry - would pass
+      // unexamined, and nothing else would notice (#18).
+      if (!actionIds.contains(action.id) && !heldElsewhere.contains(action.id)) {
         violations.add('$where: race-time action "${action.id}" is not among the actions checked '
-            '(for the app: raceTimeActionIds)');
+            '(for the app: its role\'s set in raceTimeActionIds)');
       }
       final seen = reachedAt[action.id];
       if (seen == null || path.length < seen) reachedAt[action.id] = path.length;

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart';
 import 'package:pro_companion/roles/roles.dart';
+import 'package:pro_companion/ui/race_time.dart';
 import 'package:pro_companion_core/core.dart';
 import 'package:pro_companion_core/testing.dart';
 
@@ -163,7 +164,9 @@ void main() {
     const expected = {
       Roles.overallPro: {'UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS'},
       Roles.recorder: {'UNDO ROLE', 'FLEETS', 'FINISHES'},
-      Roles.markBoat: {'UNDO ROLE'},
+      // The mark boat's station (#26); its roundings and finish-here come
+      // with #54 and #30.
+      Roles.markBoat: {'UNDO ROLE', 'STATION', 'UNDO STATION'},
       Roles.safety: {'UNDO ROLE'},
     };
 
@@ -175,12 +178,16 @@ void main() {
       });
     }
 
-    testWidgets('the mark-boat home has no line-finish or start controls, and says it has nothing yet',
-        (tester) async {
+    testWidgets('the mark-boat home has no line-finish or start controls', (tester) async {
       await openApp(tester, on: withRole(core, Roles.markBoat));
       for (final label in ['FINISHES', 'FINISH', 'SEQUENCE', 'GUN', 'FLEETS', 'RESULTS']) {
         expect(find.text(label), findsNothing, reason: label);
       }
+      expect(find.text('No actions for this role yet.'), findsNothing, reason: 'it has its station (#26)');
+    });
+
+    testWidgets('the safety home says it has nothing yet', (tester) async {
+      await openApp(tester, on: withRole(core, Roles.safety));
       expect(find.text('No actions for this role yet.'), findsOneWidget);
     });
 
@@ -233,7 +240,9 @@ void main() {
       // A role pick is set-up, done before racing, as naming fleets is, so it
       // is not a race-time action and holds none. The check explores the
       // picker and the home each pick opens, one tap deep; each home's own
-      // flow is checked below, from that home.
+      // flow is checked below, from that home. The mark boat's home holds
+      // UNDO STATION itself, which the check lets by (onHomeRaceTimeActionIds)
+      // and the mark boat's own check holds (#26).
       testWidgets('the picker, and the home each pick opens, at $pct text', (tester) async {
         final violations = await barCheck(
           tester,
@@ -256,12 +265,13 @@ void main() {
         expect(violations, isEmpty, reason: violations.join('\n'));
       });
 
-      for (final role in [Roles.markBoat, Roles.safety]) {
+      // With no station yet. test/station_test.dart checks it with one set.
+      for (final (role, actions) in [(Roles.markBoat, markBoatRaceTimeActionIds), (Roles.safety, const <String>{})]) {
         testWidgets("the $role home at $pct text", (tester) async {
           final violations = await barCheck(
             tester,
             (observer) => app(textScale: scale, on: withRole(FakeCore(), role), observer: observer),
-            actionIds: const {},
+            actionIds: actions,
           );
           expect(violations, isEmpty, reason: violations.join('\n'));
         });

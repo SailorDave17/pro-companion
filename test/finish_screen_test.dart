@@ -450,7 +450,7 @@ void main() {
         (tester) async {
       // A single-fleet day: no fleet is defined, so there is no fleet switch
       // to reach. #18's own bar check, with fleets, holds 'fleet-switch'.
-      final violations = await barCheck(tester, actionIds: raceTimeActionIds.difference({'fleet-switch'}), (observer) {
+      final violations = await barCheck(tester, actionIds: proRaceTimeActionIds.difference({'fleet-switch'}), (observer) {
         var t = DateTime(2026, 9, 26, 14, 30).millisecondsSinceEpoch;
         final seeded = withRole(FakeCore(clock: () => t += 1000));
         // The day's gun, so the sequence screen has a gun time to fix (#25).
