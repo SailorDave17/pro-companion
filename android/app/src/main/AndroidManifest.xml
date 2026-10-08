@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The confirmation buzz on every logged race-time action (#4). -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Sync to the server (#46, ADR 006 decision 5). The debug and profile manifests add
+         INTERNET for the Flutter tool only, so without these a release build has no network.
+         test/main_manifest_test.dart and scripts/check_release_signing.sh hold them here. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <application
         android:label="pro_companion"
         android:name="${applicationName}"

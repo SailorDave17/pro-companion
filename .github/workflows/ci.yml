@@ -40,6 +40,9 @@ jobs:
   # release build fails naming what is missing, and with a throwaway keystore
   # made here, named by environment variables and then by android/key.properties,
   # apksigner reports exactly that keystore's certificate. docs/field-builds.md.
+  # Each of those APKs must also request INTERNET and ACCESS_NETWORK_STATE (#46):
+  # these are the only release builds CI makes, and the debug APK carries INTERNET
+  # from the debug manifest whatever the main one says.
   release-signing:
     runs-on: ubuntu-latest
     timeout-minutes: 30
