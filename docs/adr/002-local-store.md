@@ -1,6 +1,6 @@
 # ADR 002 — The local store: SQLite (package:sqlite3), append-only enforced by the engine
 
-- Status: accepted 2026-09-23, on measurement (#13)
+- Status: accepted 2026-09-23, on measurement (#13); held on the club phone 2026-10-07 (#21)
 - Builds on: pro-companion ADR 001 (the local core owns an append-only event log; its first kill
   condition reopens "its storage choice", and until now no choice existed)
 - Evidence: `tool/store_bench/` (harness, fixture, results), rerunnable with the commands below
@@ -48,6 +48,23 @@ append-and-read-back per event, in ms.
 
 **Every candidate passes the bar by more than an order of magnitude on the emulator.** The two
 runs agree within about 5% on every figure.
+
+### On the club phone (#21)
+
+Two runs on 2026-10-07, `tool/store_bench/results/2026-10-07-club-phone-run{1,2}.json`. The phone
+is a Samsung Galaxy S23 Ultra (SM-S918U), Android 16 (API 36), One UI 8.5, retail build. Same
+harness, fixture and profile build as above, on the cable with the screen on.
+
+| store | p50 run1 / run2 | p95 run1 / run2 | max run1 / run2 | fill 9,084 events | refuses UPDATE / DELETE itself |
+|---|---|---|---|---|---|
+| **sqlite3 3.0.0** | 0.163 / 0.162 | **0.272 / 0.258** | 3.21 / 1.07 | 1.4 s / 1.4 s | **yes / yes** |
+| hive_ce 2.20.0 | 0.141 / 0.143 | 0.234 / 0.190 | 3.34 / 2.63 | 1.1 s / 0.9 s | no / no |
+| sembast 3.8.11 | 0.347 / 0.359 | 0.486 / 0.506 | 3.33 / 3.01 | 3.3 s / 3.7 s | no / no |
+
+**sqlite3's p95 is under 0.3 ms against the 100 ms bar**, about nine times faster than on the
+emulator. The kill condition below does not fire. sqlite3's two runs agree within about 5% on p50
+and p95; hive_ce's p95 moved 19% between them, still a quarter of a millisecond. The engine
+refused both mutations on the phone too.
 
 **Durability (sqlite3):** 6 of 6 force-kills lost nothing acknowledged. Several relaunches found
 one event *more* than the last acknowledgement, a commit that landed just before the kill cut off
@@ -102,7 +119,9 @@ Latency does not decide it, since all three pass. Two things do:
   page cache intact, so this harness cannot tell FULL from NORMAL or OFF. Power-loss durability
   rests on SQLite's documented WAL guarantee and is **not measured here**.
 - **The emulator is not the club phone.** An x86_64 emulator on a desktop disk says nothing about
-  a mid-range phone's flash. The club-phone numbers are #21's, run with this same harness.
+  a mid-range phone's flash. The club-phone numbers are #21's, run with this same harness (see
+  "On the club phone" above). The club phone is a flagship, not a mid-range phone, so they say
+  nothing about a cheaper second committee phone either.
 
 ## Kill condition
 

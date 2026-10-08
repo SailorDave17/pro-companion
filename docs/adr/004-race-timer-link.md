@@ -10,6 +10,8 @@
   instrumented `LinkTrustTest`
 - Built by: race-timer#294 (the emitter) and pro-companion #33 (the receiver). Field-checked by #21
   (the harness on the club phone) and #34 (the real race-timer on the club phone)
+- **Held on the club phone 2026-10-07 (#21)**: 50 of 50 events delivered unplugged with the screen
+  off. See "Kill condition".
 
 ## Context
 
@@ -241,8 +243,9 @@ The spike pinned a key of its own making. It proves the check, not these values.
 - **The emulator cannot show the CPU sleeping**, which is ADR 003's limit again. Forced Doze
   changes the scheduler's state, but the host CPU never suspends, so these runs prove the processes,
   the binder path and the Doze rules, not phone timing. **#21 repeats criterion 1 on the club phone
-  with this harness**: 50 events over 30 minutes, screen off, in a pocket, over the chosen mechanism
-  only (`--es mech bound --ei count 50 --ei interval_ms 36000`; the spike's README has the command).
+  with this harness**: 50 events over 30 minutes, screen off and unplugged, over the chosen mechanism
+  only (`--es mech bound --ei count 51 --ei interval_ms 36000`, where event 1 goes out on the cable;
+  the spike's README has the procedure).
   That run, not this one, is where an OEM battery manager shows. The harness holds a partial wake
   lock for its run, as race-timer's sequence keeps the CPU awake, so a gap there is the link's and
   not the stand-in's.
@@ -288,3 +291,32 @@ Manual gun-time entry (#25) becomes the fallback, scope decision 3 (absorbing ra
 moves up from horizon, and the result goes to the owner at once. The first thing to try before
 that is the core host's wake lock that ADR 003 already names, not a different mechanism: on the
 emulator, all three mechanisms delivered alike.
+
+### On the club phone, 2026-10-07 (#21): did not fire
+
+On the club phone (Samsung Galaxy S23 Ultra, Android 16, One UI 8.5, retail build), the harness
+emitted 51 events over the bound service, 36 s apart, with the companion backgrounded
+(`tool/core_host_spike/results/2026-10-07-club-phone-link-run3.txt`). Event 1 went out on the
+cable. The phone was unplugged 2 s later and its screen went off 3 s after that, and it stayed that
+way, on no charger, until the run was over. The battery history and the events buffer both show no
+screen-on and no plug in between.
+
+| events | delivered | duplicates | refused | emit → core p50 / p95 / max |
+|---|---|---|---|---|
+| 2–51, unplugged and screen off | **50 / 50** | 0 | 0 | 11 / 27 / 41 ms (all 51) |
+
+**No event was lost, so ADR 001's link kill condition does not fire.** Two earlier runs that day
+delivered every event too (101 of 101), but neither held these conditions for 30 minutes: the club
+phone is also the owner's daily phone, and both were used and charged mid-run
+(`results/2026-10-07-club-phone-link-runs.txt`).
+
+Two limits on what this shows:
+
+- **Light Doze, not deep.** Light Doze was idle from the second minute on. Deep Doze reached only
+  `IDLE_PENDING`, a minute after the last event, so no event went out in deep idle. A phone moving
+  in a pocket on a race day resets deep Doze's motion check, so light Doze is the likelier state
+  there, but this run does not show that.
+- **The harness held the CPU awake**, as race-timer's sequence does. While it did, the core's 10 s
+  tick held to 10.2 s at worst; once it let go, the tick gapped by up to 104 s. So this run says the
+  link delivers to a backgrounded core, screen off and in light Doze, while the emitter holds a wake
+  lock, and nothing about an emitter that does not. #34 repeats it with the real race-timer.

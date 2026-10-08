@@ -76,11 +76,34 @@ ADB=path/to/adb sh tool/core_host_spike/link_kill_probe.sh [count] [interval_ms]
 ```
 
 **#21 on the club phone** runs the chosen mechanism only, at 50 events over 30 minutes, with the
-phone screen-off in a pocket: `sh link_build.sh profile trusted`, start the core from the app, close
-it, then `adb shell am start-foreground-service -n com.procompanion.link_harness/.EmitService --es
-mech bound --ei count 50 --ei interval_ms 36000 --es run club-phone`, with
-`adb logcat -v time -s LINK:V flutter:V > club-phone.log` running throughout. Then
-`dart link_report.dart club-phone.log` reports it.
+phone unplugged and screen-off in a pocket. Streaming `adb logcat` for the run keeps the phone on
+the cable, and a charging phone does not sleep, so the run is read back after the cable goes in
+again. On the club phone neither logcat route can carry it (measured 2026-10-07): the main buffer
+is capped at 5 MiB, about 20 minutes of the whole phone's logging, and a logger started from
+`adb shell` dies at the unplug, even under `setsid nohup`. So since #21 **the core mirrors its log**
+to its external files directory, where adb can read it on a retail phone:
+
+1. `sh link_build.sh profile trusted`, then clear the mirror:
+   `adb shell rm -f /sdcard/Android/data/com.procompanion.core_host_spike/files/core_tick.log`
+   (prefix `MSYS_NO_PATHCONV=1` in Git Bash).
+2. Start the core (`am start -n com.procompanion.core_host_spike/.MainActivity --ez autostart
+   true`), wait for `START` in the mirror, then HOME.
+3. `adb shell am start-foreground-service -n com.procompanion.link_harness/.EmitService --es mech
+   bound --ei count 51 --ei interval_ms 36000 --es run club-phone`. Event 1 goes out on the cable;
+   unplug within 36 s, and events 2–51 are the criterion's 50.
+4. Leave the phone alone, off every charger, the wireless pad included: a screen-on or a charger
+   during the run is visible afterwards in
+   `adb logcat -d -b events -s screen_toggled battery_status`, and invalidates the events it covers.
+   The events buffer spans only about 3 hours of a phone in daily use, so read
+   `adb shell dumpsys batterystats --history` as well. It logs `±screen` and `plug=` with clock
+   times, and it resets at an unplug near full charge (twice on 2026-10-07, at about 90%), so it
+   starts with the run. Read back before the phone charges again, or the next unplug wipes it.
+5. Cable back in: `adb pull` the mirror. Its `LINK` lines carry `n`, `count` and `e2e_ms` for every
+   event that reached the core. The harness's own lines may have rotated out of the ring buffer.
+
+The tick run (criterion 2) is the same, without the harness and with BACK instead of HOME, so
+that nothing holds a wake lock. The 2026-10-07 runs are in `results/2026-10-07-club-phone-*.txt`;
+`-link-run3.txt` is the clean link run.
 
 `link_build.sh` makes two throwaway keys under `build/link_keys/` on first use and builds the
 companion with the trusted one's SHA-256 pinned. The harness is never signed with the companion's
