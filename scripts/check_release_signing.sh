@@ -13,6 +13,10 @@
 #                     that keystore's certificate, and no other signer.
 #   key.properties  - the same keystore named by android/key.properties instead,
 #                     held to the same check.
+# #46: each signed APK must also request INTERNET and ACCESS_NETWORK_STATE, read
+# by aapt2 from the manifest the APK carries (the merged release manifest).
+# Only a release build can show this: the debug and profile manifests add
+# INTERNET for the Flutter tool. AAPT2=/path/to/aapt2 overrides.
 # The CI job release-signing runs this. It stops before building anything if
 # android/key.properties already exists: that file names the owner's real key,
 # and this script writes and deletes its own copy. It also deletes any release
@@ -37,17 +41,24 @@ native() {
   if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s\n' "$1"; fi
 }
 
-if [ -z "${APKSIGNER:-}" ]; then
+if [ -z "${APKSIGNER:-}" ] || [ -z "${AAPT2:-}" ]; then
   SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
   if [ -z "$SDK" ] || [ ! -d "$SDK/build-tools" ]; then
-    echo "FAIL: no Android SDK build-tools found; set ANDROID_HOME or APKSIGNER"
+    echo "FAIL: no Android SDK build-tools found; set ANDROID_HOME, or APKSIGNER and AAPT2"
     exit 1
   fi
   TOOLS="$SDK/build-tools/$(ls "$SDK/build-tools" | sort -V | tail -n 1)"
+fi
+if [ -z "${APKSIGNER:-}" ]; then
   APKSIGNER="$TOOLS/apksigner"
   [ -f "$APKSIGNER" ] || APKSIGNER="$TOOLS/apksigner.bat"
 fi
+if [ -z "${AAPT2:-}" ]; then
+  AAPT2="$TOOLS/aapt2"
+  [ -f "$AAPT2" ] || AAPT2="$TOOLS/aapt2.exe"
+fi
 echo "release-signing: apksigner is $APKSIGNER"
+echo "release-signing: aapt2 is $AAPT2"
 
 WORK=$(mktemp -d)
 WROTE_KEY_PROPERTIES=0
@@ -133,6 +144,29 @@ build_and_verify() {
     exit 1
   fi
   echo "ok ($1): signed by the throwaway key and nothing else, $got"
+  check_network_permissions "$1"
+}
+
+# #46. aapt2 prints one "uses-permission: name='...'" line per permission, with any maxSdkVersion
+# after it on the same line, so a whole-line match also refuses a permission capped below current
+# phones.
+NETWORK_PERMISSIONS="android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE"
+check_network_permissions() {
+  if ! "$AAPT2" dump permissions "$APK" >"$WORK/$1.permissions" 2>&1; then
+    cat "$WORK/$1.permissions"
+    echo "FAIL: aapt2 could not read the APK's permissions ($1)"
+    exit 1
+  fi
+  missing=""
+  for p in $NETWORK_PERMISSIONS; do
+    tr -d '\r' <"$WORK/$1.permissions" | grep -qxF "uses-permission: name='$p'" || missing="$missing $p"
+  done
+  if [ -n "$missing" ]; then
+    cat "$WORK/$1.permissions"
+    echo "FAIL: ($1) the release APK does not request:$missing"
+    exit 1
+  fi
+  echo "ok ($1): the release APK requests $NETWORK_PERMISSIONS"
 }
 
 echo "release-signing: the key named by environment variables"

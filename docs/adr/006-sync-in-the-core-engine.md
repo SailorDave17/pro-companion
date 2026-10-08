@@ -55,6 +55,11 @@ destroyed:
    *(2026-09-26, at #6: #6 ships the sync package but no network call from the app, since
    starting sync in the core host is #113's. The permission is #46's, which already carries
    it as a story.)*
+   *(2026-10-07, at #46: now measured. `aapt2 dump permissions` on a release APK of develop at
+   `54b60a9` listed `VIBRATE` and AndroidX's `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` only. No
+   plugin's manifest requests any permission. The main manifest now requests `INTERNET` and
+   `ACCESS_NETWORK_STATE`. `test/main_manifest_test.dart` holds the main manifest to them, and
+   `scripts/check_release_signing.sh` holds each release APK it builds to them.)*
 
 ## Measured
 

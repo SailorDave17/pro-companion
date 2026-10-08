@@ -78,7 +78,9 @@ headless core engine; the UI never imports it (`test/import_boundary_test.dart`)
 - **Its tests:** `dart test` in `packages/sync` against a scripted server (the real Supabase client,
   only the transport faked), and `test/sync_test.dart` against the local stack.
 - **Not yet in the app.** Starting it from the core host, with the project's URL and key, is
-  #113's, after #32 builds the host. The `INTERNET` permission is #46's.
+  #113's, after #32 builds the host. Since #46 a release build may use the network: the main
+  manifest requests `INTERNET` and `ACCESS_NETWORK_STATE`, held there by
+  `test/main_manifest_test.dart` and, in the release APK, by `scripts/check_release_signing.sh`.
 
 ### Tests against the local stack
 
