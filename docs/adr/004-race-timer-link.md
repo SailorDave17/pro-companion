@@ -211,9 +211,24 @@ developer's own debug key. Nothing on the phone can widen either list.
 
 | race-timer as installed | signed with | SHA-256 | where it is recorded |
 |---|---|---|---|
-| from Play, as on the club phone | Play's app-signing key for race-timer | **not recorded yet** | Play Console (App integrity, App signing), which only the owner can open, or read off the installed app (`adb shell pm path io.github.sailordave17.racetimer`, pull `base.apk`, `apksigner verify --print-certs`). It must be pinned before the first field build meant to accept race-timer (#27, then #34). |
-| sideloaded release | race-timer's upload key | `918a82574c74bc3a96707994604a535d77e31018545a9b83c5c008abfe2dc8f6` | race-timer's `docs/release-signing.md` (read 2026-10-06) |
+| from Play | Play's app-signing key for race-timer | `3ec6dcb6a362106d30db30fce8475d14aec714a0ed338e8c00a3553de8c6f17f` | Play Console, App integrity → App signing, the key marked "In use" (read 2026-10-08, #27) |
+| sideloaded release | race-timer's upload key | `918a82574c74bc3a96707994604a535d77e31018545a9b83c5c008abfe2dc8f6` | race-timer's `docs/release-signing.md` (read 2026-10-06); Play Console's upload key certificate and the APK on the club phone agree (2026-10-08) |
 | debug, from a developer's machine | that machine's debug key | per machine | debug builds only |
+
+**The club phone carries the sideloaded release today, not Play's**, *measured 2026-10-08 (#27)*.
+`dumpsys package` names `com.android.shell` as the installer (an `adb install`, 2026-09-29), and
+`apksigner` on the `base.apk` pulled off the phone reads race-timer's upload key. So the second row is
+the one the club phone needs until race-timer is installed there from Play. That install has to
+uninstall the sideload first, since the two are signed by different keys.
+
+Play Console also lists a **previous** app-signing key: first used 3 Aug 2026, marked
+"Quantum-ready (beta)", classical certificate
+`577e91f860496f5c2411d843020f4774d8ddb9859d7edc71a33bf188e577a2b3`. Both keys showed a 0% install
+base on 2026-10-08. A Play install signed before the key change would carry the previous key.
+`hasSigningCertificate` searches every certificate a package "has proven to have been signed" with
+(its documentation), rotation history included, so whether a Play install also matches the previous
+key depends on the lineage Play ships, which was not measured. #34 settles it on a real Play
+install.
 
 **race-timer trusts the companion**, package `com.procompanion.app`. Before it binds, it checks
 that package's signing certificate (`hasSigningCertificate` again) and binds by explicit component,
@@ -221,7 +236,7 @@ which is race-timer#294 criterion 4's "explicit package-and-certificate target":
 
 | companion as installed | signed with | SHA-256 | where it is recorded |
 |---|---|---|---|
-| field build (G20) | the owner's upload key | **not created yet** | #27 creates the key and records it |
+| field build (G20) | the owner's upload key | `8578eb0538b09db7f4df3284049591986aa32e5a338ee513f86e7c754bdc5506` | `docs/field-builds.md`, "The field key" (#27, 2026-10-08). `test/field_key_doc_test.dart` holds this row to it. |
 | debug | that machine's debug key | per machine | debug builds only |
 
 The spike pinned a key of its own making. It proves the check, not these values.
