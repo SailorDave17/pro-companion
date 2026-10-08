@@ -1,0 +1,357 @@
+# pro-companion #21, criterion 1: the race-timer link on the club phone, mechanism bound only
+# Club phone: Samsung Galaxy S23 Ultra (SM-S918U), Android 16 (API 36), One UI 8.5, retail build.
+# Profile build; harness signed with the trusted key, companion pinning it. 2026-10-07.
+# NEITHER RUN MEETS CRITERION 1'S CONDITIONS (30 min screen off, unplugged). Both are kept as
+# partial evidence: every event emitted in either run reached the core, exactly once.
+# Run 3, the clean one that meets them, is 2026-10-07-club-phone-link-run3.txt.
+#
+# Run 1 (club-phone-link): 50 events, 36 s apart, 13:35:52-14:05:16 EDT, companion backgrounded (HOME).
+#   The phone stayed on USB with the screen held on (stay_on_while_plugged_in=15) until 14:01:16;
+#   only n=44-50 went out unplugged with the screen off. Captured by an on-phone logcat redirect
+#   (died at the unplug, with adbd's process group) and the main ring buffer (13:49 onwards),
+#   merged on whole lines; the two agree on all 132 lines they share.
+#   After the harness's DONE released its wake lock, the core's ticks slipped (14:05-14:09, below):
+#   the first sight of criterion 2's result.
+# Run 2 (club-phone-link-2): 51 events, 36 s apart, 14:18:18-14:48:18 EDT; n=1 is the cable event.
+#   Unplugged 14:18:26, but the phone was in use and charged during the run (events buffer below).
+#   Emitted with the screen off and unplugged: 18 of 51 (n=2, 14, 22-35, 44, 45); the longest
+#   unbroken stretch is n=22-35, about 8 min. 18 went out with the screen on, 14 while charging.
+#   Read from the core's mirror log; the harness's lines rotated out of the 5 MiB ring buffer.
+#   core LINK lines: 51 distinct n of 51, 0 duplicates, count reached 51; emit -> core ms p50 11, p95 30, max 48.
+
+== run 1: link_report.dart over the merged capture
+club-phone-link  (bound, interval 36000 ms, sdk 36)
+  emitted 50 of 50, device idle at 0 of them; harness told: accepted 50
+  endpoint received 50; core stored 50 distinct (its own count reached 50), 0 duplicates
+  DELIVERED 50/50
+  send call (harness) us: p50 9283, p95 24225, max 59237
+  emit -> endpoint us:    p50 2485, p95 10781, max 25153
+  emit -> core ms:        p50 9, p95 24, max 44
+  done: run=club-phone-link mech=bound emitted=50 ok=50 refused=0 errors=0 idle=false
+refusals logged: 0
+
+== run 1: harness and core lines
+10-07 13:35:51.955 I/LINK    (20013): BEGIN run=club-phone-link mech=bound count=50 interval_ms=36000 sdk=36 idle=false
+10-07 13:35:52.012 I/LINK    (19857): RECV run=club-phone-link mech=bound n=1 id=b4675da3-1766-4ca9-bd8c-6f1638ef54fb hop_us=25153
+10-07 13:35:52.017 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=1 id=b4675da3-1766-4ca9-bd8c-6f1638ef54fb kind=sequence_start status=accepted send_us=59237 idle=false
+10-07 13:35:52.017 I/flutter (19857): CORE 2026-10-07T17:35:52.014796Z LINK run=club-phone-link mech=bound n=1 id=b4675da3-1766-4ca9-bd8c-6f1638ef54fb kind=sequence_start count=1 dup=false e2e_ms=44
+10-07 13:36:27.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=2 id=38167942-8280-4697-8f7c-1945aab6b36e hop_us=2428
+10-07 13:36:27.967 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=2 id=38167942-8280-4697-8f7c-1945aab6b36e kind=signal status=accepted send_us=8641 idle=false
+10-07 13:36:27.975 I/flutter (19857): CORE 2026-10-07T17:36:27.974664Z LINK run=club-phone-link mech=bound n=2 id=38167942-8280-4697-8f7c-1945aab6b36e kind=signal count=2 dup=false e2e_ms=16
+10-07 13:37:03.963 I/LINK    (19857): RECV run=club-phone-link mech=bound n=3 id=418491be-e15f-409f-a20c-4612abde7269 hop_us=1683
+10-07 13:37:03.964 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=3 id=418491be-e15f-409f-a20c-4612abde7269 kind=signal status=accepted send_us=5706 idle=false
+10-07 13:37:03.968 I/flutter (19857): CORE 2026-10-07T17:37:03.966629Z LINK run=club-phone-link mech=bound n=3 id=418491be-e15f-409f-a20c-4612abde7269 kind=signal count=3 dup=false e2e_ms=7
+10-07 13:37:39.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=4 id=5b0e7b45-00dd-4fce-b76b-eaf15144ce93 hop_us=2247
+10-07 13:37:39.968 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=4 id=5b0e7b45-00dd-4fce-b76b-eaf15144ce93 kind=signal status=accepted send_us=8912 idle=false
+10-07 13:37:39.974 I/flutter (19857): CORE 2026-10-07T17:37:39.967787Z LINK run=club-phone-link mech=bound n=4 id=5b0e7b45-00dd-4fce-b76b-eaf15144ce93 kind=signal count=4 dup=false e2e_ms=9
+10-07 13:38:15.968 I/LINK    (19857): RECV run=club-phone-link mech=bound n=5 id=b470e106-eba6-47b5-b1ec-220168aa02aa hop_us=3286
+10-07 13:38:15.973 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=5 id=b470e106-eba6-47b5-b1ec-220168aa02aa kind=start status=accepted send_us=12140 idle=false
+10-07 13:38:15.981 I/flutter (19857): CORE 2026-10-07T17:38:15.979448Z LINK run=club-phone-link mech=bound n=5 id=b470e106-eba6-47b5-b1ec-220168aa02aa kind=start count=5 dup=false e2e_ms=20
+10-07 13:38:51.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=6 id=c36b55fb-caac-40ba-9d01-87bad58407c8 hop_us=2476
+10-07 13:38:51.968 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=6 id=c36b55fb-caac-40ba-9d01-87bad58407c8 kind=individual_recall status=accepted send_us=8989 idle=false
+10-07 13:38:51.973 I/flutter (19857): CORE 2026-10-07T17:38:51.967069Z LINK run=club-phone-link mech=bound n=6 id=c36b55fb-caac-40ba-9d01-87bad58407c8 kind=individual_recall count=6 dup=false e2e_ms=9
+10-07 13:39:27.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=7 id=c9518725-af6c-42dc-aa05-eb09a8c1f0eb hop_us=4998
+10-07 13:39:27.967 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=7 id=c9518725-af6c-42dc-aa05-eb09a8c1f0eb kind=sequence_start status=accepted send_us=9097 idle=false
+10-07 13:39:27.971 I/flutter (19857): CORE 2026-10-07T17:39:27.967455Z LINK run=club-phone-link mech=bound n=7 id=c9518725-af6c-42dc-aa05-eb09a8c1f0eb kind=sequence_start count=7 dup=false e2e_ms=6
+10-07 13:40:03.971 I/LINK    (19857): RECV run=club-phone-link mech=bound n=8 id=06c3042d-172f-4a2d-add9-e532819d4a51 hop_us=8480
+10-07 13:40:03.975 I/flutter (19857): CORE 2026-10-07T17:40:03.973401Z LINK run=club-phone-link mech=bound n=8 id=06c3042d-172f-4a2d-add9-e532819d4a51 kind=signal count=8 dup=false e2e_ms=15
+10-07 13:40:03.976 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=8 id=06c3042d-172f-4a2d-add9-e532819d4a51 kind=signal status=accepted send_us=17872 idle=false
+10-07 13:40:39.962 I/LINK    (19857): RECV run=club-phone-link mech=bound n=9 id=d3940775-a9dd-4bce-a036-c1602e4cba84 hop_us=1891
+10-07 13:40:39.964 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=9 id=d3940775-a9dd-4bce-a036-c1602e4cba84 kind=postponement status=accepted send_us=6025 idle=false
+10-07 13:40:39.966 I/flutter (19857): CORE 2026-10-07T17:40:39.964351Z LINK run=club-phone-link mech=bound n=9 id=d3940775-a9dd-4bce-a036-c1602e4cba84 kind=postponement count=9 dup=false e2e_ms=7
+10-07 13:41:15.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=10 id=4ae8cbf9-1ec6-4b0a-8eed-ec1d95ce60ca hop_us=2693
+10-07 13:41:15.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=10 id=4ae8cbf9-1ec6-4b0a-8eed-ec1d95ce60ca kind=sequence_start status=accepted send_us=10004 idle=false
+10-07 13:41:15.972 I/flutter (19857): CORE 2026-10-07T17:41:15.968678Z LINK run=club-phone-link mech=bound n=10 id=4ae8cbf9-1ec6-4b0a-8eed-ec1d95ce60ca kind=sequence_start count=10 dup=false e2e_ms=10
+10-07 13:41:51.965 I/LINK    (19857): RECV run=club-phone-link mech=bound n=11 id=cd8d63b6-d52f-40fb-b108-6f644deea397 hop_us=2303
+10-07 13:41:51.971 I/flutter (19857): CORE 2026-10-07T17:41:51.968242Z LINK run=club-phone-link mech=bound n=11 id=cd8d63b6-d52f-40fb-b108-6f644deea397 kind=signal count=11 dup=false e2e_ms=10
+10-07 13:41:51.974 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=11 id=cd8d63b6-d52f-40fb-b108-6f644deea397 kind=signal status=accepted send_us=15079 idle=false
+10-07 13:42:27.979 I/LINK    (19857): RECV run=club-phone-link mech=bound n=12 id=9ff47fae-dacb-493a-9cc7-502d53ac86a9 hop_us=10781
+10-07 13:42:27.984 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=12 id=9ff47fae-dacb-493a-9cc7-502d53ac86a9 kind=signal status=accepted send_us=24033 idle=false
+10-07 13:42:27.987 I/flutter (19857): CORE 2026-10-07T17:42:27.985188Z LINK run=club-phone-link mech=bound n=12 id=9ff47fae-dacb-493a-9cc7-502d53ac86a9 kind=signal count=12 dup=false e2e_ms=24
+10-07 13:43:03.977 I/LINK    (19857): RECV run=club-phone-link mech=bound n=13 id=63a43bed-2e23-41fe-a786-a7cc22933d38 hop_us=9345
+10-07 13:43:03.982 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=13 id=63a43bed-2e23-41fe-a786-a7cc22933d38 kind=signal status=accepted send_us=21416 idle=false
+10-07 13:43:03.985 I/flutter (19857): CORE 2026-10-07T17:43:03.983381Z LINK run=club-phone-link mech=bound n=13 id=63a43bed-2e23-41fe-a786-a7cc22933d38 kind=signal count=13 dup=false e2e_ms=21
+10-07 13:43:39.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=14 id=ab01331c-07b5-46d9-99a4-c7f3ac2a7654 hop_us=2849
+10-07 13:43:39.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=14 id=ab01331c-07b5-46d9-99a4-c7f3ac2a7654 kind=start status=accepted send_us=8891 idle=false
+10-07 13:43:39.972 I/flutter (19857): CORE 2026-10-07T17:43:39.967560Z LINK run=club-phone-link mech=bound n=14 id=ab01331c-07b5-46d9-99a4-c7f3ac2a7654 kind=start count=14 dup=false e2e_ms=8
+10-07 13:44:15.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=15 id=61282929-5e7f-4df2-9632-8057445422a9 hop_us=2248
+10-07 13:44:15.968 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=15 id=61282929-5e7f-4df2-9632-8057445422a9 kind=general_recall status=accepted send_us=8182 idle=false
+10-07 13:44:15.973 I/flutter (19857): CORE 2026-10-07T17:44:15.967404Z LINK run=club-phone-link mech=bound n=15 id=61282929-5e7f-4df2-9632-8057445422a9 kind=general_recall count=15 dup=false e2e_ms=8
+10-07 13:44:51.963 I/LINK    (19857): RECV run=club-phone-link mech=bound n=16 id=7ec4bf7f-514a-4b1e-a40f-693e47654c4d hop_us=2136
+10-07 13:44:51.966 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=16 id=7ec4bf7f-514a-4b1e-a40f-693e47654c4d kind=sequence_start status=accepted send_us=7315 idle=false
+10-07 13:44:51.969 I/flutter (19857): CORE 2026-10-07T17:44:51.965280Z LINK run=club-phone-link mech=bound n=16 id=7ec4bf7f-514a-4b1e-a40f-693e47654c4d kind=sequence_start count=16 dup=false e2e_ms=7
+10-07 13:45:27.961 I/LINK    (19857): RECV run=club-phone-link mech=bound n=17 id=e13a368e-2ded-477c-98e4-8059f5c4064c hop_us=1320
+10-07 13:45:27.962 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=17 id=e13a368e-2ded-477c-98e4-8059f5c4064c kind=signal status=accepted send_us=4475 idle=false
+10-07 13:45:27.965 I/flutter (19857): CORE 2026-10-07T17:45:27.963823Z LINK run=club-phone-link mech=bound n=17 id=e13a368e-2ded-477c-98e4-8059f5c4064c kind=signal count=17 dup=false e2e_ms=6
+10-07 13:46:03.963 I/LINK    (19857): RECV run=club-phone-link mech=bound n=18 id=65f9ef5c-753c-4b72-ad40-0a4086777cdd hop_us=1852
+10-07 13:46:03.967 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=18 id=65f9ef5c-753c-4b72-ad40-0a4086777cdd kind=signal status=accepted send_us=7655 idle=false
+10-07 13:46:03.970 I/flutter (19857): CORE 2026-10-07T17:46:03.965970Z LINK run=club-phone-link mech=bound n=18 id=65f9ef5c-753c-4b72-ad40-0a4086777cdd kind=signal count=18 dup=false e2e_ms=7
+10-07 13:46:39.960 I/LINK    (19857): RECV run=club-phone-link mech=bound n=19 id=4e449001-3ac3-4506-aa98-12d09ebbfd3d hop_us=1154
+10-07 13:46:39.962 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=19 id=4e449001-3ac3-4506-aa98-12d09ebbfd3d kind=signal status=accepted send_us=3963 idle=false
+10-07 13:46:39.965 I/flutter (19857): CORE 2026-10-07T17:46:39.961973Z LINK run=club-phone-link mech=bound n=19 id=4e449001-3ac3-4506-aa98-12d09ebbfd3d kind=signal count=19 dup=false e2e_ms=4
+10-07 13:47:15.965 I/LINK    (19857): RECV run=club-phone-link mech=bound n=20 id=391de1ae-e676-4095-8cf0-55be7c3e2244 hop_us=2534
+10-07 13:47:15.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=20 id=391de1ae-e676-4095-8cf0-55be7c3e2244 kind=start status=accepted send_us=9326 idle=false
+10-07 13:47:15.974 I/flutter (19857): CORE 2026-10-07T17:47:15.968335Z LINK run=club-phone-link mech=bound n=20 id=391de1ae-e676-4095-8cf0-55be7c3e2244 kind=start count=20 dup=false e2e_ms=9
+10-07 13:47:51.961 I/LINK    (19857): RECV run=club-phone-link mech=bound n=21 id=fc3834fe-69ea-4dba-bdbc-8198fbedfc16 hop_us=1598
+10-07 13:47:51.964 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=21 id=fc3834fe-69ea-4dba-bdbc-8198fbedfc16 kind=individual_recall status=accepted send_us=5603 idle=false
+10-07 13:47:51.967 I/flutter (19857): CORE 2026-10-07T17:47:51.963711Z LINK run=club-phone-link mech=bound n=21 id=fc3834fe-69ea-4dba-bdbc-8198fbedfc16 kind=individual_recall count=21 dup=false e2e_ms=5
+10-07 13:48:27.968 I/LINK    (19857): RECV run=club-phone-link mech=bound n=22 id=1aa95010-368a-4189-bf5a-ab5a1f280b46 hop_us=4805
+10-07 13:48:27.971 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=22 id=1aa95010-368a-4189-bf5a-ab5a1f280b46 kind=sequence_start status=accepted send_us=11310 idle=false
+10-07 13:48:27.973 I/flutter (19857): CORE 2026-10-07T17:48:27.969679Z LINK run=club-phone-link mech=bound n=22 id=1aa95010-368a-4189-bf5a-ab5a1f280b46 kind=sequence_start count=22 dup=false e2e_ms=11
+10-07 13:49:03.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=23 id=4bc8698d-81f2-46b5-a9af-8f5303acf7d3 hop_us=2936
+10-07 13:49:03.971 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=23 id=4bc8698d-81f2-46b5-a9af-8f5303acf7d3 kind=signal status=accepted send_us=9918 idle=false
+10-07 13:49:03.975 I/flutter (19857): CORE 2026-10-07T17:49:03.968929Z LINK run=club-phone-link mech=bound n=23 id=4bc8698d-81f2-46b5-a9af-8f5303acf7d3 kind=signal count=23 dup=false e2e_ms=9
+10-07 13:49:39.969 I/LINK    (19857): RECV run=club-phone-link mech=bound n=24 id=0ca51a14-9bf2-4832-a15b-e133a80f3fa4 hop_us=5923
+10-07 13:49:39.972 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=24 id=0ca51a14-9bf2-4832-a15b-e133a80f3fa4 kind=postponement status=accepted send_us=12351 idle=false
+10-07 13:49:39.975 I/flutter (19857): CORE 2026-10-07T17:49:39.971571Z LINK run=club-phone-link mech=bound n=24 id=0ca51a14-9bf2-4832-a15b-e133a80f3fa4 kind=postponement count=24 dup=false e2e_ms=12
+10-07 13:50:15.965 I/LINK    (19857): RECV run=club-phone-link mech=bound n=25 id=4bb1cd1f-2a7d-41c0-bf6d-fefcc2fd4c20 hop_us=3043
+10-07 13:50:15.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=25 id=4bb1cd1f-2a7d-41c0-bf6d-fefcc2fd4c20 kind=sequence_start status=accepted send_us=9668 idle=false
+10-07 13:50:15.972 I/flutter (19857): CORE 2026-10-07T17:50:15.967242Z LINK run=club-phone-link mech=bound n=25 id=4bb1cd1f-2a7d-41c0-bf6d-fefcc2fd4c20 kind=sequence_start count=25 dup=false e2e_ms=9
+10-07 13:50:51.961 I/LINK    (19857): RECV run=club-phone-link mech=bound n=26 id=3d877ba2-17e4-43cb-8526-4168a8705239 hop_us=1364
+10-07 13:50:51.963 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=26 id=3d877ba2-17e4-43cb-8526-4168a8705239 kind=signal status=accepted send_us=4334 idle=false
+10-07 13:50:51.967 I/flutter (19857): CORE 2026-10-07T17:50:51.962734Z LINK run=club-phone-link mech=bound n=26 id=3d877ba2-17e4-43cb-8526-4168a8705239 kind=signal count=26 dup=false e2e_ms=4
+10-07 13:51:27.961 I/LINK    (19857): RECV run=club-phone-link mech=bound n=27 id=dc28ee96-e1b7-4ce8-884f-fe54e1f38c40 hop_us=1500
+10-07 13:51:27.963 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=27 id=dc28ee96-e1b7-4ce8-884f-fe54e1f38c40 kind=signal status=accepted send_us=5107 idle=false
+10-07 13:51:27.966 I/flutter (19857): CORE 2026-10-07T17:51:27.962958Z LINK run=club-phone-link mech=bound n=27 id=dc28ee96-e1b7-4ce8-884f-fe54e1f38c40 kind=signal count=27 dup=false e2e_ms=5
+10-07 13:52:03.967 I/LINK    (19857): RECV run=club-phone-link mech=bound n=28 id=894080da-7457-48c8-accb-607d2dcdbcff hop_us=2935
+10-07 13:52:03.971 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=28 id=894080da-7457-48c8-accb-607d2dcdbcff kind=signal status=accepted send_us=11396 idle=false
+10-07 13:52:03.975 I/flutter (19857): CORE 2026-10-07T17:52:03.970189Z LINK run=club-phone-link mech=bound n=28 id=894080da-7457-48c8-accb-607d2dcdbcff kind=signal count=28 dup=false e2e_ms=11
+10-07 13:52:39.962 I/LINK    (19857): RECV run=club-phone-link mech=bound n=29 id=77615c9b-e865-4636-9498-3bb31e1baad2 hop_us=1492
+10-07 13:52:39.964 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=29 id=77615c9b-e865-4636-9498-3bb31e1baad2 kind=start status=accepted send_us=5034 idle=false
+10-07 13:52:39.967 I/flutter (19857): CORE 2026-10-07T17:52:39.963522Z LINK run=club-phone-link mech=bound n=29 id=77615c9b-e865-4636-9498-3bb31e1baad2 kind=start count=29 dup=false e2e_ms=5
+10-07 13:53:15.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=30 id=8ae2b970-39be-463c-9f84-2c9b21e48857 hop_us=1991
+10-07 13:53:15.968 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=30 id=8ae2b970-39be-463c-9f84-2c9b21e48857 kind=general_recall status=accepted send_us=9283 idle=false
+10-07 13:53:15.973 I/flutter (19857): CORE 2026-10-07T17:53:15.967590Z LINK run=club-phone-link mech=bound n=30 id=8ae2b970-39be-463c-9f84-2c9b21e48857 kind=general_recall count=30 dup=false e2e_ms=9
+10-07 13:53:51.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=31 id=a19d3904-aa70-43d8-bf41-64b763716f6c hop_us=2485
+10-07 13:53:51.970 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=31 id=a19d3904-aa70-43d8-bf41-64b763716f6c kind=sequence_start status=accepted send_us=10342 idle=false
+10-07 13:53:51.976 I/flutter (19857): CORE 2026-10-07T17:53:51.969725Z LINK run=club-phone-link mech=bound n=31 id=a19d3904-aa70-43d8-bf41-64b763716f6c kind=sequence_start count=31 dup=false e2e_ms=10
+10-07 13:54:27.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=32 id=034b352c-3d7e-4458-95c5-681468d0f6e7 hop_us=3340
+10-07 13:54:27.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=32 id=034b352c-3d7e-4458-95c5-681468d0f6e7 kind=signal status=accepted send_us=10503 idle=false
+10-07 13:54:27.979 I/flutter (19857): CORE 2026-10-07T17:54:27.975762Z LINK run=club-phone-link mech=bound n=32 id=034b352c-3d7e-4458-95c5-681468d0f6e7 kind=signal count=32 dup=false e2e_ms=16
+10-07 13:55:03.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=33 id=6a2b358d-5d46-4624-9ab2-4af94ac11412 hop_us=4534
+10-07 13:55:03.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=33 id=6a2b358d-5d46-4624-9ab2-4af94ac11412 kind=signal status=accepted send_us=10871 idle=false
+10-07 13:55:03.973 I/flutter (19857): CORE 2026-10-07T17:55:03.971434Z LINK run=club-phone-link mech=bound n=33 id=6a2b358d-5d46-4624-9ab2-4af94ac11412 kind=signal count=33 dup=false e2e_ms=12
+10-07 13:55:39.962 I/LINK    (19857): RECV run=club-phone-link mech=bound n=34 id=377161f2-b1d2-4e0c-8bc1-cfe7e6185cd2 hop_us=1477
+10-07 13:55:39.963 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=34 id=377161f2-b1d2-4e0c-8bc1-cfe7e6185cd2 kind=signal status=accepted send_us=4529 idle=false
+10-07 13:55:39.967 I/flutter (19857): CORE 2026-10-07T17:55:39.963127Z LINK run=club-phone-link mech=bound n=34 id=377161f2-b1d2-4e0c-8bc1-cfe7e6185cd2 kind=signal count=34 dup=false e2e_ms=5
+10-07 13:56:15.965 I/LINK    (19857): RECV run=club-phone-link mech=bound n=35 id=48e5fc6f-19a2-4c32-8892-4a08ac52931a hop_us=2747
+10-07 13:56:15.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=35 id=48e5fc6f-19a2-4c32-8892-4a08ac52931a kind=start status=accepted send_us=10449 idle=false
+10-07 13:56:15.974 I/flutter (19857): CORE 2026-10-07T17:56:15.968736Z LINK run=club-phone-link mech=bound n=35 id=48e5fc6f-19a2-4c32-8892-4a08ac52931a kind=start count=35 dup=false e2e_ms=10
+10-07 13:56:51.965 I/LINK    (19857): RECV run=club-phone-link mech=bound n=36 id=f5194105-4571-4a4f-b076-28e0c862e9aa hop_us=2461
+10-07 13:56:51.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=36 id=f5194105-4571-4a4f-b076-28e0c862e9aa kind=individual_recall status=accepted send_us=9294 idle=false
+10-07 13:56:51.973 I/flutter (19857): CORE 2026-10-07T17:56:51.967987Z LINK run=club-phone-link mech=bound n=36 id=f5194105-4571-4a4f-b076-28e0c862e9aa kind=individual_recall count=36 dup=false e2e_ms=9
+10-07 13:57:27.961 I/LINK    (19857): RECV run=club-phone-link mech=bound n=37 id=dc648ca6-32ff-41b5-8c1a-a2f51a74e5cd hop_us=1187
+10-07 13:57:27.962 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=37 id=dc648ca6-32ff-41b5-8c1a-a2f51a74e5cd kind=sequence_start status=accepted send_us=3789 idle=false
+10-07 13:57:27.965 I/flutter (19857): CORE 2026-10-07T17:57:27.962013Z LINK run=club-phone-link mech=bound n=37 id=dc648ca6-32ff-41b5-8c1a-a2f51a74e5cd kind=sequence_start count=37 dup=false e2e_ms=3
+10-07 13:58:03.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=38 id=33d64897-cc3e-41a5-b15f-20b3007450de hop_us=2575
+10-07 13:58:03.968 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=38 id=33d64897-cc3e-41a5-b15f-20b3007450de kind=signal status=accepted send_us=9126 idle=false
+10-07 13:58:03.972 I/flutter (19857): CORE 2026-10-07T17:58:03.967034Z LINK run=club-phone-link mech=bound n=38 id=33d64897-cc3e-41a5-b15f-20b3007450de kind=signal count=38 dup=false e2e_ms=9
+10-07 13:58:39.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=39 id=a54f9e26-f019-44e3-9a21-f4d894067a03 hop_us=2184
+10-07 13:58:39.967 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=39 id=a54f9e26-f019-44e3-9a21-f4d894067a03 kind=postponement status=accepted send_us=8103 idle=false
+10-07 13:58:39.969 I/flutter (19857): CORE 2026-10-07T17:58:39.965992Z LINK run=club-phone-link mech=bound n=39 id=a54f9e26-f019-44e3-9a21-f4d894067a03 kind=postponement count=39 dup=false e2e_ms=7
+10-07 13:59:15.962 I/LINK    (19857): RECV run=club-phone-link mech=bound n=40 id=d923a86f-9fdc-49dd-acdd-11b3afa0c5a1 hop_us=2424
+10-07 13:59:15.967 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=40 id=d923a86f-9fdc-49dd-acdd-11b3afa0c5a1 kind=sequence_start status=accepted send_us=7648 idle=false
+10-07 13:59:15.970 I/flutter (19857): CORE 2026-10-07T17:59:15.965196Z LINK run=club-phone-link mech=bound n=40 id=d923a86f-9fdc-49dd-acdd-11b3afa0c5a1 kind=sequence_start count=40 dup=false e2e_ms=7
+10-07 13:59:51.964 I/LINK    (19857): RECV run=club-phone-link mech=bound n=41 id=6779de03-2f09-4f64-b9f7-b9294cdac3ff hop_us=2736
+10-07 13:59:51.968 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=41 id=6779de03-2f09-4f64-b9f7-b9294cdac3ff kind=signal status=accepted send_us=8142 idle=false
+10-07 13:59:51.972 I/flutter (19857): CORE 2026-10-07T17:59:51.966822Z LINK run=club-phone-link mech=bound n=41 id=6779de03-2f09-4f64-b9f7-b9294cdac3ff kind=signal count=41 dup=false e2e_ms=8
+10-07 14:00:27.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=42 id=998d5cf2-543f-4fe5-b48c-ab7f7e5b2d8e hop_us=3024
+10-07 14:00:27.970 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=42 id=998d5cf2-543f-4fe5-b48c-ab7f7e5b2d8e kind=signal status=accepted send_us=10740 idle=false
+10-07 14:00:27.975 I/flutter (19857): CORE 2026-10-07T18:00:27.969139Z LINK run=club-phone-link mech=bound n=42 id=998d5cf2-543f-4fe5-b48c-ab7f7e5b2d8e kind=signal count=42 dup=false e2e_ms=10
+10-07 14:01:03.960 I/LINK    (19857): RECV run=club-phone-link mech=bound n=43 id=56de4585-4b81-45dd-abe8-c8a4c6c5d573 hop_us=731
+10-07 14:01:03.961 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=43 id=56de4585-4b81-45dd-abe8-c8a4c6c5d573 kind=signal status=accepted send_us=2844 idle=false
+10-07 14:01:03.977 I/flutter (19857): CORE 2026-10-07T18:01:03.961186Z LINK run=club-phone-link mech=bound n=43 id=56de4585-4b81-45dd-abe8-c8a4c6c5d573 kind=signal count=43 dup=false e2e_ms=3
+10-07 14:01:39.991 I/LINK    (19857): RECV run=club-phone-link mech=bound n=44 id=9ac9409c-772f-4c4a-ac8e-36d97b8cea9f hop_us=14595
+10-07 14:01:40.000 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=44 id=9ac9409c-772f-4c4a-ac8e-36d97b8cea9f kind=start status=accepted send_us=33164 idle=false
+10-07 14:01:40.010 I/flutter (19857): CORE 2026-10-07T18:01:40.008289Z LINK run=club-phone-link mech=bound n=44 id=9ac9409c-772f-4c4a-ac8e-36d97b8cea9f kind=start count=44 dup=false e2e_ms=40
+10-07 14:02:15.979 I/LINK    (19857): RECV run=club-phone-link mech=bound n=45 id=9332c66d-738d-4d73-897f-4b64d4aaca95 hop_us=5728
+10-07 14:02:15.983 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=45 id=9332c66d-738d-4d73-897f-4b64d4aaca95 kind=general_recall status=accepted send_us=24225 idle=false
+10-07 14:02:15.985 I/flutter (19857): CORE 2026-10-07T18:02:15.983619Z LINK run=club-phone-link mech=bound n=45 id=9332c66d-738d-4d73-897f-4b64d4aaca95 kind=general_recall count=45 dup=false e2e_ms=24
+10-07 14:02:51.968 I/LINK    (19857): RECV run=club-phone-link mech=bound n=46 id=dc32b977-f191-43c0-a097-096e292e8d82 hop_us=4006
+10-07 14:02:51.972 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=46 id=dc32b977-f191-43c0-a097-096e292e8d82 kind=sequence_start status=accepted send_us=13053 idle=false
+10-07 14:02:51.977 I/flutter (19857): CORE 2026-10-07T18:02:51.971255Z LINK run=club-phone-link mech=bound n=46 id=dc32b977-f191-43c0-a097-096e292e8d82 kind=sequence_start count=46 dup=false e2e_ms=12
+10-07 14:03:27.961 I/LINK    (19857): RECV run=club-phone-link mech=bound n=47 id=0a987041-c19e-452f-a4e1-06f767c5082b hop_us=1613
+10-07 14:03:27.963 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=47 id=0a987041-c19e-452f-a4e1-06f767c5082b kind=signal status=accepted send_us=4758 idle=false
+10-07 14:03:27.969 I/flutter (19857): CORE 2026-10-07T18:03:27.963041Z LINK run=club-phone-link mech=bound n=47 id=0a987041-c19e-452f-a4e1-06f767c5082b kind=signal count=47 dup=false e2e_ms=5
+10-07 14:04:03.965 I/LINK    (19857): RECV run=club-phone-link mech=bound n=48 id=8420ffd4-98f9-4732-9b50-f90fcf7d2e7d hop_us=3212
+10-07 14:04:03.970 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=48 id=8420ffd4-98f9-4732-9b50-f90fcf7d2e7d kind=signal status=accepted send_us=10930 idle=false
+10-07 14:04:03.975 I/flutter (19857): CORE 2026-10-07T18:04:03.968643Z LINK run=club-phone-link mech=bound n=48 id=8420ffd4-98f9-4732-9b50-f90fcf7d2e7d kind=signal count=48 dup=false e2e_ms=10
+10-07 14:04:39.965 I/LINK    (19857): RECV run=club-phone-link mech=bound n=49 id=bb780cd4-51ad-43e0-9c14-3e7e5823bc09 hop_us=2865
+10-07 14:04:39.969 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=49 id=bb780cd4-51ad-43e0-9c14-3e7e5823bc09 kind=signal status=accepted send_us=10355 idle=false
+10-07 14:04:39.978 I/flutter (19857): CORE 2026-10-07T18:04:39.968560Z LINK run=club-phone-link mech=bound n=49 id=bb780cd4-51ad-43e0-9c14-3e7e5823bc09 kind=signal count=49 dup=false e2e_ms=10
+10-07 14:05:15.966 I/LINK    (19857): RECV run=club-phone-link mech=bound n=50 id=3bb55a12-ab66-427d-8629-5d36687bd2dc hop_us=2450
+10-07 14:05:15.970 I/LINK    (20013): EMIT run=club-phone-link mech=bound n=50 id=3bb55a12-ab66-427d-8629-5d36687bd2dc kind=start status=accepted send_us=11149 idle=false
+10-07 14:05:15.975 I/flutter (19857): CORE 2026-10-07T18:05:15.969414Z LINK run=club-phone-link mech=bound n=50 id=3bb55a12-ab66-427d-8629-5d36687bd2dc kind=start count=50 dup=false e2e_ms=11
+10-07 14:05:16.007 I/LINK    (20013): DONE run=club-phone-link mech=bound emitted=50 ok=50 refused=0 errors=0 idle=false
+
+== run 1: core ticks after the harness released its wake lock (EDT)
+10-07 14:05:06.181 I/flutter (19857): CORE 2026-10-07T18:05:06.175037Z TICK 176
+10-07 14:05:38.207 I/flutter (19857): CORE 2026-10-07T18:05:38.206625Z TICK 177
+10-07 14:06:08.159 I/flutter (19857): CORE 2026-10-07T18:06:08.156116Z TICK 178
+10-07 14:06:18.153 I/flutter (19857): CORE 2026-10-07T18:06:18.149423Z TICK 179
+10-07 14:06:28.151 I/flutter (19857): CORE 2026-10-07T18:06:28.149180Z TICK 180
+10-07 14:06:38.154 I/flutter (19857): CORE 2026-10-07T18:06:38.149852Z TICK 181
+10-07 14:06:48.156 I/flutter (19857): CORE 2026-10-07T18:06:48.151797Z TICK 182
+10-07 14:07:04.849 I/flutter (19857): CORE 2026-10-07T18:07:04.844392Z TICK 183
+10-07 14:07:17.610 I/flutter (19857): CORE 2026-10-07T18:07:17.607873Z TICK 184
+10-07 14:08:13.808 I/flutter (19857): CORE 2026-10-07T18:08:13.804803Z TICK 185
+10-07 14:08:23.813 I/flutter (19857): CORE 2026-10-07T18:08:23.805720Z TICK 186
+10-07 14:08:33.813 I/flutter (19857): CORE 2026-10-07T18:08:33.805729Z TICK 187
+10-07 14:08:43.818 I/flutter (19857): CORE 2026-10-07T18:08:43.810858Z TICK 188
+10-07 14:09:38.317 I/flutter (19857): CORE 2026-10-07T18:09:38.313324Z TICK 189
+10-07 14:09:48.316 I/flutter (19857): CORE 2026-10-07T18:09:48.313184Z TICK 190
+10-07 14:09:58.318 I/flutter (19857): CORE 2026-10-07T18:09:58.313777Z TICK 191
+
+== run 1: events buffer (EDT)
+10-07 13:58:01.191 I/battery_status( 3347): [5,2,1,2,Li-ion]
+10-07 14:01:16.501 I/battery_status( 3347): [5,2,1,0,Li-ion]
+10-07 14:01:16.847 I/battery_status( 3347): [3,2,1,0,Li-ion]
+10-07 14:01:18.331 I/power_sleep_requested( 3347): 0
+10-07 14:01:19.121 I/screen_toggled( 3347): 0
+10-07 14:01:19.324 I/device_idle( 3347): [1,no activity]
+10-07 14:01:19.327 I/device_idle_light( 3347): [1,no activity]
+
+== run 2: the core's log (mirror), UTC
+2026-10-07T18:18:15.205023Z START pid=18622
+2026-10-07T18:18:18.261392Z LINK run=club-phone-link-2 mech=bound n=1 id=61ded13d-27a8-4bf9-9273-83fcaab81efe kind=sequence_start count=1 dup=false e2e_ms=14
+2026-10-07T18:18:54.260046Z LINK run=club-phone-link-2 mech=bound n=2 id=6e747dd9-9fad-4101-bb4b-83492e2e8ed4 kind=signal count=2 dup=false e2e_ms=12
+2026-10-07T18:19:30.268061Z LINK run=club-phone-link-2 mech=bound n=3 id=c2affcbf-a754-45a5-8a27-bdc19ebd09ce kind=signal count=3 dup=false e2e_ms=21
+2026-10-07T18:20:06.298192Z LINK run=club-phone-link-2 mech=bound n=4 id=404b755d-e757-4def-985c-49043dc639a3 kind=signal count=4 dup=false e2e_ms=48
+2026-10-07T18:20:42.255939Z LINK run=club-phone-link-2 mech=bound n=5 id=2c301791-3409-47ac-88ec-18f3d8224fbf kind=start count=5 dup=false e2e_ms=10
+2026-10-07T18:21:18.264496Z LINK run=club-phone-link-2 mech=bound n=6 id=0920c85a-322d-4b75-9909-044b18651e2a kind=individual_recall count=6 dup=false e2e_ms=19
+2026-10-07T18:21:54.253526Z LINK run=club-phone-link-2 mech=bound n=7 id=d7255ef4-344c-48fa-bdd7-bc51bccdb114 kind=sequence_start count=7 dup=false e2e_ms=9
+2026-10-07T18:22:30.254589Z LINK run=club-phone-link-2 mech=bound n=8 id=ba5687a2-50ed-49f4-be83-d0131ef8dd01 kind=signal count=8 dup=false e2e_ms=8
+2026-10-07T18:23:06.250465Z LINK run=club-phone-link-2 mech=bound n=9 id=6a819f9e-1b5b-4c12-8224-bde69b4cc45d kind=postponement count=9 dup=false e2e_ms=5
+2026-10-07T18:23:42.256672Z LINK run=club-phone-link-2 mech=bound n=10 id=394a2167-54e6-47e8-ae16-f26738b68dd3 kind=sequence_start count=10 dup=false e2e_ms=11
+2026-10-07T18:24:18.269522Z LINK run=club-phone-link-2 mech=bound n=11 id=67d8b23d-456b-4acc-80c7-3911787bdfc7 kind=signal count=11 dup=false e2e_ms=23
+2026-10-07T18:24:54.256674Z LINK run=club-phone-link-2 mech=bound n=12 id=b42183c2-2984-411e-921d-fc458dbb3b9c kind=signal count=12 dup=false e2e_ms=11
+2026-10-07T18:25:30.252078Z LINK run=club-phone-link-2 mech=bound n=13 id=d35d740e-135e-4e5b-a57f-c9d284c49ba4 kind=signal count=13 dup=false e2e_ms=7
+2026-10-07T18:26:06.257601Z LINK run=club-phone-link-2 mech=bound n=14 id=a0dc3e77-c7bc-47ab-a068-ced491ef4cc7 kind=start count=14 dup=false e2e_ms=11
+2026-10-07T18:26:42.257406Z LINK run=club-phone-link-2 mech=bound n=15 id=2cf44a4f-d594-4839-8904-43a3f4d814de kind=general_recall count=15 dup=false e2e_ms=12
+2026-10-07T18:27:18.282356Z LINK run=club-phone-link-2 mech=bound n=16 id=581abefc-b781-41b1-a42f-37e9c08ef582 kind=sequence_start count=16 dup=false e2e_ms=30
+2026-10-07T18:27:54.295850Z LINK run=club-phone-link-2 mech=bound n=17 id=32bd368d-5f8c-450f-a558-00c571a0c20a kind=signal count=17 dup=false e2e_ms=43
+2026-10-07T18:28:30.249663Z LINK run=club-phone-link-2 mech=bound n=18 id=852dbb70-b894-4589-97a4-5db0ca1e2552 kind=signal count=18 dup=false e2e_ms=5
+2026-10-07T18:29:06.279349Z LINK run=club-phone-link-2 mech=bound n=19 id=bc104267-4be4-4248-8028-5c005583564d kind=signal count=19 dup=false e2e_ms=28
+2026-10-07T18:29:42.274084Z LINK run=club-phone-link-2 mech=bound n=20 id=d20b1b52-0411-421b-8d5b-af1606dab1a0 kind=start count=20 dup=false e2e_ms=24
+2026-10-07T18:30:18.252332Z LINK run=club-phone-link-2 mech=bound n=21 id=4c4504bb-8470-4ce5-b713-f47dc25b4d5f kind=individual_recall count=21 dup=false e2e_ms=7
+2026-10-07T18:30:54.259980Z LINK run=club-phone-link-2 mech=bound n=22 id=286d945d-e911-4686-8d4a-c7b215ce2edb kind=sequence_start count=22 dup=false e2e_ms=13
+2026-10-07T18:31:30.249143Z LINK run=club-phone-link-2 mech=bound n=23 id=33bbddd8-f010-44f7-b2b6-b8277f48d66e kind=signal count=23 dup=false e2e_ms=5
+2026-10-07T18:32:06.255081Z LINK run=club-phone-link-2 mech=bound n=24 id=a091c5dd-0bd7-4c42-aaf2-338a713382eb kind=postponement count=24 dup=false e2e_ms=10
+2026-10-07T18:32:42.254845Z LINK run=club-phone-link-2 mech=bound n=25 id=03060bae-e9dd-4080-a3f4-60c5305208cc kind=sequence_start count=25 dup=false e2e_ms=9
+2026-10-07T18:33:18.254638Z LINK run=club-phone-link-2 mech=bound n=26 id=3a7bd132-2237-48ec-a642-acc396fdb33b kind=signal count=26 dup=false e2e_ms=9
+2026-10-07T18:33:54.257677Z LINK run=club-phone-link-2 mech=bound n=27 id=f3a824ce-44d2-47ce-a82d-d9421368e6c8 kind=signal count=27 dup=false e2e_ms=12
+2026-10-07T18:34:30.256571Z LINK run=club-phone-link-2 mech=bound n=28 id=84849393-5a5b-4386-b910-81723f5eb655 kind=signal count=28 dup=false e2e_ms=11
+2026-10-07T18:35:06.257676Z LINK run=club-phone-link-2 mech=bound n=29 id=9d5c4403-67bd-4b4b-940b-b508703b0319 kind=start count=29 dup=false e2e_ms=11
+2026-10-07T18:35:42.257189Z LINK run=club-phone-link-2 mech=bound n=30 id=4c9cf95e-4b90-4fb9-b5ac-a6eb7f468d86 kind=general_recall count=30 dup=false e2e_ms=12
+2026-10-07T18:36:18.254192Z LINK run=club-phone-link-2 mech=bound n=31 id=dab3d082-3a98-4a59-9df8-d6a685f83554 kind=sequence_start count=31 dup=false e2e_ms=9
+2026-10-07T18:36:54.256526Z LINK run=club-phone-link-2 mech=bound n=32 id=c9a6c90c-0319-4bb0-8740-369fa705c592 kind=signal count=32 dup=false e2e_ms=11
+2026-10-07T18:37:30.257738Z LINK run=club-phone-link-2 mech=bound n=33 id=f604d3ee-5368-4235-ba55-3950d082e906 kind=signal count=33 dup=false e2e_ms=12
+2026-10-07T18:38:06.252448Z LINK run=club-phone-link-2 mech=bound n=34 id=15672538-2fc3-4805-b0ab-a2e0da5ed3a5 kind=signal count=34 dup=false e2e_ms=7
+2026-10-07T18:38:42.254230Z LINK run=club-phone-link-2 mech=bound n=35 id=11c36b11-8ed8-4ba2-a1ab-c5491e63b7e6 kind=start count=35 dup=false e2e_ms=9
+2026-10-07T18:39:18.285069Z LINK run=club-phone-link-2 mech=bound n=36 id=325af726-0888-4733-9410-05b74bd9edc5 kind=individual_recall count=36 dup=false e2e_ms=29
+2026-10-07T18:39:54.284894Z LINK run=club-phone-link-2 mech=bound n=37 id=8060e30e-1ee9-449d-a897-470881bab6ad kind=sequence_start count=37 dup=false e2e_ms=36
+2026-10-07T18:40:30.251699Z LINK run=club-phone-link-2 mech=bound n=38 id=9fd48c09-fe0f-4f75-9955-ba13f96ecb9a kind=signal count=38 dup=false e2e_ms=6
+2026-10-07T18:41:06.251868Z LINK run=club-phone-link-2 mech=bound n=39 id=7a14469d-c9c6-401e-af39-eeccc8921923 kind=postponement count=39 dup=false e2e_ms=6
+2026-10-07T18:41:42.251065Z LINK run=club-phone-link-2 mech=bound n=40 id=1aa5eea3-21a3-432e-8588-b90357e42b67 kind=sequence_start count=40 dup=false e2e_ms=6
+2026-10-07T18:42:18.253509Z LINK run=club-phone-link-2 mech=bound n=41 id=1427a347-4762-4ee3-88da-7cd852ab3f8d kind=signal count=41 dup=false e2e_ms=7
+2026-10-07T18:42:54.253527Z LINK run=club-phone-link-2 mech=bound n=42 id=be1288fa-bf44-4319-8d84-caf0bba80d1a kind=signal count=42 dup=false e2e_ms=8
+2026-10-07T18:43:30.253340Z LINK run=club-phone-link-2 mech=bound n=43 id=dc54a5d1-c935-4694-8e4c-46b9d04f46c3 kind=signal count=43 dup=false e2e_ms=8
+2026-10-07T18:44:06.258722Z LINK run=club-phone-link-2 mech=bound n=44 id=7c966262-53da-40ac-a247-f11f20e96d4f kind=start count=44 dup=false e2e_ms=13
+2026-10-07T18:44:42.257242Z LINK run=club-phone-link-2 mech=bound n=45 id=0145d066-3c8e-4f1a-bc94-9589ec092813 kind=general_recall count=45 dup=false e2e_ms=11
+2026-10-07T18:45:18.251022Z LINK run=club-phone-link-2 mech=bound n=46 id=f3f4f385-1871-45bc-a423-639fd172ed87 kind=sequence_start count=46 dup=false e2e_ms=6
+2026-10-07T18:45:54.267185Z LINK run=club-phone-link-2 mech=bound n=47 id=8d132886-3ac4-48e9-a583-8dee447444eb kind=signal count=47 dup=false e2e_ms=21
+2026-10-07T18:46:30.256277Z LINK run=club-phone-link-2 mech=bound n=48 id=a11d02dc-97cf-4db0-89bf-7da52baa753c kind=signal count=48 dup=false e2e_ms=10
+2026-10-07T18:47:06.249822Z LINK run=club-phone-link-2 mech=bound n=49 id=59a4399d-b9a2-4021-9f6b-653307ce25a7 kind=signal count=49 dup=false e2e_ms=5
+2026-10-07T18:47:42.254142Z LINK run=club-phone-link-2 mech=bound n=50 id=469cf42f-dcb2-4965-8c2f-4dfa77c28761 kind=start count=50 dup=false e2e_ms=9
+2026-10-07T18:48:18.255745Z LINK run=club-phone-link-2 mech=bound n=51 id=44f340bd-80f0-4e13-acb0-d970af2797fc kind=individual_recall count=51 dup=false e2e_ms=10
+
+== run 2: events buffer (EDT)
+10-07 14:18:26.475 I/battery_status( 3347): [5,2,1,0,Li-ion]
+10-07 14:18:26.813 I/battery_status( 3347): [3,2,1,0,Li-ion]
+10-07 14:18:29.966 I/power_sleep_requested( 3347): 0
+10-07 14:18:30.760 I/screen_toggled( 3347): 0
+10-07 14:18:30.939 I/device_idle( 3347): [1,no activity]
+10-07 14:18:30.941 I/device_idle_light( 3347): [1,no activity]
+10-07 14:18:54.490 I/screen_toggled( 3347): 1
+10-07 14:18:55.877 I/screen_toggled( 4577): 320007
+10-07 14:18:56.020 I/device_idle( 3347): [0,unlocked]
+10-07 14:18:56.021 I/device_idle_light( 3347): [0,unlocked]
+10-07 14:23:07.213 I/power_sleep_requested( 3347): 0
+10-07 14:23:07.952 I/screen_toggled( 3347): 0
+10-07 14:23:08.027 I/device_idle( 3347): [1,no activity]
+10-07 14:23:08.028 I/device_idle_light( 3347): [1,no activity]
+10-07 14:23:08.421 I/screen_toggled( 3347): 1
+10-07 14:23:08.541 I/device_idle( 3347): [0,screen]
+10-07 14:23:08.543 I/device_idle_light( 3347): [0,screen]
+10-07 14:25:40.799 I/power_sleep_requested( 3347): 0
+10-07 14:25:41.530 I/screen_toggled( 3347): 0
+10-07 14:25:41.632 I/device_idle( 3347): [1,no activity]
+10-07 14:25:41.633 I/device_idle_light( 3347): [1,no activity]
+10-07 14:26:39.323 I/screen_toggled( 3347): 1
+10-07 14:26:40.554 I/screen_toggled( 4577): 320003
+10-07 14:26:40.726 I/device_idle( 3347): [0,unlocked]
+10-07 14:26:40.727 I/device_idle_light( 3347): [0,unlocked]
+10-07 14:29:54.162 I/power_sleep_requested( 3347): 0
+10-07 14:29:54.850 I/screen_toggled( 3347): 0
+10-07 14:29:54.978 I/device_idle( 3347): [1,no activity]
+10-07 14:29:54.980 I/device_idle_light( 3347): [1,no activity]
+10-07 14:29:57.682 I/screen_toggled( 3347): 1
+10-07 14:29:58.045 I/device_idle( 3347): [0,screen]
+10-07 14:29:58.049 I/device_idle_light( 3347): [0,screen]
+10-07 14:30:29.701 I/power_sleep_requested( 3347): 0
+10-07 14:30:30.382 I/screen_toggled( 3347): 0
+10-07 14:30:30.440 I/device_idle( 3347): [1,no activity]
+10-07 14:30:30.442 I/device_idle_light( 3347): [1,no activity]
+10-07 14:32:30.459 I/device_idle_light( 3347): [4,s:alarm]
+10-07 14:37:58.300 I/screen_toggled( 3347): 1
+10-07 14:38:04.267 I/power_sleep_requested( 3347): 0
+10-07 14:38:04.912 I/screen_toggled( 3347): 0
+10-07 14:38:12.426 I/device_idle( 3347): [0,motion]
+10-07 14:38:12.429 I/device_idle( 3347): [1,no activity]
+10-07 14:38:32.081 I/device_idle_light( 3347): [6,s:alarm]
+10-07 14:38:40.966 I/device_idle_light( 3347): [4,s:early]
+10-07 14:38:56.435 I/battery_status( 3347): [2,2,1,2,Li-ion]
+10-07 14:38:56.709 I/device_idle( 3347): [0,charging]
+10-07 14:38:56.711 I/device_idle_light( 3347): [0,charging]
+10-07 14:38:57.378 I/battery_status( 3347): [2,2,1,0,Li-ion]
+10-07 14:38:57.430 I/device_idle( 3347): [1,no activity]
+10-07 14:38:57.431 I/device_idle_light( 3347): [1,no activity]
+10-07 14:38:57.434 I/screen_toggled( 3347): 1
+10-07 14:38:57.755 I/battery_status( 3347): [3,2,1,0,Li-ion]
+10-07 14:39:04.100 I/battery_status( 3347): [2,2,1,2,Li-ion]
+10-07 14:39:04.399 I/device_idle( 3347): [0,charging]
+10-07 14:39:04.400 I/device_idle_light( 3347): [0,charging]
+10-07 14:43:58.630 I/battery_status( 3347): [3,2,1,0,Li-ion]
+10-07 14:43:58.661 I/device_idle( 3347): [1,no activity]
+10-07 14:43:58.664 I/device_idle_light( 3347): [1,no activity]
+10-07 14:44:04.672 I/power_sleep_requested( 3347): 0
+10-07 14:44:05.386 I/screen_toggled( 3347): 0
+10-07 14:45:15.373 I/battery_status( 3347): [2,2,1,2,Li-ion]
+10-07 14:45:15.631 I/device_idle( 3347): [0,charging]
+10-07 14:45:15.632 I/device_idle_light( 3347): [0,charging]
+10-07 14:45:39.837 I/screen_toggled( 3347): 1
+10-07 14:46:46.896 I/battery_status( 3347): [5,2,1,2,Li-ion]
+10-07 14:51:04.783 I/battery_status( 3347): [5,2,1,0,Li-ion]
+10-07 14:51:04.828 I/device_idle( 3347): [1,no activity]
+10-07 14:51:04.830 I/device_idle_light( 3347): [1,no activity]
+10-07 14:51:05.161 I/battery_status( 3347): [3,2,1,0,Li-ion]
+10-07 14:51:10.809 I/power_sleep_requested( 3347): 0
+10-07 14:51:11.503 I/screen_toggled( 3347): 0
+10-07 14:51:15.389 I/device_idle( 3347): [0,motion]
+10-07 14:51:15.391 I/device_idle( 3347): [1,no activity]
+10-07 14:51:17.012 I/screen_toggled( 3347): 1
+10-07 14:51:23.009 I/power_sleep_requested( 3347): 0
+10-07 14:51:23.631 I/screen_toggled( 3347): 0
+10-07 14:51:27.168 I/screen_toggled( 4577): 320004
+10-07 14:51:27.175 I/screen_toggled( 3347): 1
+10-07 14:51:27.530 I/device_idle( 3347): [0,unlocked]
+10-07 14:51:27.530 I/device_idle_light( 3347): [0,unlocked]
+10-07 14:51:30.086 I/power_sleep_requested( 3347): 0
+10-07 14:51:30.742 I/screen_toggled( 3347): 0
+10-07 14:51:30.825 I/device_idle( 3347): [1,no activity]
+10-07 14:51:30.826 I/device_idle_light( 3347): [1,no activity]
+10-07 14:52:19.278 I/screen_toggled( 3347): 1
+10-07 14:52:21.167 I/screen_toggled( 4577): 320003
+10-07 14:52:21.297 I/device_idle( 3347): [0,unlocked]
+10-07 14:52:21.298 I/device_idle_light( 3347): [0,unlocked]
+10-07 14:55:23.595 I/battery_status( 3347): [5,2,1,2,Li-ion]

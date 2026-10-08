@@ -7,6 +7,8 @@
 - Amended 2026-10-06 by pro-companion #15 (ADR 004): a sticky restart of the host is refused when
   another component starts the process first, and the host as written then crash-loops. See
   "Consequences and limits".
+- **Kill condition fired 2026-10-07 on the club phone (#21)**: with the screen off and nothing
+  holding a wake lock, the core's 10-second tick ran minutes late. See "Kill condition".
 
 ## Context
 
@@ -139,3 +141,43 @@ connect.
 **Reopen this ADR if, on the club phone (#21), the headless core misses more than one 10-second
 tick in 30 minutes with the screen off**, or if an intent sent with the activity destroyed fails to
 reach it. The first answer is a wake lock, not a new host.
+
+### Fired, 2026-10-07 (#21)
+
+On the club phone (Samsung Galaxy S23 Ultra, Android 16, One UI 8.5, retail build), the spike's
+profile build was started with its activity destroyed, then unplugged with the screen off, in a
+pocket. Nothing else on the phone held a wake lock for it. The owner took one phone call during
+the run, so the two untouched windows are scored separately
+(`tool/core_host_spike/results/2026-10-07-club-phone-tick-run.txt`):
+
+| window | ticks / expected | longest gap | gaps over 30 s |
+|---|---|---|---|
+| screen off, 21.5 min | 17 / ~128 | 279 s | 14 |
+| screen off, 10.7 min | 9 / ~63 | 232 s | 6 |
+| the call, screen on, 1.4 min | 8 / ~8 | 10 s | 0 |
+
+**The host lived; its timer did not run.** The process kept one pid from start to readback, its
+service stayed in the foreground, and nothing killed or froze it. With no wake lock the CPU
+suspended, and a Dart `Timer` fires only when something else wakes the phone. A foreground service
+keeps a process alive, not a CPU awake. The emulator could not show this (see "Consequences and
+limits"): there, 180 of 180 ticks arrived in 30 minutes of forced Doze. The call cannot have caused
+the failure. A woken CPU only adds ticks, and the first window, before the call, already fails.
+
+The intent half of the condition did not fire. Every race-timer link event in #21's three runs
+reached the core (152 of 152; ADR 004 has the clean one), but the harness holds a wake lock for its
+run, as race-timer's sequence does.
+
+That wake lock also shows what the first answer would do. In the clean link run, with the screen
+off and the phone unplugged, the core's tick ran 180 times in 29.9 minutes, against about 179
+expected, and never gapped more than 10.2 s. In the 5 minutes after the harness released its lock,
+it ran 3 times against about 31, with gaps up to 104 s
+(`tool/core_host_spike/results/2026-10-07-club-phone-link-run3.txt`). A binder event every 36 s
+alone would have left gaps near 36 s, so it was the lock that kept the CPU awake. That lock belonged
+to another process, so it shows the mechanism works, not what the core host's own lock will cost.
+
+This is what "Consequences and limits" predicted a real phone might do. The spike requests no
+location updates, so the other waker named there, the real host's GPS workload, is not measured
+here.
+
+So the decision is reopened at its first answer: a partial wake lock held by the core host. That has
+not been tried yet. Its cost on a race day's battery is the measurement it needs.

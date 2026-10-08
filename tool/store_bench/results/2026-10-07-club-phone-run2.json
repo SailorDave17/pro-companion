@@ -1,0 +1,62 @@
+{
+  "events_per_day": 3028,
+  "days_retained": 3,
+  "events_retained": 9084,
+  "platform": "BP4A.251205.006.S918USQS8FZI1",
+  "results": {
+    "sqlite3": {
+      "events_after_fill": 9084,
+      "fill_ms": 1417,
+      "timed_appends": 1000,
+      "p50_ms": 0.162,
+      "p95_ms": 0.258,
+      "max_ms": 1.073,
+      "passes_100ms_p95": true,
+      "bytes_on_disk": 5238784,
+      "update": {
+        "refused_natively": true,
+        "detail": "SqliteException: events is append-only"
+      },
+      "delete": {
+        "refused_natively": true,
+        "detail": "SqliteException: events is append-only"
+      }
+    },
+    "sembast": {
+      "events_after_fill": 9084,
+      "fill_ms": 3727,
+      "timed_appends": 1000,
+      "p50_ms": 0.359,
+      "p95_ms": 0.506,
+      "max_ms": 3.014,
+      "passes_100ms_p95": true,
+      "bytes_on_disk": 4466647,
+      "update": {
+        "refused_natively": false,
+        "detail": "update succeeded; no engine-level refusal exists"
+      },
+      "delete": {
+        "refused_natively": false,
+        "detail": "delete succeeded; no engine-level refusal exists"
+      }
+    },
+    "hive_ce": {
+      "events_after_fill": 9084,
+      "fill_ms": 916,
+      "timed_appends": 1000,
+      "p50_ms": 0.143,
+      "p95_ms": 0.19,
+      "max_ms": 2.633,
+      "passes_100ms_p95": true,
+      "bytes_on_disk": 4244373,
+      "update": {
+        "refused_natively": false,
+        "detail": "put over an existing key succeeded; no engine-level refusal exists"
+      },
+      "delete": {
+        "refused_natively": false,
+        "detail": "delete succeeded; no engine-level refusal exists"
+      }
+    }
+  }
+}

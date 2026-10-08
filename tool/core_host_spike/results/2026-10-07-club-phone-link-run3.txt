@@ -1,0 +1,423 @@
+# pro-companion #21, criterion 1: the race-timer link on the club phone, run 3 (club-phone-overnight)
+# Club phone: Samsung Galaxy S23 Ultra (SM-S918U), Android 16 (API 36), One UI 8.5, retail build.
+# Profile build of the tree committed with this file, rebuilt with --rerun-tasks (mirrorDir found in
+# classes3.dex and libapp.so); harness signed with the trusted key, companion pinning it.
+# 2026-10-07, 22:13:33-22:43:33 EDT (2026-10-08 02:13-02:43 UTC). Mechanism bound only, 51 events,
+# 36 s apart. The core was started with autostart, then HOME: backgrounded, CoreService foreground,
+# pid 6043 from start to readback.
+#
+# THIS RUN MEETS CRITERION 1'S CONDITIONS. n=1 went out on the cable at 22:13:33. Unplugged
+# 22:13:35, screen off 22:13:38, then untouched and on no charger (the wireless pad included) until
+# the cable went back in at 22:48:43. The battery history and the events buffer agree: no screen-on
+# and no plug between those two points. So n=2-51, the criterion's 50, all went out unplugged with
+# the screen off.
+#   core LINK lines: 51 distinct n of 51, 0 duplicates, count reached 51.
+#   emit -> core ms: p50 11, p95 27, max 41.
+#   harness: emitted=51 ok=51 refused=0 errors=0; all 51 EMIT lines status=accepted.
+# Verdict: criterion 1 holds, so ADR 004's kill condition (ADR 001's link kill condition) does not fire.
+#
+# Doze: light Doze was IDLE from 22:15:09, with maintenance windows at 22:23:31 and 22:35:28. Deep
+# Doze never reached IDLE: INACTIVE from 22:13:38, and IDLE_PENDING only at 22:44:38, after the run.
+# The harness's idle flag reads deep idle, so it is false at every emit.
+#
+# The core's tick, read beside it (criterion 2's instrument, not its run):
+#   screen off, harness running, 02:13:38-02:43:33Z (29.9 min): 180 ticks (~179 expected), max gap 10.2 s.
+#   after DONE released the harness's wake lock, to the replug (5.2 min): 3 ticks (~31 expected), max gap 104 s.
+# A binder event every 36 s alone would leave gaps near 36 s, so the harness's partial wake lock kept
+# the CPU awake, and the core's Timer ran on time while it did. ADR 003's first answer, seen from
+# another process's lock; its battery cost is not measured here.
+#
+# Instruments: the core's mirror (adb pull after the replug), dumpsys batterystats --history (reset at
+# the unplug), the events buffer, and the main buffer, which still held all 104 harness lines.
+# The scorer was checked on run 1's capture first (50 of 50, p50 9, p95 24, max 44, as link_report.dart
+# gave) and with n=17 deleted (49 of 50, missing 17, as predicted).
+
+== run 3: the core's log (mirror), UTC
+2026-10-08T02:09:50.133827Z START pid=6043
+2026-10-08T02:09:50.135574Z SYNC NOT_CONFIGURED
+2026-10-08T02:10:00.135807Z TICK 1
+2026-10-08T02:10:10.136977Z TICK 2
+2026-10-08T02:10:20.136140Z TICK 3
+2026-10-08T02:10:30.136191Z TICK 4
+2026-10-08T02:10:40.136820Z TICK 5
+2026-10-08T02:10:50.137286Z TICK 6
+2026-10-08T02:11:00.136426Z TICK 7
+2026-10-08T02:11:10.136620Z TICK 8
+2026-10-08T02:11:20.136088Z TICK 9
+2026-10-08T02:11:30.136424Z TICK 10
+2026-10-08T02:11:40.136558Z TICK 11
+2026-10-08T02:11:50.136285Z TICK 12
+2026-10-08T02:12:00.136611Z TICK 13
+2026-10-08T02:12:10.135980Z TICK 14
+2026-10-08T02:12:20.136281Z TICK 15
+2026-10-08T02:12:30.136386Z TICK 16
+2026-10-08T02:12:40.136455Z TICK 17
+2026-10-08T02:12:50.136438Z TICK 18
+2026-10-08T02:13:00.136352Z TICK 19
+2026-10-08T02:13:10.136465Z TICK 20
+2026-10-08T02:13:20.137011Z TICK 21
+2026-10-08T02:13:30.136020Z TICK 22
+2026-10-08T02:13:33.357376Z LINK run=club-phone-overnight mech=bound n=1 id=1ca15b5d-bc41-4b98-bfd0-88a08f91b54b kind=sequence_start count=1 dup=false e2e_ms=41
+2026-10-08T02:13:40.136488Z TICK 23
+2026-10-08T02:13:50.136596Z TICK 24
+2026-10-08T02:14:00.136427Z TICK 25
+2026-10-08T02:14:09.332060Z LINK run=club-phone-overnight mech=bound n=2 id=afc9baf9-0f99-477a-9e9a-e2380559ecb5 kind=signal count=2 dup=false e2e_ms=15
+2026-10-08T02:14:10.137787Z TICK 26
+2026-10-08T02:14:20.137144Z TICK 27
+2026-10-08T02:14:30.136571Z TICK 28
+2026-10-08T02:14:40.136580Z TICK 29
+2026-10-08T02:14:45.325965Z LINK run=club-phone-overnight mech=bound n=3 id=62330337-5c01-4d6c-85d4-6b5ad99df9e3 kind=signal count=3 dup=false e2e_ms=10
+2026-10-08T02:14:50.136387Z TICK 30
+2026-10-08T02:15:00.136944Z TICK 31
+2026-10-08T02:15:10.137116Z TICK 32
+2026-10-08T02:15:20.136571Z TICK 33
+2026-10-08T02:15:21.329228Z LINK run=club-phone-overnight mech=bound n=4 id=59efec29-e8af-4ed8-9962-610ce488d7a4 kind=signal count=4 dup=false e2e_ms=12
+2026-10-08T02:15:30.136764Z TICK 34
+2026-10-08T02:15:40.136433Z TICK 35
+2026-10-08T02:15:50.136686Z TICK 36
+2026-10-08T02:15:57.328330Z LINK run=club-phone-overnight mech=bound n=5 id=d97b971b-4f0b-4119-8086-db77374ebca4 kind=start count=5 dup=false e2e_ms=13
+2026-10-08T02:16:00.136852Z TICK 37
+2026-10-08T02:16:10.136537Z TICK 38
+2026-10-08T02:16:20.137140Z TICK 39
+2026-10-08T02:16:30.137234Z TICK 40
+2026-10-08T02:16:33.328986Z LINK run=club-phone-overnight mech=bound n=6 id=8cacb9b9-8119-4d6c-b545-e719169f6726 kind=individual_recall count=6 dup=false e2e_ms=11
+2026-10-08T02:16:40.136662Z TICK 41
+2026-10-08T02:16:50.136702Z TICK 42
+2026-10-08T02:17:00.136208Z TICK 43
+2026-10-08T02:17:09.325895Z LINK run=club-phone-overnight mech=bound n=7 id=270f55b7-6757-4b42-af17-91b45abdc134 kind=sequence_start count=7 dup=false e2e_ms=10
+2026-10-08T02:17:10.136802Z TICK 44
+2026-10-08T02:17:20.136682Z TICK 45
+2026-10-08T02:17:30.137111Z TICK 46
+2026-10-08T02:17:40.136395Z TICK 47
+2026-10-08T02:17:45.324580Z LINK run=club-phone-overnight mech=bound n=8 id=a8925ec8-0b70-4caa-9ab3-a9540bd0336b kind=signal count=8 dup=false e2e_ms=10
+2026-10-08T02:17:50.137296Z TICK 48
+2026-10-08T02:18:00.136494Z TICK 49
+2026-10-08T02:18:10.136555Z TICK 50
+2026-10-08T02:18:20.137732Z TICK 51
+2026-10-08T02:18:21.322360Z LINK run=club-phone-overnight mech=bound n=9 id=78c8ec72-1bf3-4184-9c3c-15ec64bc84f9 kind=postponement count=9 dup=false e2e_ms=8
+2026-10-08T02:18:30.137916Z TICK 52
+2026-10-08T02:18:40.137414Z TICK 53
+2026-10-08T02:18:50.136416Z TICK 54
+2026-10-08T02:18:57.324969Z LINK run=club-phone-overnight mech=bound n=10 id=98d78eb8-b8cc-4ef9-9492-9c581e919652 kind=sequence_start count=10 dup=false e2e_ms=8
+2026-10-08T02:19:00.137623Z TICK 55
+2026-10-08T02:19:10.137668Z TICK 56
+2026-10-08T02:19:20.136658Z TICK 57
+2026-10-08T02:19:30.137366Z TICK 58
+2026-10-08T02:19:33.328225Z LINK run=club-phone-overnight mech=bound n=11 id=9821ff2c-d226-41db-a777-2429d3a20cad kind=signal count=11 dup=false e2e_ms=12
+2026-10-08T02:19:40.136525Z TICK 59
+2026-10-08T02:19:50.137345Z TICK 60
+2026-10-08T02:20:00.136841Z TICK 61
+2026-10-08T02:20:09.327993Z LINK run=club-phone-overnight mech=bound n=12 id=163b404e-560b-4c4e-ad5f-ef25c852347f kind=signal count=12 dup=false e2e_ms=9
+2026-10-08T02:20:10.136483Z TICK 62
+2026-10-08T02:20:20.137535Z TICK 63
+2026-10-08T02:20:30.136773Z TICK 64
+2026-10-08T02:20:40.136766Z TICK 65
+2026-10-08T02:20:45.327914Z LINK run=club-phone-overnight mech=bound n=13 id=20dd25c6-5c61-4b26-a4fc-afefdcc2b3d7 kind=signal count=13 dup=false e2e_ms=9
+2026-10-08T02:20:50.136784Z TICK 66
+2026-10-08T02:21:00.136726Z TICK 67
+2026-10-08T02:21:10.136668Z TICK 68
+2026-10-08T02:21:20.137022Z TICK 69
+2026-10-08T02:21:21.324350Z LINK run=club-phone-overnight mech=bound n=14 id=3a34d105-5bb6-48a9-a67f-68c6b0281742 kind=start count=14 dup=false e2e_ms=10
+2026-10-08T02:21:30.136797Z TICK 70
+2026-10-08T02:21:40.136785Z TICK 71
+2026-10-08T02:21:50.137506Z TICK 72
+2026-10-08T02:21:57.330017Z LINK run=club-phone-overnight mech=bound n=15 id=1e64f9ae-3648-42ca-b5a8-5ef0653c3959 kind=general_recall count=15 dup=false e2e_ms=11
+2026-10-08T02:22:00.137357Z TICK 73
+2026-10-08T02:22:10.137361Z TICK 74
+2026-10-08T02:22:20.137565Z TICK 75
+2026-10-08T02:22:30.136589Z TICK 76
+2026-10-08T02:22:33.324602Z LINK run=club-phone-overnight mech=bound n=16 id=7206ff05-046c-43c9-b9f5-cbbded61df0b kind=sequence_start count=16 dup=false e2e_ms=9
+2026-10-08T02:22:40.136743Z TICK 77
+2026-10-08T02:22:50.137541Z TICK 78
+2026-10-08T02:23:00.136549Z TICK 79
+2026-10-08T02:23:09.324346Z LINK run=club-phone-overnight mech=bound n=17 id=d5f9c9ff-bf06-4884-bf51-edaab79f9396 kind=signal count=17 dup=false e2e_ms=9
+2026-10-08T02:23:10.137656Z TICK 80
+2026-10-08T02:23:20.136891Z TICK 81
+2026-10-08T02:23:30.136574Z TICK 82
+2026-10-08T02:23:40.136603Z TICK 83
+2026-10-08T02:23:45.327421Z LINK run=club-phone-overnight mech=bound n=18 id=a5e71f0c-0bb6-4819-ac72-e2b7988279c8 kind=signal count=18 dup=false e2e_ms=13
+2026-10-08T02:23:50.137293Z TICK 84
+2026-10-08T02:24:00.287811Z TICK 85
+2026-10-08T02:24:10.288384Z TICK 86
+2026-10-08T02:24:20.289082Z TICK 87
+2026-10-08T02:24:21.476721Z LINK run=club-phone-overnight mech=bound n=19 id=427c1845-d5bc-4e43-ab1a-859288e01226 kind=signal count=19 dup=false e2e_ms=11
+2026-10-08T02:24:30.288007Z TICK 88
+2026-10-08T02:24:40.287751Z TICK 89
+2026-10-08T02:24:50.289699Z TICK 90
+2026-10-08T02:24:57.476671Z LINK run=club-phone-overnight mech=bound n=20 id=50507672-ca7b-4a99-bead-9c7da37ddf59 kind=start count=20 dup=false e2e_ms=10
+2026-10-08T02:25:00.288495Z TICK 91
+2026-10-08T02:25:10.287867Z TICK 92
+2026-10-08T02:25:20.288397Z TICK 93
+2026-10-08T02:25:30.288463Z TICK 94
+2026-10-08T02:25:33.476869Z LINK run=club-phone-overnight mech=bound n=21 id=d90e7917-d091-4db6-ae40-f2b54c4f7006 kind=individual_recall count=21 dup=false e2e_ms=11
+2026-10-08T02:25:40.287660Z TICK 95
+2026-10-08T02:25:50.288065Z TICK 96
+2026-10-08T02:26:00.288030Z TICK 97
+2026-10-08T02:26:09.476366Z LINK run=club-phone-overnight mech=bound n=22 id=d706fcc5-2cb1-44f6-b309-296c1dfb8a2d kind=sequence_start count=22 dup=false e2e_ms=11
+2026-10-08T02:26:10.288090Z TICK 98
+2026-10-08T02:26:20.287262Z TICK 99
+2026-10-08T02:26:30.287612Z TICK 100
+2026-10-08T02:26:40.287592Z TICK 101
+2026-10-08T02:26:45.479139Z LINK run=club-phone-overnight mech=bound n=23 id=161a7a2f-c701-4bf3-8639-c2a0f33d35e5 kind=signal count=23 dup=false e2e_ms=12
+2026-10-08T02:26:50.288466Z TICK 102
+2026-10-08T02:27:00.287637Z TICK 103
+2026-10-08T02:27:10.288196Z TICK 104
+2026-10-08T02:27:20.288370Z TICK 105
+2026-10-08T02:27:21.476143Z LINK run=club-phone-overnight mech=bound n=24 id=d937d96e-cb71-4a4d-922d-483bc1536277 kind=postponement count=24 dup=false e2e_ms=11
+2026-10-08T02:27:30.287687Z TICK 106
+2026-10-08T02:27:40.288280Z TICK 107
+2026-10-08T02:27:50.287755Z TICK 108
+2026-10-08T02:27:57.493774Z LINK run=club-phone-overnight mech=bound n=25 id=ec1684e7-f2a5-416a-9e09-70bbd19bd236 kind=sequence_start count=25 dup=false e2e_ms=27
+2026-10-08T02:28:00.288713Z TICK 109
+2026-10-08T02:28:10.287772Z TICK 110
+2026-10-08T02:28:20.287256Z TICK 111
+2026-10-08T02:28:30.287693Z TICK 112
+2026-10-08T02:28:33.480635Z LINK run=club-phone-overnight mech=bound n=26 id=6043647e-fe54-4094-bf78-5ca44de52e74 kind=signal count=26 dup=false e2e_ms=11
+2026-10-08T02:28:40.288883Z TICK 113
+2026-10-08T02:28:50.287687Z TICK 114
+2026-10-08T02:29:00.288526Z TICK 115
+2026-10-08T02:29:09.474433Z LINK run=club-phone-overnight mech=bound n=27 id=19e2fd10-67cc-44d7-a674-d0c6acbe251c kind=signal count=27 dup=false e2e_ms=8
+2026-10-08T02:29:10.288959Z TICK 116
+2026-10-08T02:29:20.287560Z TICK 117
+2026-10-08T02:29:30.287703Z TICK 118
+2026-10-08T02:29:40.287251Z TICK 119
+2026-10-08T02:29:45.478148Z LINK run=club-phone-overnight mech=bound n=28 id=d540830c-d3a8-4930-aead-bcf855c4589e kind=signal count=28 dup=false e2e_ms=11
+2026-10-08T02:29:50.287392Z TICK 120
+2026-10-08T02:30:00.288439Z TICK 121
+2026-10-08T02:30:10.287801Z TICK 122
+2026-10-08T02:30:20.288588Z TICK 123
+2026-10-08T02:30:21.480889Z LINK run=club-phone-overnight mech=bound n=29 id=9f577c29-b2ad-4dc6-b5fd-c050a1311af4 kind=start count=29 dup=false e2e_ms=11
+2026-10-08T02:30:30.287343Z TICK 124
+2026-10-08T02:30:40.288860Z TICK 125
+2026-10-08T02:30:50.288722Z TICK 126
+2026-10-08T02:30:57.479370Z LINK run=club-phone-overnight mech=bound n=30 id=a164b5e8-40f2-4cb0-a672-f3fc01dc6adb kind=general_recall count=30 dup=false e2e_ms=10
+2026-10-08T02:31:00.287099Z TICK 127
+2026-10-08T02:31:10.287825Z TICK 128
+2026-10-08T02:31:20.287927Z TICK 129
+2026-10-08T02:31:30.288265Z TICK 130
+2026-10-08T02:31:33.477530Z LINK run=club-phone-overnight mech=bound n=31 id=bfe1d045-81fc-49f9-a81c-351508c9086e kind=sequence_start count=31 dup=false e2e_ms=11
+2026-10-08T02:31:40.287626Z TICK 131
+2026-10-08T02:31:50.287962Z TICK 132
+2026-10-08T02:32:00.287686Z TICK 133
+2026-10-08T02:32:09.477768Z LINK run=club-phone-overnight mech=bound n=32 id=43f9928f-fcd7-4526-a521-29a5e0140d81 kind=signal count=32 dup=false e2e_ms=11
+2026-10-08T02:32:10.287822Z TICK 134
+2026-10-08T02:32:20.287200Z TICK 135
+2026-10-08T02:32:30.287792Z TICK 136
+2026-10-08T02:32:40.287633Z TICK 137
+2026-10-08T02:32:45.477061Z LINK run=club-phone-overnight mech=bound n=33 id=19064652-e640-45b0-8088-f68c6c1e5e98 kind=signal count=33 dup=false e2e_ms=11
+2026-10-08T02:32:50.287458Z TICK 138
+2026-10-08T02:33:00.287586Z TICK 139
+2026-10-08T02:33:10.287961Z TICK 140
+2026-10-08T02:33:20.287774Z TICK 141
+2026-10-08T02:33:21.477223Z LINK run=club-phone-overnight mech=bound n=34 id=64346692-e9d8-4f19-a1ea-b26e73e4bf56 kind=signal count=34 dup=false e2e_ms=11
+2026-10-08T02:33:30.287498Z TICK 142
+2026-10-08T02:33:40.287262Z TICK 143
+2026-10-08T02:33:50.289127Z TICK 144
+2026-10-08T02:33:57.476071Z LINK run=club-phone-overnight mech=bound n=35 id=2751406a-61ef-4f0f-9b38-597ef4b70258 kind=start count=35 dup=false e2e_ms=8
+2026-10-08T02:34:00.287834Z TICK 145
+2026-10-08T02:34:10.288596Z TICK 146
+2026-10-08T02:34:20.288741Z TICK 147
+2026-10-08T02:34:30.287805Z TICK 148
+2026-10-08T02:34:33.469135Z LINK run=club-phone-overnight mech=bound n=36 id=591e48e5-1c02-4620-85e7-7947eda4dc72 kind=individual_recall count=36 dup=false e2e_ms=4
+2026-10-08T02:34:40.289075Z TICK 149
+2026-10-08T02:34:50.288581Z TICK 150
+2026-10-08T02:35:00.287244Z TICK 151
+2026-10-08T02:35:09.480799Z LINK run=club-phone-overnight mech=bound n=37 id=e221a813-091c-4a58-9f8d-2fbb32ef5cad kind=sequence_start count=37 dup=false e2e_ms=11
+2026-10-08T02:35:10.287832Z TICK 152
+2026-10-08T02:35:20.287928Z TICK 153
+2026-10-08T02:35:30.287141Z TICK 154
+2026-10-08T02:35:40.298974Z TICK 155
+2026-10-08T02:35:45.512068Z LINK run=club-phone-overnight mech=bound n=38 id=bec4f202-0759-42ae-8ce8-28ce846ec995 kind=signal count=38 dup=false e2e_ms=31
+2026-10-08T02:35:50.288158Z TICK 156
+2026-10-08T02:36:00.287484Z TICK 157
+2026-10-08T02:36:10.287719Z TICK 158
+2026-10-08T02:36:20.287421Z TICK 159
+2026-10-08T02:36:21.475885Z LINK run=club-phone-overnight mech=bound n=39 id=c40070e2-c672-487f-b079-df2482e644c1 kind=postponement count=39 dup=false e2e_ms=8
+2026-10-08T02:36:30.288759Z TICK 160
+2026-10-08T02:36:40.287849Z TICK 161
+2026-10-08T02:36:50.287804Z TICK 162
+2026-10-08T02:36:57.474982Z LINK run=club-phone-overnight mech=bound n=40 id=d9f407e7-8f81-46c9-ad83-75beef22f912 kind=sequence_start count=40 dup=false e2e_ms=9
+2026-10-08T02:37:00.288590Z TICK 163
+2026-10-08T02:37:10.287832Z TICK 164
+2026-10-08T02:37:20.288300Z TICK 165
+2026-10-08T02:37:30.287253Z TICK 166
+2026-10-08T02:37:33.472711Z LINK run=club-phone-overnight mech=bound n=41 id=84fa7197-c589-4d75-a1a0-6575a3a82b4c kind=signal count=41 dup=false e2e_ms=7
+2026-10-08T02:37:40.287543Z TICK 167
+2026-10-08T02:37:50.288336Z TICK 168
+2026-10-08T02:38:00.287638Z TICK 169
+2026-10-08T02:38:09.476426Z LINK run=club-phone-overnight mech=bound n=42 id=c69ac6fb-9b94-42ae-945e-74a912aaef30 kind=signal count=42 dup=false e2e_ms=11
+2026-10-08T02:38:10.288665Z TICK 170
+2026-10-08T02:38:20.288317Z TICK 171
+2026-10-08T02:38:30.287862Z TICK 172
+2026-10-08T02:38:40.288726Z TICK 173
+2026-10-08T02:38:45.474759Z LINK run=club-phone-overnight mech=bound n=43 id=ac7671ea-7c63-4864-a06b-d72801ae1faa kind=signal count=43 dup=false e2e_ms=9
+2026-10-08T02:38:50.287698Z TICK 174
+2026-10-08T02:39:00.287623Z TICK 175
+2026-10-08T02:39:10.287900Z TICK 176
+2026-10-08T02:39:20.287529Z TICK 177
+2026-10-08T02:39:21.472919Z LINK run=club-phone-overnight mech=bound n=44 id=df6a636b-cbde-46bc-97c3-7bb67fe48562 kind=start count=44 dup=false e2e_ms=7
+2026-10-08T02:39:30.287671Z TICK 178
+2026-10-08T02:39:40.287866Z TICK 179
+2026-10-08T02:39:50.288151Z TICK 180
+2026-10-08T02:39:57.474604Z LINK run=club-phone-overnight mech=bound n=45 id=68d57427-ca6c-4861-8696-2f9307ea68c6 kind=general_recall count=45 dup=false e2e_ms=9
+2026-10-08T02:40:00.287691Z TICK 181
+2026-10-08T02:40:10.288756Z TICK 182
+2026-10-08T02:40:20.287270Z TICK 183
+2026-10-08T02:40:30.287881Z TICK 184
+2026-10-08T02:40:33.475266Z LINK run=club-phone-overnight mech=bound n=46 id=c3f4eb77-ae70-4126-a76b-33c16ada79bc kind=sequence_start count=46 dup=false e2e_ms=8
+2026-10-08T02:40:40.288659Z TICK 185
+2026-10-08T02:40:50.287273Z TICK 186
+2026-10-08T02:41:00.287868Z TICK 187
+2026-10-08T02:41:09.481572Z LINK run=club-phone-overnight mech=bound n=47 id=0bc9c92e-9c68-4c2a-b99a-8bae0694e86f kind=signal count=47 dup=false e2e_ms=12
+2026-10-08T02:41:10.288268Z TICK 188
+2026-10-08T02:41:20.287164Z TICK 189
+2026-10-08T02:41:30.287687Z TICK 190
+2026-10-08T02:41:40.287245Z TICK 191
+2026-10-08T02:41:45.470934Z LINK run=club-phone-overnight mech=bound n=48 id=e693b6e5-d3e9-4631-9127-f411b1f844e3 kind=signal count=48 dup=false e2e_ms=5
+2026-10-08T02:41:50.288605Z TICK 192
+2026-10-08T02:42:00.287488Z TICK 193
+2026-10-08T02:42:10.287472Z TICK 194
+2026-10-08T02:42:20.287814Z TICK 195
+2026-10-08T02:42:21.472276Z LINK run=club-phone-overnight mech=bound n=49 id=f0d741fc-1a74-47da-8201-ba274863003a kind=signal count=49 dup=false e2e_ms=7
+2026-10-08T02:42:30.289368Z TICK 196
+2026-10-08T02:42:40.287567Z TICK 197
+2026-10-08T02:42:50.287434Z TICK 198
+2026-10-08T02:42:57.478170Z LINK run=club-phone-overnight mech=bound n=50 id=acef27b1-9891-4fd0-9498-3e795d4c0a14 kind=start count=50 dup=false e2e_ms=12
+2026-10-08T02:43:00.287255Z TICK 199
+2026-10-08T02:43:10.288579Z TICK 200
+2026-10-08T02:43:20.287802Z TICK 201
+2026-10-08T02:43:30.289324Z TICK 202
+2026-10-08T02:43:33.479441Z LINK run=club-phone-overnight mech=bound n=51 id=2d07a96f-3e77-4ff1-a57d-48ac2545f19f kind=individual_recall count=51 dup=false e2e_ms=10
+2026-10-08T02:44:34.107466Z TICK 203
+2026-10-08T02:45:52.178716Z TICK 204
+2026-10-08T02:47:35.880531Z TICK 205
+2026-10-08T02:48:46.768607Z TICK 206
+
+== run 3: harness lines (main buffer, EDT)
+10-07 22:13:33.313 I/LINK    ( 7113): BEGIN run=club-phone-overnight mech=bound count=51 interval_ms=36000 sdk=36 idle=false
+10-07 22:13:33.356 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=1 id=1ca15b5d-bc41-4b98-bfd0-88a08f91b54b hop_us=13538
+10-07 22:13:33.360 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=1 id=1ca15b5d-bc41-4b98-bfd0-88a08f91b54b kind=sequence_start status=accepted send_us=46225 idle=false
+10-07 22:14:09.329 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=2 id=afc9baf9-0f99-477a-9e9a-e2380559ecb5 hop_us=6047
+10-07 22:14:09.338 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=2 id=afc9baf9-0f99-477a-9e9a-e2380559ecb5 kind=signal status=accepted send_us=17575 idle=false
+10-07 22:14:45.323 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=3 id=62330337-5c01-4d6c-85d4-6b5ad99df9e3 hop_us=3128
+10-07 22:14:45.326 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=3 id=62330337-5c01-4d6c-85d4-6b5ad99df9e3 kind=signal status=accepted send_us=10989 idle=false
+10-07 22:15:21.326 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=4 id=59efec29-e8af-4ed8-9962-610ce488d7a4 hop_us=3240
+10-07 22:15:21.330 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=4 id=59efec29-e8af-4ed8-9962-610ce488d7a4 kind=signal status=accepted send_us=12258 idle=false
+10-07 22:15:57.322 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=5 id=d97b971b-4f0b-4119-8086-db77374ebca4 hop_us=2726
+10-07 22:15:57.324 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=5 id=d97b971b-4f0b-4119-8086-db77374ebca4 kind=start status=accepted send_us=8697 idle=false
+10-07 22:16:33.326 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=6 id=8cacb9b9-8119-4d6c-b545-e719169f6726 hop_us=3164
+10-07 22:16:33.330 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=6 id=8cacb9b9-8119-4d6c-b545-e719169f6726 kind=individual_recall status=accepted send_us=11348 idle=false
+10-07 22:17:09.324 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=7 id=270f55b7-6757-4b42-af17-91b45abdc134 hop_us=3410
+10-07 22:17:09.326 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=7 id=270f55b7-6757-4b42-af17-91b45abdc134 kind=sequence_start status=accepted send_us=11090 idle=false
+10-07 22:17:45.321 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=8 id=a8925ec8-0b70-4caa-9ab3-a9540bd0336b hop_us=3079
+10-07 22:17:45.325 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=8 id=a8925ec8-0b70-4caa-9ab3-a9540bd0336b kind=signal status=accepted send_us=10564 idle=false
+10-07 22:18:21.320 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=9 id=78c8ec72-1bf3-4184-9c3c-15ec64bc84f9 hop_us=3379
+10-07 22:18:21.322 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=9 id=78c8ec72-1bf3-4184-9c3c-15ec64bc84f9 kind=postponement status=accepted send_us=8466 idle=false
+10-07 22:18:57.322 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=10 id=98d78eb8-b8cc-4ef9-9492-9c581e919652 hop_us=2307
+10-07 22:18:57.327 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=10 id=98d78eb8-b8cc-4ef9-9492-9c581e919652 kind=sequence_start status=accepted send_us=8870 idle=false
+10-07 22:19:33.325 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=11 id=9821ff2c-d226-41db-a777-2429d3a20cad hop_us=2957
+10-07 22:19:33.328 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=11 id=9821ff2c-d226-41db-a777-2429d3a20cad kind=signal status=accepted send_us=11999 idle=false
+10-07 22:20:09.325 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=12 id=163b404e-560b-4c4e-ad5f-ef25c852347f hop_us=3583
+10-07 22:20:09.329 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=12 id=163b404e-560b-4c4e-ad5f-ef25c852347f kind=signal status=accepted send_us=10141 idle=false
+10-07 22:20:45.325 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=13 id=20dd25c6-5c61-4b26-a4fc-afefdcc2b3d7 hop_us=2791
+10-07 22:20:45.328 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=13 id=20dd25c6-5c61-4b26-a4fc-afefdcc2b3d7 kind=signal status=accepted send_us=8996 idle=false
+10-07 22:21:21.321 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=14 id=3a34d105-5bb6-48a9-a67f-68c6b0281742 hop_us=2910
+10-07 22:21:21.325 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=14 id=3a34d105-5bb6-48a9-a67f-68c6b0281742 kind=start status=accepted send_us=10240 idle=false
+10-07 22:21:57.327 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=15 id=1e64f9ae-3648-42ca-b5a8-5ef0653c3959 hop_us=3519
+10-07 22:21:57.331 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=15 id=1e64f9ae-3648-42ca-b5a8-5ef0653c3959 kind=general_recall status=accepted send_us=11724 idle=false
+10-07 22:22:33.321 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=16 id=7206ff05-046c-43c9-b9f5-cbbded61df0b hop_us=2713
+10-07 22:22:33.325 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=16 id=7206ff05-046c-43c9-b9f5-cbbded61df0b kind=sequence_start status=accepted send_us=8781 idle=false
+10-07 22:23:09.321 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=17 id=d5f9c9ff-bf06-4884-bf51-edaab79f9396 hop_us=3305
+10-07 22:23:09.324 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=17 id=d5f9c9ff-bf06-4884-bf51-edaab79f9396 kind=signal status=accepted send_us=9479 idle=false
+10-07 22:23:45.324 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=18 id=a5e71f0c-0bb6-4819-ac72-e2b7988279c8 hop_us=3408
+10-07 22:23:45.328 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=18 id=a5e71f0c-0bb6-4819-ac72-e2b7988279c8 kind=signal status=accepted send_us=12434 idle=false
+10-07 22:24:21.474 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=19 id=427c1845-d5bc-4e43-ab1a-859288e01226 hop_us=3189
+10-07 22:24:21.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=19 id=427c1845-d5bc-4e43-ab1a-859288e01226 kind=signal status=accepted send_us=10892 idle=false
+10-07 22:24:57.474 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=20 id=50507672-ca7b-4a99-bead-9c7da37ddf59 hop_us=2822
+10-07 22:24:57.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=20 id=50507672-ca7b-4a99-bead-9c7da37ddf59 kind=start status=accepted send_us=10725 idle=false
+10-07 22:25:33.473 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=21 id=d90e7917-d091-4db6-ae40-f2b54c4f7006 hop_us=3222
+10-07 22:25:33.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=21 id=d90e7917-d091-4db6-ae40-f2b54c4f7006 kind=individual_recall status=accepted send_us=11700 idle=false
+10-07 22:26:09.473 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=22 id=d706fcc5-2cb1-44f6-b309-296c1dfb8a2d hop_us=3191
+10-07 22:26:09.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=22 id=d706fcc5-2cb1-44f6-b309-296c1dfb8a2d kind=sequence_start status=accepted send_us=11129 idle=false
+10-07 22:26:45.476 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=23 id=161a7a2f-c701-4bf3-8639-c2a0f33d35e5 hop_us=3170
+10-07 22:26:45.480 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=23 id=161a7a2f-c701-4bf3-8639-c2a0f33d35e5 kind=signal status=accepted send_us=11526 idle=false
+10-07 22:27:21.473 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=24 id=d937d96e-cb71-4a4d-922d-483bc1536277 hop_us=3053
+10-07 22:27:21.476 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=24 id=d937d96e-cb71-4a4d-922d-483bc1536277 kind=postponement status=accepted send_us=10504 idle=false
+10-07 22:27:57.472 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=25 id=ec1684e7-f2a5-416a-9e09-70bbd19bd236 hop_us=2518
+10-07 22:27:57.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=25 id=ec1684e7-f2a5-416a-9e09-70bbd19bd236 kind=sequence_start status=accepted send_us=9049 idle=false
+10-07 22:28:33.477 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=26 id=6043647e-fe54-4094-bf78-5ca44de52e74 hop_us=3455
+10-07 22:28:33.481 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=26 id=6043647e-fe54-4094-bf78-5ca44de52e74 kind=signal status=accepted send_us=11655 idle=false
+10-07 22:29:09.471 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=27 id=19e2fd10-67cc-44d7-a674-d0c6acbe251c hop_us=2827
+10-07 22:29:09.474 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=27 id=19e2fd10-67cc-44d7-a674-d0c6acbe251c kind=signal status=accepted send_us=8587 idle=false
+10-07 22:29:45.475 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=28 id=d540830c-d3a8-4930-aead-bcf855c4589e hop_us=2857
+10-07 22:29:45.479 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=28 id=d540830c-d3a8-4930-aead-bcf855c4589e kind=signal status=accepted send_us=11015 idle=false
+10-07 22:30:21.478 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=29 id=9f577c29-b2ad-4dc6-b5fd-c050a1311af4 hop_us=3306
+10-07 22:30:21.481 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=29 id=9f577c29-b2ad-4dc6-b5fd-c050a1311af4 kind=start status=accepted send_us=11431 idle=false
+10-07 22:30:57.476 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=30 id=a164b5e8-40f2-4cb0-a672-f3fc01dc6adb hop_us=3216
+10-07 22:30:57.481 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=30 id=a164b5e8-40f2-4cb0-a672-f3fc01dc6adb kind=general_recall status=accepted send_us=9408 idle=false
+10-07 22:31:33.475 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=31 id=bfe1d045-81fc-49f9-a81c-351508c9086e hop_us=3453
+10-07 22:31:33.479 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=31 id=bfe1d045-81fc-49f9-a81c-351508c9086e kind=sequence_start status=accepted send_us=11796 idle=false
+10-07 22:32:09.475 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=32 id=43f9928f-fcd7-4526-a521-29a5e0140d81 hop_us=3469
+10-07 22:32:09.478 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=32 id=43f9928f-fcd7-4526-a521-29a5e0140d81 kind=signal status=accepted send_us=12000 idle=false
+10-07 22:32:45.474 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=33 id=19064652-e640-45b0-8088-f68c6c1e5e98 hop_us=2862
+10-07 22:32:45.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=33 id=19064652-e640-45b0-8088-f68c6c1e5e98 kind=signal status=accepted send_us=10979 idle=false
+10-07 22:33:21.474 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=34 id=64346692-e9d8-4f19-a1ea-b26e73e4bf56 hop_us=3432
+10-07 22:33:21.478 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=34 id=64346692-e9d8-4f19-a1ea-b26e73e4bf56 kind=signal status=accepted send_us=11101 idle=false
+10-07 22:33:57.473 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=35 id=2751406a-61ef-4f0f-9b38-597ef4b70258 hop_us=2865
+10-07 22:33:57.479 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=35 id=2751406a-61ef-4f0f-9b38-597ef4b70258 kind=start status=accepted send_us=9731 idle=false
+10-07 22:34:33.468 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=36 id=591e48e5-1c02-4620-85e7-7947eda4dc72 hop_us=1077
+10-07 22:34:33.468 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=36 id=591e48e5-1c02-4620-85e7-7947eda4dc72 kind=individual_recall status=accepted send_us=3159 idle=false
+10-07 22:35:09.478 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=37 id=e221a813-091c-4a58-9f8d-2fbb32ef5cad hop_us=3672
+10-07 22:35:09.481 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=37 id=e221a813-091c-4a58-9f8d-2fbb32ef5cad kind=sequence_start status=accepted send_us=11345 idle=false
+10-07 22:35:45.505 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=38 id=bec4f202-0759-42ae-8ce8-28ce846ec995 hop_us=24129
+10-07 22:35:45.510 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=38 id=bec4f202-0759-42ae-8ce8-28ce846ec995 kind=signal status=accepted send_us=39225 idle=false
+10-07 22:36:21.474 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=39 id=c40070e2-c672-487f-b079-df2482e644c1 hop_us=3704
+10-07 22:36:21.476 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=39 id=c40070e2-c672-487f-b079-df2482e644c1 kind=postponement status=accepted send_us=9096 idle=false
+10-07 22:36:57.473 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=40 id=d9f407e7-8f81-46c9-ad83-75beef22f912 hop_us=3187
+10-07 22:36:57.475 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=40 id=d9f407e7-8f81-46c9-ad83-75beef22f912 kind=sequence_start status=accepted send_us=9433 idle=false
+10-07 22:37:33.470 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=41 id=84fa7197-c589-4d75-a1a0-6575a3a82b4c hop_us=2136
+10-07 22:37:33.473 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=41 id=84fa7197-c589-4d75-a1a0-6575a3a82b4c kind=signal status=accepted send_us=7165 idle=false
+10-07 22:38:09.474 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=42 id=c69ac6fb-9b94-42ae-945e-74a912aaef30 hop_us=3294
+10-07 22:38:09.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=42 id=c69ac6fb-9b94-42ae-945e-74a912aaef30 kind=signal status=accepted send_us=10936 idle=false
+10-07 22:38:45.472 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=43 id=ac7671ea-7c63-4864-a06b-d72801ae1faa hop_us=3406
+10-07 22:38:45.477 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=43 id=ac7671ea-7c63-4864-a06b-d72801ae1faa kind=signal status=accepted send_us=9662 idle=false
+10-07 22:39:21.470 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=44 id=df6a636b-cbde-46bc-97c3-7bb67fe48562 hop_us=1631
+10-07 22:39:21.473 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=44 id=df6a636b-cbde-46bc-97c3-7bb67fe48562 kind=start status=accepted send_us=7801 idle=false
+10-07 22:39:57.472 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=45 id=68d57427-ca6c-4861-8696-2f9307ea68c6 hop_us=2826
+10-07 22:39:57.475 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=45 id=68d57427-ca6c-4861-8696-2f9307ea68c6 kind=general_recall status=accepted send_us=9144 idle=false
+10-07 22:40:33.472 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=46 id=c3f4eb77-ae70-4126-a76b-33c16ada79bc hop_us=3035
+10-07 22:40:33.476 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=46 id=c3f4eb77-ae70-4126-a76b-33c16ada79bc kind=sequence_start status=accepted send_us=8711 idle=false
+10-07 22:41:09.478 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=47 id=0bc9c92e-9c68-4c2a-b99a-8bae0694e86f hop_us=3432
+10-07 22:41:09.482 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=47 id=0bc9c92e-9c68-4c2a-b99a-8bae0694e86f kind=signal status=accepted send_us=11934 idle=false
+10-07 22:41:45.469 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=48 id=e693b6e5-d3e9-4631-9127-f411b1f844e3 hop_us=1423
+10-07 22:41:45.471 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=48 id=e693b6e5-d3e9-4631-9127-f411b1f844e3 kind=signal status=accepted send_us=5648 idle=false
+10-07 22:42:21.470 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=49 id=f0d741fc-1a74-47da-8201-ba274863003a hop_us=2565
+10-07 22:42:21.475 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=49 id=f0d741fc-1a74-47da-8201-ba274863003a kind=signal status=accepted send_us=7205 idle=false
+10-07 22:42:57.475 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=50 id=acef27b1-9891-4fd0-9498-3e795d4c0a14 hop_us=3323
+10-07 22:42:57.479 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=50 id=acef27b1-9891-4fd0-9498-3e795d4c0a14 kind=start status=accepted send_us=12622 idle=false
+10-07 22:43:33.476 I/LINK    ( 6043): RECV run=club-phone-overnight mech=bound n=51 id=2d07a96f-3e77-4ff1-a57d-48ac2545f19f hop_us=3405
+10-07 22:43:33.480 I/LINK    ( 7113): EMIT run=club-phone-overnight mech=bound n=51 id=2d07a96f-3e77-4ff1-a57d-48ac2545f19f kind=individual_recall status=accepted send_us=9611 idle=false
+10-07 22:43:33.528 I/LINK    ( 7113): DONE run=club-phone-overnight mech=bound emitted=51 ok=51 refused=0 errors=0 idle=false
+
+== run 3: events buffer, screen, plug and Doze (EDT; battery_status [status,health,present,plugged,tech], plugged 0 = none, 2 = USB, 4 = wireless)
+10-07 22:13:35.130 I/battery_status( 3347): [3,1,1,0,Li-ion]
+10-07 22:13:37.787 I/power_sleep_requested( 3347): 0
+10-07 22:13:38.505 I/screen_toggled( 3347): 0
+10-07 22:13:38.685 I/device_idle( 3347): [1,no activity]
+10-07 22:13:38.687 I/device_idle_light( 3347): [1,no activity]
+10-07 22:15:09.121 I/device_idle_light( 3347): [4,s:alarm]
+10-07 22:23:31.224 I/device_idle_light( 3347): [6,s:alarm]
+10-07 22:23:36.293 I/device_idle_light( 3347): [4,s:early]
+10-07 22:35:28.985 I/device_idle_light( 3347): [6,s:alarm]
+10-07 22:36:20.749 I/device_idle_light( 3347): [4,s:early]
+10-07 22:44:38.844 I/device_idle( 3347): [2,s:alarm]
+10-07 22:48:43.960 I/battery_status( 3347): [2,2,1,2,Li-ion]
+10-07 22:48:44.240 I/device_idle( 3347): [0,charging]
+10-07 22:48:44.241 I/device_idle_light( 3347): [0,charging]
+
+== run 3: battery history, reset, screen, plug and status changes (EDT)
+10-07 22:13:35.306 RESET:TIME:
+10-07 22:13:35.306 status=discharging plug=none +screen
+10-07 22:13:38.325 -screen
+10-07 22:48:43.956 status=charging plug=usb
+10-07 22:48:44.656 +screen_doze

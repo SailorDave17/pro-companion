@@ -41,6 +41,10 @@ class CoreService : Service() {
         val ch = MethodChannel(e.dartExecutor.binaryMessenger, CHANNEL)
         ch.setMethodCallHandler { call, result ->
             when (call.method) {
+                // #21: where the core mirrors its log. The app's external files directory,
+                // which adb can read on a retail phone after the cable goes back in;
+                // filesDir needs run-as, which a profile build refuses.
+                "mirrorDir" -> result.success(getExternalFilesDir(null)?.absolutePath)
                 "ready" -> {
                     result.success(filesDir.absolutePath)
                     dartReady = true

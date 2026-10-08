@@ -59,11 +59,13 @@ Future<void> coreMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('core_host/intents');
   late final File log;
+  File? mirror;
   late final SyncCommands sync;
 
   void write(String line) {
     final stamped = '${DateTime.now().toUtc().toIso8601String()} $line';
     log.writeAsStringSync('$stamped\n', mode: FileMode.append, flush: true);
+    mirror?.writeAsStringSync('$stamped\n', mode: FileMode.append, flush: true);
     print('CORE $stamped');
   }
 
@@ -80,6 +82,12 @@ Future<void> coreMain() async {
       write('INTENT $payload');
     }
   });
+  // #21: a copy of every line where adb can read it on a retail phone. logcat cannot
+  // carry a 30-minute run there: the club phone caps the main buffer at 5 MiB, about
+  // 20 minutes of the whole phone's logging. Asked before 'ready', whose reply releases
+  // the queued intents, so the mirror misses none of them.
+  final mirrorDir = await channel.invokeMethod<String>('mirrorDir');
+  if (mirrorDir != null) mirror = File('$mirrorDir/core_tick.log');
   final dir = await channel.invokeMethod<String>('ready');
   log = File('$dir/core_tick.log');
   sync = SyncCommands(dir!, write);
