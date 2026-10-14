@@ -4,24 +4,24 @@
   "description": "Seq 3 was removed and seq 4 re-linked to seq 2, with seq 5 and 6 re-linked after it. Seq 4 links straight across the missing number, which a genuine chain never does.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "2fb4212f82cc1eb722e865c738a1bb0b32ea72f43b9766374adfd45e250fdd95",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+      "hash": "062b3fdd25c712cb0c81a75131649b7c27f866aabc8a22cd8f6c74962522d49b",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
     },
     {
-      "hash": "910edf84766ee2fe0d91f699ad1108a383ae61207bc0e8d38a3ba5dd9d48d5d7",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"2fb4212f82cc1eb722e865c738a1bb0b32ea72f43b9766374adfd45e250fdd95\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "e8242fa30770bc6dee7910c60293bfdf14a1cd93b37be2c8d713a7dcf506760d",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"062b3fdd25c712cb0c81a75131649b7c27f866aabc8a22cd8f6c74962522d49b\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "a77334502c3006e0f35dbd75326af7f07fa24f3cd354100e118961d2ad029556",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"910edf84766ee2fe0d91f699ad1108a383ae61207bc0e8d38a3ba5dd9d48d5d7\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "4fd9e9c6d23589c34793d8121f8ec3ae62f345773cbf1229a6280044df8f9021",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"e8242fa30770bc6dee7910c60293bfdf14a1cd93b37be2c8d713a7dcf506760d\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {

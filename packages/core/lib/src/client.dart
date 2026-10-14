@@ -30,6 +30,16 @@ abstract interface class CoreClient {
   /// events already stored keep the admission they were written under.
   Future<void> setAdmissionId(String admissionId);
 
+  /// Tells the core the phone's latest fix, [fix]'s `ageMs` old as of now
+  /// (#31). Every event appended from now on carries it, with its age grown
+  /// by the time since.
+  Future<void> reportFix(GpsFix fix);
+
+  /// Tells the core the phone has no position, for [reason], one of
+  /// `GpsReasons.all` (#31). Every event appended from now on carries a null
+  /// position and that reason, until the next fix.
+  Future<void> reportNoFix(String reason);
+
   /// Where this phone's own events stand on their way to shore (#6): how many
   /// wait, how many the server holds, which it refused and why, and how sync's
   /// latest run ended.
@@ -83,6 +93,16 @@ class PortCoreClient implements CoreClient {
   @override
   Future<void> setAdmissionId(String admissionId) async {
     await _call(Wire.setAdmissionId, {'admission_id': admissionId});
+  }
+
+  @override
+  Future<void> reportFix(GpsFix fix) async {
+    await _call(Wire.reportLocation, {'fix': fix.toWire()});
+  }
+
+  @override
+  Future<void> reportNoFix(String reason) async {
+    await _call(Wire.reportLocation, {'reason': reason});
   }
 
   @override

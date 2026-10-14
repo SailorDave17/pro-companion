@@ -12,7 +12,8 @@ An event is hashed as its **canonical text**: the [RFC 8785](https://www.rfc-edi
 JSON Canonicalization Scheme applied to its wire form. The wire form is the ADR 001 envelope,
 `EventEnvelope.toWire()`, with every field present even when null, plus any field a newer core
 wrote. Since #49 that includes `admission_id`, the admission the event was written under, so the
-hash covers it too.
+hash covers it too. Since #31 it includes where the phone was: `gps` with the fix's `age_ms`, or
+`gps_reason` saying why there is no fix.
 
 RFC 8785 fixes every choice JSON leaves open:
 
@@ -29,7 +30,7 @@ body, #40 keeps it beside the typed columns, and the phone sends it through #48'
 envelope fields an older one would write as missing. Re-serialising would then change the text, and
 the hash with it, on an event nobody touched. `admission_id` (#49) is the first such field: an event
 written before #49 has none, and a newer core that read it into an envelope and wrote it back would
-add `"admission_id":null` and change its hash.
+add `"admission_id":null` and change its hash. `gps_reason` (#31) is the second, in the same way.
 
 ## The hash and the link
 

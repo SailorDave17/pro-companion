@@ -11,6 +11,9 @@
 - Amended 2026-09-26 by pro-companion #49 (groom decision G44): every event's envelope also carries
   `admission_id`, the admission its phone held when it wrote the event. See "Who can write to an
   event's log".
+- Amended 2026-10-14 by pro-companion #31: the core stamps every event's `gps` from the phone's last
+  fix, with the fix's age in `age_ms`, and when there is none, says why in the new envelope field
+  `gps_reason`. See "Located and attributed" below.
 
 ## Context
 
@@ -101,7 +104,11 @@ link is work on both sides:
   separately; neither overwrites the other (the clock-skew rule in pro-companion#6).
 - **Located and attributed** — each event carries GPS position where available, the device id,
   the person and (amended 2026-09-26, #49) the admission it was written under, so it answers *who,
-  when, where* without anyone's memory.
+  when, where* without anyone's memory. *Amended 2026-10-14 (#31):* the core stamps the position,
+  never the caller. `gps` holds latitude, longitude, accuracy and `age_ms`, the fix's true age when
+  the event was written: 30 s or less is current, and an older fix is still carried, with its age.
+  With no fix, `gps` is null and `gps_reason` says why (`no_permission`, `location_off`, `no_fix`,
+  `no_source`). An append never waits on GPS.
 
 ## Consequences
 

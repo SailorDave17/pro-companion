@@ -3,15 +3,25 @@ import 'dart:math';
 import 'wire.dart';
 
 /// Where a phone was when it logged an event (ADR 001: who, when, where).
-/// Filled by #31; null until then and whenever there is no fix.
+/// The core stamps it (#31); null whenever there is no fix, with the reason
+/// in the envelope's `gps_reason`.
 class GpsFix {
-  const GpsFix({required this.lat, required this.lon, this.accuracyM});
+  const GpsFix({required this.lat, required this.lon, this.accuracyM, required this.ageMs});
 
   final double lat;
   final double lon;
+
+  /// The fix's horizontal accuracy in metres, when the phone gave one.
   final double? accuracyM;
 
-  Map<String, Object?> toWire() => {'lat': lat, 'lon': lon, 'accuracy_m': accuracyM};
+  /// How old the fix was when the event was written, in milliseconds. A fix
+  /// is current when this is 30 s or less (#31); an older one is still the
+  /// best position the phone had, and says how old it is. The core always
+  /// stamps it; null only on a fix written before #31, which said nothing of
+  /// its age.
+  final int? ageMs;
+
+  Map<String, Object?> toWire() => {'lat': lat, 'lon': lon, 'accuracy_m': accuracyM, 'age_ms': ageMs};
 
   static GpsFix? fromWire(Object? w) {
     if (w == null) return null;
@@ -20,19 +30,28 @@ class GpsFix {
       lat: (m['lat'] as num).toDouble(),
       lon: (m['lon'] as num).toDouble(),
       accuracyM: (m['accuracy_m'] as num?)?.toDouble(),
+      ageMs: m['age_ms'] as int?,
     );
   }
 
   @override
   bool operator ==(Object other) =>
-      other is GpsFix && other.lat == lat && other.lon == lon && other.accuracyM == accuracyM;
+      other is GpsFix &&
+      other.lat == lat &&
+      other.lon == lon &&
+      other.accuracyM == accuracyM &&
+      other.ageMs == ageMs;
 
   @override
-  int get hashCode => Object.hash(lat, lon, accuracyM);
+  int get hashCode => Object.hash(lat, lon, accuracyM, ageMs);
+
+  @override
+  String toString() => 'GpsFix($lat, $lon, ±${accuracyM}m, ${ageMs}ms old)';
 }
 
 /// What a caller asks the core to append. The core fills in everything that
-/// identifies the event: ULID, device, sequence number and device time.
+/// identifies the event: ULID, device, sequence number and device time, and
+/// where the phone was (#31), which a caller never supplies.
 class NewEvent {
   const NewEvent({
     required this.kind,
@@ -41,7 +60,6 @@ class NewEvent {
     this.payloadVersion = 1,
     this.person,
     this.role,
-    this.gps,
     this.correctsUlid,
   });
 
@@ -51,7 +69,6 @@ class NewEvent {
   final int payloadVersion;
   final String? person;
   final String? role;
-  final GpsFix? gps;
 
   /// The event this one corrects. An undo is a new event, never an edit
   /// (ADR 001, scope decision 8).
@@ -64,7 +81,6 @@ class NewEvent {
         'payload_version': payloadVersion,
         'person': person,
         'role': role,
-        'gps': gps?.toWire(),
         'corrects_ulid': correctsUlid,
       };
 
@@ -75,7 +91,6 @@ class NewEvent {
         payloadVersion: w['payload_version'] as int,
         person: w['person'] as String?,
         role: w['role'] as String?,
-        gps: GpsFix.fromWire(w['gps']),
         correctsUlid: w['corrects_ulid'] as String?,
       );
 }
@@ -96,6 +111,7 @@ class EventEnvelope {
     this.role,
     this.admissionId,
     this.gps,
+    this.gpsReason,
     this.correctsUlid,
     this.prevHash,
     this.extra = const {},
@@ -119,7 +135,15 @@ class EventEnvelope {
   /// in single-phone use. The core stamps it, never the caller, and it is part
   /// of the canonical text, so the chain's hash covers it.
   final String? admissionId;
+
+  /// Where the phone was, stamped by the core from the phone's last fix
+  /// (#31). Null when it had none, and then [gpsReason] says why.
   final GpsFix? gps;
+
+  /// Why [gps] is null, one of `GpsReasons.all`; null when there is a fix.
+  /// The core stamps exactly one of the two on every event it appends. Both
+  /// are null only on an event written before #31.
+  final String? gpsReason;
 
   /// Who produced it: a tap, a hand-typed time (`manual`), `race-timer`...
   final String source;
@@ -148,6 +172,7 @@ class EventEnvelope {
     'role',
     'admission_id',
     'gps',
+    'gps_reason',
     'source',
     'kind',
     'payload_version',
@@ -166,6 +191,7 @@ class EventEnvelope {
         'role': role,
         'admission_id': admissionId,
         'gps': gps?.toWire(),
+        'gps_reason': gpsReason,
         'source': source,
         'kind': kind,
         'payload_version': payloadVersion,
@@ -183,6 +209,7 @@ class EventEnvelope {
         role: w['role'] as String?,
         admissionId: w['admission_id'] as String?,
         gps: GpsFix.fromWire(w['gps']),
+        gpsReason: w['gps_reason'] as String?,
         source: w['source'] as String,
         kind: w['kind'] as String,
         payloadVersion: w['payload_version'] as int,

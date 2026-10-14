@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'envelope.dart';
+import 'location.dart';
 import 'store.dart';
 import 'wire.dart';
 
@@ -60,6 +61,16 @@ class CoreServer {
         return store.admissionId;
       case Wire.setAdmissionId:
         store.setAdmissionId(args['admission_id'] as String);
+        return null;
+      case Wire.reportLocation:
+        final location = store.location;
+        if (location is! LatestFix) throw StateError('this core is not fed positions over the wire');
+        final fix = args['fix'];
+        if (fix != null) {
+          location.reportFix(GpsFix.fromWire(fix)!);
+        } else {
+          location.reportNone(args['reason'] as String);
+        }
         return null;
       case Wire.uploadStatus:
         return store.uploadStatus().toWire();

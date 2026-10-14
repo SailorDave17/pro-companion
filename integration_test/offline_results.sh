@@ -23,6 +23,7 @@ restore() { "$ADB" -s "$DEVICE" shell cmd connectivity airplane-mode disable >/d
 trap restore EXIT
 
 restore
+sh integration_test/grant_location.sh "$ADB" "$DEVICE" || exit 1
 echo "offline-results: control, airplane mode off"
 if ! flutter test integration_test/offline_results_flow.dart -d "$DEVICE" --dart-define=EXPECT_NETWORK=true; then
   echo "FAIL: the probe could not connect with airplane mode off, so the offline run would prove nothing"
@@ -35,5 +36,6 @@ if [ "$("$ADB" -s "$DEVICE" shell settings get global airplane_mode_on | tr -d '
   exit 1
 fi
 
+sh integration_test/grant_location.sh "$ADB" "$DEVICE" || exit 1
 echo "offline-results: airplane mode on"
 flutter test integration_test/offline_results_flow.dart -d "$DEVICE"

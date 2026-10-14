@@ -17,8 +17,8 @@ String tempDbPath() {
   return '${dir.path}${Platform.pathSeparator}core.db';
 }
 
-EventStore openStore(String path, {int Function()? clock, int seed = 1}) {
-  final store = EventStore.open(path, clock: clock, random: Random(seed));
+EventStore openStore(String path, {int Function()? clock, int seed = 1, LocationProvider? location}) {
+  final store = EventStore.open(path, clock: clock, random: Random(seed), location: location);
   addTearDown(() {
     try {
       store.close();

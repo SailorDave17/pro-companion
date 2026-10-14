@@ -32,9 +32,10 @@ void main() {
     payloadVersion: 2,
     person: 'Dana (fixture)',
     role: 'recorder',
-    gps: GpsFix(lat: 33.4012, lon: -86.8123, accuracyM: 5.0),
     correctsUlid: '01J8Z0E0000000000000000002',
   );
+  // pre49Text's position, which a caller gave the core until #31, when the core began stamping it.
+  const pre49Fix = GpsFix(lat: 33.4012, lon: -86.8123, accuracyM: 5.0, ageMs: 2000);
 
   String pre49For(String deviceId, String ulid) {
     expect(pre49Text, allOf(contains(pre49DeviceId), contains(pre49Ulid)), reason: 'the ids to replace are there');
@@ -63,7 +64,7 @@ void main() {
       final appended = [
         fleet,
         store.append(NewEvent(kind: 'start', source: 'race-timer', payload: {'fleet': fleet.ulid}, role: 'overall_pro')),
-        store.append(const NewEvent(kind: 'finish', source: 'tap', gps: GpsFix(lat: 33.4, lon: -86.8))),
+        store.append(const NewEvent(kind: 'finish', source: 'tap')),
         store.append(NewEvent(kind: 'start.undo', source: 'manual', correctsUlid: fleet.ulid)),
       ];
 
@@ -149,10 +150,16 @@ void main() {
       expect((await fake.append(const NewEvent(kind: 'note', source: 'tap'))).admissionId, isNull);
     });
 
-    test("and nothing else in the envelope changes: the text is #28's, with the null admission added", () {
-      final store = openStore(tempDbPath(), clock: steppingClock([1727190000000, 1727190001000]));
+    test("and nothing else in the envelope changes: the text is #28's, with the null admission added, and the "
+        "position as the core has stamped it since #31", () {
+      final location = LatestFix(elapsedMs: () => 0)..reportFix(pre49Fix);
+      final store = openStore(tempDbPath(), clock: steppingClock([1727190000000, 1727190001000]), location: location);
       final e = store.append(pre49Event);
-      expect(store.readCanonical().single, '{"admission_id":null,${pre49For(store.deviceId, e.ulid).substring(1)}');
+      const pre31Gps = '"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},';
+      final pre31 = '{"admission_id":null,${pre49For(store.deviceId, e.ulid).substring(1)}';
+      expect(pre31, contains(pre31Gps), reason: 'the position to replace is there');
+      expect(store.readCanonical().single,
+          pre31.replaceFirst(pre31Gps, '"gps":{"accuracy_m":5,"age_ms":2000,"lat":33.4012,"lon":-86.8123},"gps_reason":null,'));
     });
   });
 

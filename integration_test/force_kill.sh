@@ -25,6 +25,7 @@ cd "$(dirname "$0")/.." || exit 1
 restore() { "$ADB" -s "$DEVICE" shell cmd connectivity airplane-mode disable >/dev/null 2>&1; }
 trap restore EXIT
 
+sh integration_test/grant_location.sh "$ADB" "$DEVICE" || exit 1
 echo "force-kill: write phase, run $RUN_ID"
 out=$(flutter test integration_test/force_kill_phase.dart -d "$DEVICE" \
   --dart-define=PHASE=write --dart-define=RUN_ID="$RUN_ID" 2>&1)
@@ -46,6 +47,8 @@ if [ "$("$ADB" -s "$DEVICE" shell settings get global airplane_mode_on | tr -d '
   exit 1
 fi
 
+# #31: the write phase's kill can leave a location dialog behind, which would hold this launch.
+sh integration_test/grant_location.sh "$ADB" "$DEVICE" || exit 1
 echo "force-kill: read phase, airplane mode on"
 flutter test integration_test/force_kill_phase.dart -d "$DEVICE" \
   --dart-define=PHASE=read --dart-define=RUN_ID="$RUN_ID"

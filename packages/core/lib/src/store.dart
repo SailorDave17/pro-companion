@@ -5,6 +5,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'chain.dart';
 import 'envelope.dart';
+import 'location.dart';
 import 'roles.dart';
 import 'stations.dart';
 import 'uploads.dart';
@@ -23,7 +24,7 @@ import 'wire.dart';
 /// the UI only through the async interface (ADR 003).
 class EventStore {
   EventStore._(this._db, this.deviceId, this._clock, this._random, this._nextSeq, this._prevHash,
-      this._admissionId) {
+      this._admissionId, this.location) {
     _insert = _db.prepare(
       'INSERT INTO events (ulid, device_id, seq, device_ts, body) VALUES (?, ?, ?, ?, ?)',
     );
@@ -41,7 +42,10 @@ class EventStore {
 
   /// Opens (creating if needed) the log at [path]. The device id is minted on
   /// first open and kept in the file, so it is stable for the install.
-  factory EventStore.open(String path, {int Function()? clock, Random? random}) {
+  /// [location] is where every appended event's position comes from (#31): a
+  /// [LatestFix] the phone's location feed reports to, unless a test gives
+  /// its own.
+  factory EventStore.open(String path, {int Function()? clock, Random? random, LocationProvider? location}) {
     final db = sql.sqlite3.open(path);
     try {
       db.execute('PRAGMA journal_mode=WAL');
@@ -57,10 +61,11 @@ class EventStore {
         'SELECT seq, body FROM events WHERE device_id = ? ORDER BY seq DESC LIMIT 1',
         [deviceId],
       );
+      final where = location ?? LatestFix();
       return last.isEmpty
-          ? EventStore._(db, deviceId, now, rng, 1, genesisHash, admissionId)
+          ? EventStore._(db, deviceId, now, rng, 1, genesisHash, admissionId, where)
           : EventStore._(db, deviceId, now, rng, (last.first['seq'] as int) + 1,
-              chainHash(last.first['body'] as String), admissionId);
+              chainHash(last.first['body'] as String), admissionId, where);
     } catch (_) {
       db.close();
       rethrow;
@@ -82,6 +87,10 @@ class EventStore {
 
   /// This install's device id. Every event it appends carries it.
   final String deviceId;
+
+  /// Where the phone is (#31). Every event appended carries its position, or
+  /// the reason there is none, read from here at the moment of the append.
+  final LocationProvider location;
 
   String? _admissionId;
 
@@ -231,13 +240,16 @@ class EventStore {
   }
 
   /// Appends [event] as this device's next event, chained to its last one
-  /// (#28), stamped with the admission the phone holds (#49), unless it names
-  /// a role of its own with the role the phone runs as (#20), and unless it
-  /// names a mark of its own with the station the phone is at (#26), and
-  /// returns it as stored. When this returns, it is committed.
+  /// (#28), stamped with the admission the phone holds (#49) and with where
+  /// the phone is (#31), unless it names a role of its own with the role the
+  /// phone runs as (#20), and unless it names a mark of its own with the
+  /// station the phone is at (#26), and returns it as stored. When this
+  /// returns, it is committed. It never waits on GPS: the position is
+  /// whatever [location] holds now, or the reason it holds none.
   EventEnvelope append(NewEvent event) {
     validateNewEvent(event);
     final now = _clock();
+    final where = location.current();
     final envelope = EventEnvelope(
       ulid: newUlid(now, _random),
       deviceTs: now,
@@ -246,7 +258,8 @@ class EventStore {
       person: event.person,
       role: event.role ?? role,
       admissionId: _admissionId,
-      gps: event.gps,
+      gps: where.fix,
+      gpsReason: where.reason,
       source: event.source,
       kind: event.kind,
       payloadVersion: event.payloadVersion,

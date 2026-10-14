@@ -7,9 +7,11 @@ import 'support.dart';
 /// #24 criterion 1: an appended event carries the whole ADR 001 envelope.
 void main() {
   test('an appended event carries every ADR 001 envelope field', () {
-    final store = openStore(tempDbPath(), clock: steppingClock([1000, 1727190000123]));
+    final location = LatestFix(elapsedMs: () => 0);
+    final store = openStore(tempDbPath(), clock: steppingClock([1000, 1727190000123]), location: location);
     final original = store.append(const NewEvent(kind: 'finish', source: 'tap'));
     store.setAdmissionId('3f6c1a52-8d0e-4b7a-9c21-5e4f0a9b7d13');
+    location.reportFix(const GpsFix(lat: 33.4, lon: -86.8, accuracyM: 4.5, ageMs: 1200));
 
     final e = store.append(NewEvent(
       kind: 'finish.correction',
@@ -18,7 +20,6 @@ void main() {
       payloadVersion: 2,
       person: 'volunteer@example.org',
       role: 'recorder',
-      gps: const GpsFix(lat: 33.4, lon: -86.8, accuracyM: 4.5),
       correctsUlid: original.ulid,
     ));
     final stored = store.readAll().singleWhere((x) => x.ulid == e.ulid);
@@ -31,7 +32,9 @@ void main() {
     expect(stored.person, 'volunteer@example.org');
     expect(stored.role, 'recorder');
     expect(stored.admissionId, '3f6c1a52-8d0e-4b7a-9c21-5e4f0a9b7d13', reason: 'the admission it was written under (#49)');
-    expect(stored.gps, const GpsFix(lat: 33.4, lon: -86.8, accuracyM: 4.5));
+    expect(stored.gps, const GpsFix(lat: 33.4, lon: -86.8, accuracyM: 4.5, ageMs: 1200),
+        reason: 'where the phone was, stamped by the core (#31)');
+    expect(stored.gpsReason, isNull, reason: 'there is a fix, so no reason for its absence');
     expect(stored.source, 'tap');
     expect(stored.kind, 'finish.correction');
     expect(stored.payloadVersion, 2, reason: 'payload schema version');
@@ -48,6 +51,7 @@ void main() {
     store.append(const NewEvent(kind: 'note', source: 'tap'));
     final e = store.readAll().single;
     expect([e.person, e.role, e.admissionId, e.gps, e.correctsUlid], everyElement(isNull));
+    expect(e.gpsReason, GpsReasons.noSource, reason: 'a null position always says why (#31)');
     expect(e.prevHash, genesisHash, reason: '#28');
     expect(e.seq, 1);
   });
@@ -64,6 +68,7 @@ void main() {
       'role',
       'admission_id',
       'gps',
+      'gps_reason',
       'source',
       'kind',
       'payload_version',

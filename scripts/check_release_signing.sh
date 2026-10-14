@@ -17,6 +17,8 @@
 # by aapt2 from the manifest the APK carries (the merged release manifest).
 # Only a release build can show this: the debug and profile manifests add
 # INTERNET for the Flutter tool. AAPT2=/path/to/aapt2 overrides.
+# #31: and ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION, the same way, so
+# every event can carry where it happened.
 # The CI job release-signing runs this. It stops before building anything if
 # android/key.properties already exists: that file names the owner's real key,
 # and this script writes and deletes its own copy. It also deletes any release
@@ -144,21 +146,21 @@ build_and_verify() {
     exit 1
   fi
   echo "ok ($1): signed by the throwaway key and nothing else, $got"
-  check_network_permissions "$1"
+  check_permissions "$1"
 }
 
-# #46. aapt2 prints one "uses-permission: name='...'" line per permission, with any maxSdkVersion
-# after it on the same line, so a whole-line match also refuses a permission capped below current
-# phones.
-NETWORK_PERMISSIONS="android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE"
-check_network_permissions() {
+# #46 and #31. aapt2 prints one "uses-permission: name='...'" line per permission, with any
+# maxSdkVersion after it on the same line, so a whole-line match also refuses a permission capped
+# below current phones.
+REQUIRED_PERMISSIONS="android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.ACCESS_FINE_LOCATION android.permission.ACCESS_COARSE_LOCATION"
+check_permissions() {
   if ! "$AAPT2" dump permissions "$APK" >"$WORK/$1.permissions" 2>&1; then
     cat "$WORK/$1.permissions"
     echo "FAIL: aapt2 could not read the APK's permissions ($1)"
     exit 1
   fi
   missing=""
-  for p in $NETWORK_PERMISSIONS; do
+  for p in $REQUIRED_PERMISSIONS; do
     tr -d '\r' <"$WORK/$1.permissions" | grep -qxF "uses-permission: name='$p'" || missing="$missing $p"
   done
   if [ -n "$missing" ]; then
@@ -166,7 +168,7 @@ check_network_permissions() {
     echo "FAIL: ($1) the release APK does not request:$missing"
     exit 1
   fi
-  echo "ok ($1): the release APK requests $NETWORK_PERMISSIONS"
+  echo "ok ($1): the release APK requests $REQUIRED_PERMISSIONS"
 }
 
 echo "release-signing: the key named by environment variables"
