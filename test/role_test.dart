@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart';
 import 'package:pro_companion/roles/roles.dart';
-import 'package:pro_companion/ui/race_time.dart';
 import 'package:pro_companion_core/core.dart';
 import 'package:pro_companion_core/testing.dart';
 
@@ -164,9 +163,9 @@ void main() {
     const expected = {
       Roles.overallPro: {'UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS'},
       Roles.recorder: {'UNDO ROLE', 'FLEETS', 'FINISHES'},
-      // The mark boat's station (#26); its roundings and finish-here come
-      // with #54 and #30.
-      Roles.markBoat: {'UNDO ROLE', 'STATION', 'UNDO STATION'},
+      // The mark boat's station (#26) and its finish at a mark (#30); its
+      // roundings come with #54.
+      Roles.markBoat: {'UNDO ROLE', 'STATION', 'UNDO STATION', 'FINISH AT MARK'},
       Roles.safety: {'UNDO ROLE'},
     };
 
@@ -265,8 +264,10 @@ void main() {
         expect(violations, isEmpty, reason: violations.join('\n'));
       });
 
-      // With no station yet. test/station_test.dart checks it with one set.
-      for (final (role, actions) in [(Roles.markBoat, markBoatRaceTimeActionIds), (Roles.safety, const <String>{})]) {
+      // With no station yet, so FINISH AT MARK is off and only the station's
+      // actions can be reached. test/station_test.dart checks it with one
+      // set, and test/mark_finish_test.dart the finish-at-mark screen.
+      for (final (role, actions) in [(Roles.markBoat, const {'station', 'station-undo'}), (Roles.safety, const <String>{})]) {
         testWidgets("the $role home at $pct text", (tester) async {
           final violations = await barCheck(
             tester,

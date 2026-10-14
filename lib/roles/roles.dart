@@ -19,7 +19,7 @@ String roleName(String role) => switch (role) {
     };
 
 /// The screens a role home opens.
-enum HomeAction { fleets, sequence, finishes, results, station }
+enum HomeAction { fleets, sequence, finishes, results, station, finishAtMark }
 
 /// What [role]'s home offers: that role's job and nothing else (#20
 /// criterion 3, groom decision G29).
@@ -27,12 +27,13 @@ enum HomeAction { fleets, sequence, finishes, results, station }
 /// - The PRO runs the day: fleets, the start sequence, finishes and results.
 /// - The recorder writes line finishes, and names its own fleets when its
 ///   phone works alone (owner decision 2026-10-06).
-/// - The mark boat sets its station (#26). Its roundings and finish-here
-///   arrive with #54 and #30. It has no line-finish or start controls.
+/// - The mark boat sets its station (#26) and finishes a shortened course
+///   there (#30). Its roundings arrive with #54. It has no line-finish or
+///   start controls.
 /// - Safety's actions arrive with milestone 3, so its home holds none yet.
 List<HomeAction> homeActions(String role) => switch (role) {
       Roles.overallPro => const [HomeAction.fleets, HomeAction.sequence, HomeAction.finishes, HomeAction.results],
       Roles.recorder => const [HomeAction.fleets, HomeAction.finishes],
-      Roles.markBoat => const [HomeAction.station],
+      Roles.markBoat => const [HomeAction.station, HomeAction.finishAtMark],
       _ => const [],
     };

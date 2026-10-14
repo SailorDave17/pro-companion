@@ -6,8 +6,34 @@ import '../ui/race_time.dart';
 
 /// A fleet's button: filled for the fleet this phone is finishing, outlined
 /// for the rest. The label shrinks to fit rather than wrap or clip.
-Widget fleetButton({required Key key, required bool current, required String label, required VoidCallback onPressed}) {
-  final child = FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1));
+///
+/// [finishingHere] marks a fleet whose course a mark boat has shortened to
+/// its station (#30) with a finish flag, and says so, since a flag alone is
+/// not read out.
+Widget fleetButton({
+  required Key key,
+  required bool current,
+  required String label,
+  required VoidCallback onPressed,
+  bool finishingHere = false,
+}) {
+  final child = FittedBox(
+    fit: BoxFit.scaleDown,
+    child: finishingHere
+        ? Builder(
+            builder: (context) => Semantics(
+              label: '$label, finishing here',
+              excludeSemantics: true,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                // An icon does not follow the text size on its own (#19).
+                Icon(Icons.sports_score, size: MediaQuery.textScalerOf(context).scale(22)),
+                const SizedBox(width: 4),
+                Text(label, maxLines: 1),
+              ]),
+            ),
+          )
+        : Text(label, maxLines: 1),
+  );
   // A fixed side padding: Material shrinks a button's padding as the text
   // grows, which left the label touching the border at 200% (emulator, #18).
   const style = ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)));
@@ -20,11 +46,28 @@ Widget fleetButton({required Key key, required bool current, required String lab
 /// the finish screen's row has room for (#18). A full screen, not a sheet or
 /// a menu: the wet-hands bar allows no popup on a race-time route. Pops with
 /// the chosen fleet's id, or null for Back.
+///
+/// A finish-at-mark screen opens it too (#30), as its own action, with the
+/// fleets already finishing there flagged.
 class FleetPickerScreen extends StatelessWidget {
-  const FleetPickerScreen({super.key, required this.fleets, required this.current});
+  const FleetPickerScreen({
+    super.key,
+    required this.fleets,
+    required this.current,
+    this.title = 'Switch fleet',
+    this.actionId = 'fleet-switch',
+    this.finishingHere = const {},
+  });
 
   final List<Fleet> fleets;
   final String? current;
+  final String title;
+
+  /// The race-time action a pick here is.
+  final String actionId;
+
+  /// The fleets a mark boat's station is the finish for (#30).
+  final Set<String> finishingHere;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +85,7 @@ class FleetPickerScreen extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: Text('Switch fleet', style: Theme.of(context).textTheme.titleLarge),
+        title: Text(title, style: Theme.of(context).textTheme.titleLarge),
       ),
       body: SafeArea(
         top: false,
@@ -53,7 +96,7 @@ class FleetPickerScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: RaceTimeAction(
-                  id: 'fleet-switch',
+                  id: actionId,
                   primary: true,
                   child: SizedBox(
                     width: double.infinity,
@@ -63,6 +106,7 @@ class FleetPickerScreen extends StatelessWidget {
                       current: f.id == current,
                       label: f.id == current ? '${f.name} · now' : f.name,
                       onPressed: () => Navigator.of(context).pop(f.id),
+                      finishingHere: finishingHere.contains(f.id),
                     ),
                   ),
                 ),

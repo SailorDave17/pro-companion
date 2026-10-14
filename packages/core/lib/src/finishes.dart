@@ -24,7 +24,13 @@ abstract final class FinishKinds {
   /// `correctsUlid` is the event it undoes.
   static const undo = 'finish.undo';
 
-  static const all = {finish, missed, sail, undo};
+  /// A boat finished at a mark on a shortened course (#30). Its own kind, so
+  /// the line's order and results never count it; `payload.mark` is the
+  /// phone's station. A sail number and an undo name it as they name a line
+  /// finish. Its elapsed time is left to a later reconciliation.
+  static const atMark = 'finish.at_mark';
+
+  static const all = {finish, missed, sail, undo, atMark};
 }
 
 /// What logged a finish: the envelope's `source`. A volume-key finish (#19) is
@@ -39,6 +45,11 @@ abstract final class FinishEvents {
   /// A finish for [fleet] (null on a single-fleet day), logged by [source].
   static NewEvent finish({required String? fleet, String source = FinishSources.tap}) =>
       NewEvent(kind: FinishKinds.finish, source: source, payload: {fleetPayloadKey: fleet});
+
+  /// A finish at this phone's station for [fleet] (null on a single-fleet
+  /// day), on a shortened course (#30). The core stamps the mark.
+  static NewEvent atMark({required String? fleet}) =>
+      NewEvent(kind: FinishKinds.atMark, source: FinishSources.tap, payload: {fleetPayloadKey: fleet});
 
   static NewEvent undo(String entryUlid) =>
       NewEvent(kind: FinishKinds.undo, source: 'tap', correctsUlid: entryUlid);

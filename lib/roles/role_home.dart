@@ -3,6 +3,7 @@ import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
 import '../finish/finish_screen.dart';
+import '../finish/mark_finish_screen.dart';
 import '../finish/volume_key.dart';
 import '../fleets/fleets_screen.dart';
 import '../results/results_screen.dart';
@@ -162,6 +163,25 @@ class _RoleHomeState extends State<RoleHome> {
     );
   }
 
+  /// FINISH AT MARK (#30): the finish-at-mark screen for the station in
+  /// force. Off until the phone has one, since that station is the mark the
+  /// finishes are taken at.
+  Widget _finishAtMark() {
+    final pick = _stationPick;
+    final mark = pick == null ? null : markOf(pick);
+    return SizedBox(
+      width: double.infinity,
+      height: 96,
+      child: ElevatedButton(
+        key: const ValueKey('finish-at-mark'),
+        onPressed: mark == null
+            ? null
+            : () => _open(() => MarkFinishScreen(core: widget.core, confirmation: widget.confirmation, mark: mark)),
+        child: const FitLabel('FINISH AT MARK'),
+      ),
+    );
+  }
+
   Widget _button(HomeAction action) => switch (action) {
         // Naming the day's fleets is set-up, done before racing (#18).
         HomeAction.fleets => _outlined('FLEETS', () => FleetsScreen(core: widget.core, confirmation: widget.confirmation)),
@@ -180,6 +200,7 @@ class _RoleHomeState extends State<RoleHome> {
         HomeAction.results =>
           _outlined('RESULTS', () => ResultsScreen(core: widget.core, confirmation: widget.confirmation)),
         HomeAction.station => _station(),
+        HomeAction.finishAtMark => _finishAtMark(),
       };
 
   Widget _big(String label, Widget Function() screen) => SizedBox(

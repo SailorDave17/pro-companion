@@ -33,8 +33,17 @@ class RaceTimeAction extends StatelessWidget {
 /// the bar.
 const raceTimeActionIds = {...proRaceTimeActionIds, ...markBoatRaceTimeActionIds};
 
-/// The mark boat's (#26): a station pick, and its undo on the home.
-const markBoatRaceTimeActionIds = {'station', 'station-undo'};
+/// The mark boat's: a station pick, and its undo on the home (#26); and on
+/// the finish-at-mark screen (#30), making the mark a fleet's finish, a
+/// finish there, its UNDO LAST, and a finish's sail number.
+const markBoatRaceTimeActionIds = {
+  'station',
+  'station-undo',
+  'finish-here',
+  'mark-finish',
+  'mark-undo-last',
+  'mark-sail',
+};
 
 /// The race-time actions that sit on a role's home itself, not on a screen
 /// it opens: the mark boat's UNDO STATION (#26). From any home, another
