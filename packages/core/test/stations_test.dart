@@ -149,10 +149,10 @@ void main() {
       final before = store.append(const NewEvent(kind: 'rounding', source: 'tap', payload: {'sail': '11'}));
       final picked = store.append(StationEvents.select(StandardMarks.windward));
       final later = [
-        // A rounding (#54) and a finish-here (#30) do not exist yet; any kind
-        // carries the station, theirs included.
+        // A rounding (#54) does not exist yet; any kind carries the station,
+        // its own and #30's shortened course included.
         store.append(const NewEvent(kind: 'rounding', source: 'tap', payload: {'sail': '22'})),
-        store.append(const NewEvent(kind: 'course.shortened', source: 'tap')),
+        store.append(CourseEvents.shortened(fleet: null)),
         store.append(FinishEvents.finish(fleet: null)),
         store.append(const NewEvent(kind: 'note', source: 'manual')),
       ];

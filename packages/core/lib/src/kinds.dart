@@ -1,5 +1,6 @@
 import 'finishes.dart';
 import 'fleets.dart';
+import 'mark_finishes.dart';
 import 'results.dart';
 import 'roles.dart';
 import 'starts.dart';
@@ -18,5 +19,6 @@ abstract final class EventKinds {
     ...ResultsKinds.all,
     ...RoleKinds.all,
     ...StationKinds.all,
+    ...CourseKinds.all,
   };
 }

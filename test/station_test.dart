@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart';
 import 'package:pro_companion/stations/station_screen.dart';
-import 'package:pro_companion/ui/race_time.dart';
 import 'package:pro_companion_core/core.dart';
 import 'package:pro_companion_core/testing.dart';
 
@@ -192,10 +191,10 @@ void main() {
       await tap(tester, stationButton);
       await tap(tester, mark(StandardMarks.windward));
 
-      // Neither kind exists yet (#54, #30): the core stamps any kind.
+      // A rounding does not exist yet (#54): the core stamps any kind. A
+      // finish-here is #30's shortened course, which names no mark itself.
       final rounding = (await tester.runAsync(() => core.append(const NewEvent(kind: 'rounding', source: 'tap'))))!;
-      final finishHere =
-          (await tester.runAsync(() => core.append(const NewEvent(kind: 'course.shortened', source: 'tap'))))!;
+      final finishHere = (await tester.runAsync(() => core.append(CourseEvents.shortened(fleet: null))))!;
       expect([markOf(rounding), markOf(finishHere)], [StandardMarks.windward, StandardMarks.windward]);
     });
 
@@ -233,14 +232,22 @@ void main() {
         ]);
     }
 
+    // With no station, FINISH AT MARK is off. With one, it opens the
+    // finish-at-mark screen (#30), whose actions but a finish's sail number
+    // exist before any boat finishes; test/mark_finish_test.dart checks it
+    // with finishes.
+    const beforeAnyFinish = {'station', 'station-undo', 'finish-here', 'mark-finish', 'mark-undo-last'};
     for (final scale in [1.0, 2.0]) {
       final pct = '${(scale * 100).round()}%';
-      for (final (name, build) in [('no station yet', () => withRole(FakeCore(), Roles.markBoat)), ('a station set', stationed)]) {
+      for (final (name, build, actions) in [
+        ('no station yet', () => withRole(FakeCore(), Roles.markBoat), const {'station', 'station-undo'}),
+        ('a station set', stationed, beforeAnyFinish),
+      ]) {
         testWidgets('the mark-boat home and the marks, $name, at $pct text', (tester) async {
           final violations = await barCheck(
             tester,
             (observer) => app(textScale: scale, on: build(), observer: observer),
-            actionIds: markBoatRaceTimeActionIds,
+            actionIds: actions,
           );
           expect(violations, isEmpty, reason: violations.join('\n'));
         });

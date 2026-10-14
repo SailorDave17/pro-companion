@@ -14,6 +14,8 @@ export 'src/finishes.dart'
 export 'src/fleets.dart'
     show Fleet, FleetEvents, FleetKinds, fleetOf, fleetPayloadKey, fleets, lastFleetSwitch, recentFleets, selectedFleet;
 export 'src/kinds.dart' show EventKinds;
+export 'src/mark_finishes.dart'
+    show CourseEvents, CourseKinds, lastMarkFleet, lastUndoableMarkFinish, markFinishOrder, shortenedAt;
 export 'src/order.dart' show happened;
 export 'src/results.dart'
     show BetweenRaces, DuplicateSail, ProvisionalResults, ResultsEvents, ResultsKinds, UnnamedFinish, discardsSet, placeholderId, provisionalResults, raceStarts, racesOf;

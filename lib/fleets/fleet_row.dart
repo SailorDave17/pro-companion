@@ -11,6 +11,9 @@ import 'fleet_picker_screen.dart';
 /// screen's too, #25): every fleet when there are three or fewer, otherwise
 /// the two this phone used last and MORE. One tap on a fleet switches to it.
 /// The selection is the phone's, so a switch on one screen holds on the other.
+///
+/// A finish-at-mark screen uses it too (#30), as its own action: a tap there
+/// makes the mark a fleet's finish, and the fleets it already is are flagged.
 class FleetRow extends StatelessWidget {
   const FleetRow({
     super.key,
@@ -19,6 +22,8 @@ class FleetRow extends StatelessWidget {
     required this.recent,
     required this.onSwitch,
     required this.onMore,
+    this.actionId = 'fleet-switch',
+    this.finishingHere = const {},
   });
 
   static const _roomFor = 3;
@@ -30,6 +35,12 @@ class FleetRow extends StatelessWidget {
   final List<String> recent;
   final ValueChanged<String> onSwitch;
   final VoidCallback onMore;
+
+  /// The race-time action a tap on a fleet is.
+  final String actionId;
+
+  /// The fleets a mark boat's station is the finish for (#30).
+  final Set<String> finishingHere;
 
   List<Fleet> _shown() {
     if (fleets.length <= _roomFor) return fleets;
@@ -49,14 +60,15 @@ class FleetRow extends StatelessWidget {
     final cells = <Widget>[
       for (final f in shown)
         RaceTimeAction(
-          id: 'fleet-switch',
+          id: actionId,
           child: SizedBox(
             height: Bars.minTargetDp,
             child: fleetButton(
-              key: ValueKey('fleet-switch-${f.id}'),
+              key: ValueKey('$actionId-${f.id}'),
               current: f.id == current,
               label: f.name,
               onPressed: () => onSwitch(f.id),
+              finishingHere: finishingHere.contains(f.id),
             ),
           ),
         ),
