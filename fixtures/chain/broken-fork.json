@@ -4,20 +4,20 @@
   "description": "Two events hold seq 3, both linking to seq 2, as when a phone restored from a backup appends again. Verifiers read equal numbers in ULID order and name the later ULID.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "45b79a6bd5844d3af660b7b3e8a79b4ae64a6541dfdad3f7c281e9fac3fef1b9",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190007000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Restored from a backup\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000007\"}"
+      "hash": "078b264985303025efde2979761a78c3f94ec26e547b3556c36cc55285ea1b3f",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190007000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Restored from a backup\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000007\"}"
     }
   ],
   "expected": {

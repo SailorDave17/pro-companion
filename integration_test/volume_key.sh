@@ -31,6 +31,9 @@ cd "$(dirname "$0")/.." || exit 1
 "$ADB" -s "$DEVICE" install -r -t build/app/outputs/apk/debug/app-debug.apk >/dev/null || exit 1
 "$ADB" -s "$DEVICE" install -r -t build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk >/dev/null || exit 1
 "$ADB" -s "$DEVICE" shell pm clear "$APP" >/dev/null
+# #31: the app asks for location at launch, and the clear took back any grant. Granted again here,
+# so no permission dialog holds the window focus the volume key needs (all 5 tests failed without).
+sh integration_test/grant_location.sh "$ADB" "$DEVICE" || exit 1
 
 out=$("$ADB" -s "$DEVICE" shell am instrument -w -e class "$APP.VolumeKeyFinishTest" \
   "$APP.test/androidx.test.runner.AndroidJUnitRunner" | tr -d '\r')

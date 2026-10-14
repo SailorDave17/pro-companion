@@ -68,7 +68,6 @@ void main() {
         kind: 'finish',
         source: 'tap',
         payload: {'sail': '42'},
-        gps: GpsFix(lat: 1, lon: 2),
       ));
       final b = await core.append(NewEvent(kind: 'finish.undo', source: 'tap', correctsUlid: a.ulid));
       expect([a.seq, b.seq], [1, 2]);

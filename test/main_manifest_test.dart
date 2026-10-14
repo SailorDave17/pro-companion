@@ -8,11 +8,18 @@ import 'package:flutter_test/flutter_test.dart';
 /// INTERNET for the Flutter tool, so the debug APK CI builds would show INTERNET whatever the main
 /// manifest says. This reads the main manifest itself, in every `flutter test` run, with nothing
 /// built. scripts/check_release_signing.sh holds the release APK it builds to the same two, which is
-/// the merged release manifest.
+/// the merged release manifest. #31 holds both to the two location permissions the same way.
 
 const networkPermissions = {
   'android.permission.INTERNET',
   'android.permission.ACCESS_NETWORK_STATE',
+};
+
+/// #31: every event carries where its phone was. Android 12+ grants FINE only when COARSE is
+/// requested beside it.
+const locationPermissions = {
+  'android.permission.ACCESS_FINE_LOCATION',
+  'android.permission.ACCESS_COARSE_LOCATION',
 };
 
 final _comment = RegExp(r'<!--[\s\S]*?-->');
@@ -77,5 +84,17 @@ void main() {
         reason: 'the read must reach the permissions the manifest already requests');
     expect(requested, containsAll(networkPermissions),
         reason: 'a release build has only the main manifest\'s permissions (ADR 006 decision 5)');
+  });
+
+  test('the main manifest requests ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION (#31)', () {
+    final requested =
+        requestedPermissions(File('android/app/src/main/AndroidManifest.xml').readAsStringSync());
+    expect(requested, contains('android.permission.VIBRATE'),
+        reason: 'the read must reach the permissions the manifest already requests');
+    expect(requested, containsAll(locationPermissions),
+        reason: 'without them a release build can never read where an event happened; a plugin that '
+            'declares them would keep the merged manifest green while main lost them');
+    expect(requested, isNot(contains('android.permission.ACCESS_BACKGROUND_LOCATION')),
+        reason: 'nothing reads location from the background (ADR 003)');
   });
 }

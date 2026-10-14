@@ -4,24 +4,24 @@
   "description": "Device A's first three events and device B's two: a phone handed over mid-race is a new device with its own chain, from genesis. Each device is verified on its own.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "45b90a247fa59af721f3ca1c5313fe345df09dd9abfd166e6704657df4bfef5f",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190011000,\"gps\":{\"accuracy_m\":3.5,\"lat\":33.4105,\"lon\":-86.8201},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"mark_boat\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000011\"}"
+      "hash": "a72a8677900b86207e3c4a9ef3a9c370fb37d78858fa830ca7758d474d2025d5",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190011000,\"gps\":{\"accuracy_m\":3.5,\"age_ms\":4000,\"lat\":33.4105,\"lon\":-86.8201},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"mark_boat\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000011\"}"
     },
     {
-      "hash": "5c190096b7c5b3b0eaa08c276644387423cc6e565b21cafbe81f1441dcfe6081",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190012000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000011\",\"sail\":\"4471\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"45b90a247fa59af721f3ca1c5313fe345df09dd9abfd166e6704657df4bfef5f\",\"role\":\"mark_boat\",\"seq\":2,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000012\"}"
+      "hash": "d640374c5b0b147102ba5fcb67903c030e713c9a6f5f9388a0eaecfb1836010a",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190012000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000011\",\"sail\":\"4471\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"a72a8677900b86207e3c4a9ef3a9c370fb37d78858fa830ca7758d474d2025d5\",\"role\":\"mark_boat\",\"seq\":2,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000012\"}"
     }
   ],
   "expected": {

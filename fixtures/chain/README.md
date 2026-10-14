@@ -31,6 +31,13 @@ verdict, because a verifier hashes the text it is given. A verifier that rebuilt
 fields it knew before #49, instead of hashing the text as given, would drop the admission id and fail
 every vector here.
 
+## The position (#31)
+
+Since #31 the core stamps every event with where its phone was: `gps` with the fix's `age_ms`, or a
+null `gps` and a `gps_reason`. Here each device's finish carries a fix (device A's 1.5 s old, device
+B's 4 s old) and every other event carries `"gps":null,"gps_reason":"no_fix"`. Regenerating the set
+for #31 changed every hash and no verdict, as #49's did.
+
 ## Format: `pro-companion-chain-vector/1`
 
 ```

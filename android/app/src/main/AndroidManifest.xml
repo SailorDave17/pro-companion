@@ -6,6 +6,12 @@
          test/main_manifest_test.dart and scripts/check_release_signing.sh hold them here. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Where each logged event happened (#31, ADR 001), and the core host's location type (ADR 003).
+         Android 12+ grants FINE only when COARSE is requested beside it. Nothing reads location in
+         the background, so ACCESS_BACKGROUND_LOCATION is not requested. test/main_manifest_test.dart
+         and scripts/check_release_signing.sh hold both here. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="pro_companion"
         android:name="${applicationName}"

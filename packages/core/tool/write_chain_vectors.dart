@@ -42,7 +42,10 @@ EventEnvelope event(int n, String device, int seq, String kind, String source, M
       seq: seq,
       role: role,
       admissionId: admissionOf[device],
+      // The core stamps a position or the reason there is none (#31). These
+      // phones had a fix only for their finishes.
       gps: gps,
+      gpsReason: gps == null ? GpsReasons.noFix : null,
       source: source,
       kind: kind,
       payloadVersion: 1,
@@ -57,7 +60,7 @@ final dayA = [
   event(1, deviceA, 1, 'fleet.defined', 'tap', {'name': 'Lasers', 'class': 'ILCA 7'}, role: 'overall_pro'),
   event(2, deviceA, 2, 'start', 'race-timer', {'fleet': ulid(1)}, role: 'overall_pro'),
   event(3, deviceA, 3, 'finish', 'tap', {'fleet': ulid(1)},
-      role: 'overall_pro', gps: const GpsFix(lat: 33.4012, lon: -86.8123, accuracyM: 5.0)),
+      role: 'overall_pro', gps: const GpsFix(lat: 33.4012, lon: -86.8123, accuracyM: 5.0, ageMs: 1500)),
   event(4, deviceA, 4, 'finish.sail', 'tap', {'finish': ulid(3), 'sail': '12345'}, role: 'overall_pro'),
   event(5, deviceA, 5, 'note', 'tap', {'text': 'Mark 2 — hold; wind 10° right'}, role: 'overall_pro'),
   event(6, deviceA, 6, 'start.time_corrected', 'manual', {'time': dayStart + 65000},
@@ -67,7 +70,7 @@ final dayA = [
 /// Device B, a mark boat handed a new phone: its own chain, from genesis.
 final dayB = [
   event(11, deviceB, 1, 'finish', 'tap', {'fleet': ulid(1)},
-      role: 'mark_boat', gps: const GpsFix(lat: 33.4105, lon: -86.8201, accuracyM: 3.5)),
+      role: 'mark_boat', gps: const GpsFix(lat: 33.4105, lon: -86.8201, accuracyM: 3.5, ageMs: 4000)),
   event(12, deviceB, 2, 'finish.sail', 'tap', {'finish': ulid(11), 'sail': '4471'}, role: 'mark_boat'),
 ];
 

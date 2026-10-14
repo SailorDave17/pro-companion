@@ -58,28 +58,28 @@ select is(pg_temp.check_vector($vector${
   "description": "Seq 1's previous hash is not the genesis value; the rest link to it correctly.",
   "events": [
     {
-      "hash": "fcae2be770d5d84379b61e2f29dab70682682e4391a4ca897eb16a90d06d36d2",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "b56433eeac52f6e0be4335c0350397fb3a4b9a5416320f9320bfd58da5864bcd",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "ccb9bb84e5eafbb9e8ccecd3ec1db8b46c0b3b2e70286ad127dd7be37d2e59d3",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"fcae2be770d5d84379b61e2f29dab70682682e4391a4ca897eb16a90d06d36d2\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "e9841a0cb88d40270bc8d5287c8e1a13748b3312e158cafbbb8ecb0f5d5e0a7e",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"b56433eeac52f6e0be4335c0350397fb3a4b9a5416320f9320bfd58da5864bcd\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "a4f426aa08a78ac0743531a64d5bf3b77767d60ad4190e906c2bf9566af63dae",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"ccb9bb84e5eafbb9e8ccecd3ec1db8b46c0b3b2e70286ad127dd7be37d2e59d3\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "c6e9a4caccbc6338b18d51c01ca04b835c8b0e80090dc31f5ba797e0d8ba27f6",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"e9841a0cb88d40270bc8d5287c8e1a13748b3312e158cafbbb8ecb0f5d5e0a7e\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "da9f677a8fd1f0ab848b2874e716a693a58332e1b74cf50e4e72a0ea9600595d",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"a4f426aa08a78ac0743531a64d5bf3b77767d60ad4190e906c2bf9566af63dae\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+      "hash": "03a28df79d70042d977e2eff16c122d523f847031b36f56c00a944d5beabd3a7",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"c6e9a4caccbc6338b18d51c01ca04b835c8b0e80090dc31f5ba797e0d8ba27f6\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
     },
     {
-      "hash": "22fbbe51d00eb9c70594cc3e98db1fa0a55ef1f859f8e53f75ddd7f6b62e7ea1",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"da9f677a8fd1f0ab848b2874e716a693a58332e1b74cf50e4e72a0ea9600595d\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "9997b3cd0c84b02a4b751fa4eefc7475460476fc9f37f185cbda456a7b2178da",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"03a28df79d70042d977e2eff16c122d523f847031b36f56c00a944d5beabd3a7\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "033d813576ceaf155c154fc4a92314d47ead345b2336a0d04d09085a53b5b0d2",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"22fbbe51d00eb9c70594cc3e98db1fa0a55ef1f859f8e53f75ddd7f6b62e7ea1\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "18d4de23d50ddecc6bd5e4542b7ce80f19cc1b2236e6e3a9d7dbfac43f8dfe3d",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"9997b3cd0c84b02a4b751fa4eefc7475460476fc9f37f185cbda456a7b2178da\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {
@@ -101,20 +101,20 @@ select is(pg_temp.check_vector($vector${
   "description": "Two events hold seq 3, both linking to seq 2, as when a phone restored from a backup appends again. Verifiers read equal numbers in ULID order and name the later ULID.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "45b79a6bd5844d3af660b7b3e8a79b4ae64a6541dfdad3f7c281e9fac3fef1b9",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190007000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Restored from a backup\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000007\"}"
+      "hash": "078b264985303025efde2979761a78c3f94ec26e547b3556c36cc55285ea1b3f",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190007000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Restored from a backup\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000007\"}"
     }
   ],
   "expected": {
@@ -136,28 +136,28 @@ select is(pg_temp.check_vector($vector${
   "description": "One byte of seq 4's payload was altered (sail 12345 became 12346) after seq 5 linked to it. Seq 5's link no longer holds, so the chain breaks at seq 5, after seq 4: either one could be the altered event.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "604357e5002dbde8ee0465a4e6d8aaed1acce1427303bcac8ede4cf23a7b5002",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12346\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+      "hash": "cc350e0347358ac0e08aaee6b55163de3f3fa70d0671c4b260f3e0cd545452d3",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12346\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
     },
     {
-      "hash": "d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"fcdfc8a416c0687959e2f814a46448b904b8586258f53a2e5671571577841a62\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "49e0441befdddcbf81458741bdd8552abe6ada968e26f9e3c8207e244642dc57",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {
@@ -180,20 +180,20 @@ select is(pg_temp.check_vector($vector${
   "description": "Seq 1 and 2 were removed and seq 3 re-linked to genesis, with the rest re-linked after it. Only a first event starts from genesis.",
   "events": [
     {
-      "hash": "0326d4a74fcc2ee5dc81280d573f401081d4a8dadfffd5b1fd6f8f5acd04ed3f",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "912bf23f3cfad936e52190fa70603b816d16ec2ad4ea75ced6dfa067a1cb86e6",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "af99b35237d6e9fe2cc7d36c67eb59ed62a898ace7123dda437fa9897f0260c0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0326d4a74fcc2ee5dc81280d573f401081d4a8dadfffd5b1fd6f8f5acd04ed3f\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+      "hash": "5d001d80821d96aaeecc50ab1ee201fdf86b20d09461f55ec88f5ae2a524b18a",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"912bf23f3cfad936e52190fa70603b816d16ec2ad4ea75ced6dfa067a1cb86e6\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
     },
     {
-      "hash": "794e6fae2e61bffe3d7e19d844b735c127bc2f90cf7faa0ce62638782cc1be2f",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"af99b35237d6e9fe2cc7d36c67eb59ed62a898ace7123dda437fa9897f0260c0\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "ec57c69691da1142923523fb80fca512288b95c2a7da7791219f6d8f066f4a39",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"5d001d80821d96aaeecc50ab1ee201fdf86b20d09461f55ec88f5ae2a524b18a\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "e67c57763362485085f2f8ed9160dc62780896ac9720dec94321b709fc89699c",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"794e6fae2e61bffe3d7e19d844b735c127bc2f90cf7faa0ce62638782cc1be2f\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "e512551d36eeee8d153e6713e4cd1822e92513b730dd2c0deb34c53ad1b38996",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"ec57c69691da1142923523fb80fca512288b95c2a7da7791219f6d8f066f4a39\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {
@@ -215,24 +215,24 @@ select is(pg_temp.check_vector($vector${
   "description": "Seq 3 was removed and seq 4 re-linked to seq 2, with seq 5 and 6 re-linked after it. Seq 4 links straight across the missing number, which a genuine chain never does.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "2fb4212f82cc1eb722e865c738a1bb0b32ea72f43b9766374adfd45e250fdd95",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+      "hash": "062b3fdd25c712cb0c81a75131649b7c27f866aabc8a22cd8f6c74962522d49b",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
     },
     {
-      "hash": "910edf84766ee2fe0d91f699ad1108a383ae61207bc0e8d38a3ba5dd9d48d5d7",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"2fb4212f82cc1eb722e865c738a1bb0b32ea72f43b9766374adfd45e250fdd95\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "e8242fa30770bc6dee7910c60293bfdf14a1cd93b37be2c8d713a7dcf506760d",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"062b3fdd25c712cb0c81a75131649b7c27f866aabc8a22cd8f6c74962522d49b\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "a77334502c3006e0f35dbd75326af7f07fa24f3cd354100e118961d2ad029556",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"910edf84766ee2fe0d91f699ad1108a383ae61207bc0e8d38a3ba5dd9d48d5d7\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "4fd9e9c6d23589c34793d8121f8ec3ae62f345773cbf1229a6280044df8f9021",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"e8242fa30770bc6dee7910c60293bfdf14a1cd93b37be2c8d713a7dcf506760d\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {
@@ -255,20 +255,20 @@ select is(pg_temp.check_vector($vector${
   "description": "Seq 3 and 4 have not arrived yet. Seq 5 still links to seq 4, which this verifier has not seen, so the gap cannot be checked and is not tampering.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"fcdfc8a416c0687959e2f814a46448b904b8586258f53a2e5671571577841a62\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "49e0441befdddcbf81458741bdd8552abe6ada968e26f9e3c8207e244642dc57",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {
@@ -288,16 +288,16 @@ select is(pg_temp.check_vector($vector${
   "description": "A far mark catching up: seq 1 to 3 have not arrived, and seq 4 links to a seq 3 not yet seen.",
   "events": [
     {
-      "hash": "fcdfc8a416c0687959e2f814a46448b904b8586258f53a2e5671571577841a62",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+      "hash": "055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
     },
     {
-      "hash": "d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"fcdfc8a416c0687959e2f814a46448b904b8586258f53a2e5671571577841a62\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "49e0441befdddcbf81458741bdd8552abe6ada968e26f9e3c8207e244642dc57",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {
@@ -317,24 +317,24 @@ select is(pg_temp.check_vector($vector${
   "description": "Device A's first three events and device B's two: a phone handed over mid-race is a new device with its own chain, from genesis. Each device is verified on its own.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "45b90a247fa59af721f3ca1c5313fe345df09dd9abfd166e6704657df4bfef5f",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190011000,\"gps\":{\"accuracy_m\":3.5,\"lat\":33.4105,\"lon\":-86.8201},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"mark_boat\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000011\"}"
+      "hash": "a72a8677900b86207e3c4a9ef3a9c370fb37d78858fa830ca7758d474d2025d5",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190011000,\"gps\":{\"accuracy_m\":3.5,\"age_ms\":4000,\"lat\":33.4105,\"lon\":-86.8201},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"mark_boat\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000011\"}"
     },
     {
-      "hash": "5c190096b7c5b3b0eaa08c276644387423cc6e565b21cafbe81f1441dcfe6081",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190012000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000011\",\"sail\":\"4471\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"45b90a247fa59af721f3ca1c5313fe345df09dd9abfd166e6704657df4bfef5f\",\"role\":\"mark_boat\",\"seq\":2,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000012\"}"
+      "hash": "d640374c5b0b147102ba5fcb67903c030e713c9a6f5f9388a0eaecfb1836010a",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000b1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000002\",\"device_ts\":1727190012000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000011\",\"sail\":\"4471\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"a72a8677900b86207e3c4a9ef3a9c370fb37d78858fa830ca7758d474d2025d5\",\"role\":\"mark_boat\",\"seq\":2,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000012\"}"
     }
   ],
   "expected": {
@@ -357,28 +357,28 @@ select is(pg_temp.check_vector($vector${
   "description": "Device A's whole day, seq 1 to 6, every link as written.",
   "events": [
     {
-      "hash": "7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
     },
     {
-      "hash": "90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"7b89d856d0e8552fa0365dfcc34f5b40d0c3049c14432f3ac94cf4851c2555e0\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
     },
     {
-      "hash": "0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"lat\":33.4012,\"lon\":-86.8123},\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"90d126f21407ebaeb04cf5750e218aad92f7a8d451a24bb21d0a246b532de759\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
     },
     {
-      "hash": "fcdfc8a416c0687959e2f814a46448b904b8586258f53a2e5671571577841a62",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0a62f602a862b127e93907e3ac6bf15215ee43e4135771de2a521a4776932fa8\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+      "hash": "055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
     },
     {
-      "hash": "d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"fcdfc8a416c0687959e2f814a46448b904b8586258f53a2e5671571577841a62\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
     },
     {
-      "hash": "49e0441befdddcbf81458741bdd8552abe6ada968e26f9e3c8207e244642dc57",
-      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"d7e3b186546cf10b925dc2a629ad37e7b45fcea3a7bd3bb98df106ebdfd923f4\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
     }
   ],
   "expected": {

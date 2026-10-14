@@ -22,6 +22,7 @@ void main() {
     'role': 'recorder',
     'admission_id': '7d2e9b40-1c5a-4f83-a6d0-2b9e8c4f1a57',
     'gps': null,
+    'gps_reason': 'no_fix',
     'source': 'tap',
     'kind': 'finish',
     'payload_version': 99,

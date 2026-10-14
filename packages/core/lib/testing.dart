@@ -7,21 +7,30 @@ import 'dart:math';
 
 import 'src/client.dart';
 import 'src/envelope.dart';
+import 'src/location.dart';
 import 'src/roles.dart';
 import 'src/stations.dart';
 import 'src/uploads.dart';
 import 'src/wire.dart';
+
+export 'src/location.dart' show LatestFix;
 
 /// Behaves like the real core - sequence numbers, ULIDs, ADR 001 order - and
 /// holds the UI to the same boundary rule: an argument that could not cross
 /// an isolate-group boundary is refused here too, so a UI test fails where
 /// the real core would.
 class FakeCore implements CoreClient {
-  FakeCore({this.deviceIdValue = '01J0000000FAKEDEVICE00000A', int Function()? clock})
-      : _clock = clock ?? (() => DateTime.now().millisecondsSinceEpoch);
+  FakeCore({this.deviceIdValue = '01J0000000FAKEDEVICE00000A', int Function()? clock, LatestFix? location})
+      : _clock = clock ?? (() => DateTime.now().millisecondsSinceEpoch),
+        location = location ?? LatestFix();
 
   final String deviceIdValue;
   final int Function() _clock;
+
+  /// Where the fake's phone is (#31), as the real core holds it: what
+  /// [reportFix] and [reportNoFix] report to, and what every append is
+  /// stamped from.
+  final LatestFix location;
   final _events = <EventEnvelope>[];
   final _random = Random(24);
   String? _admissionId;
@@ -54,6 +63,7 @@ class FakeCore implements CoreClient {
         validateNewEvent(event);
         final now = _clock();
         final seq = 1 + _events.where((e) => e.deviceId == deviceIdValue).length;
+        final where = location.current();
         final e = EventEnvelope(
           ulid: newUlid(now, _random),
           deviceTs: now,
@@ -64,7 +74,9 @@ class FakeCore implements CoreClient {
           // names one. Seeded role picks count, as stored ones do there.
           role: event.role ?? currentRole(_events, deviceIdValue),
           admissionId: _admissionId,
-          gps: event.gps,
+          // And where the phone is (#31), as the real core stamps it.
+          gps: where.fix,
+          gpsReason: where.reason,
           source: event.source,
           kind: event.kind,
           payloadVersion: event.payloadVersion,
@@ -101,6 +113,17 @@ class FakeCore implements CoreClient {
         validateAdmissionId(admissionId);
         _admissionId = admissionId;
       });
+
+  @override
+  Future<void> reportFix(GpsFix fix) => _call(Wire.reportLocation, () {
+        // Through the wire form, as the real core receives it.
+        final wire = fix.toWire();
+        requireWireSafe(wire, 'fix');
+        location.reportFix(GpsFix.fromWire(wire)!);
+      });
+
+  @override
+  Future<void> reportNoFix(String reason) => _call(Wire.reportLocation, () => location.reportNone(reason));
 
   @override
   Future<UploadStatus> uploadStatus() => _call(Wire.uploadStatus, () {
