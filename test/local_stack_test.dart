@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/local_stack.dart';
@@ -102,5 +104,66 @@ void main() {
 
       expect(await stack.eventLogCanonical(row.ulid), row.canonical, reason: 'the row is untouched');
     });
+
+    // #70's review found that an admission overlapping a role change of the same phone met the
+    // one-active index and answered a bare 23505. A call waiting on the lock cannot see the
+    // successor the other committed; admit_device now looks again once. pgTAP runs in one session,
+    // so the overlap is made here, from two database sessions.
+    test('#70: an admission overlapping a role change of the same phone answers as if it came after',
+        () async {
+      final day = await stack.raceDay();
+      final scorer = day.codes['scorer']!;
+      final pro = day.codes['overall_pro']!;
+      final safety = day.codes['safety']!;
+
+      /// The phone admitted as scorer, then a role change to overall PRO held open, and [code]
+      /// presented while it is held. Returns the held call's answer, the overlapping call's, and
+      /// how long the overlapping call took.
+      Future<(String, String, Duration)> overlap(String uid, String code) async {
+        expect(await stack.admitInSession(uid, day.eventId, scorer), matches(uuid));
+        final held = stack.admitInSession(uid, day.eventId, pro, hold: const Duration(seconds: 4));
+        await stack.untilHeld();
+        final clock = Stopwatch()..start();
+        final second = await stack.admitInSession(uid, day.eventId, code);
+        clock.stop();
+        return (await held, second, clock.elapsed);
+      }
+
+      // The same slot: the overlapping call gets the held call's admission.
+      final samePhone = randomUuid();
+      final (heldSame, secondSame, waitedSame) = await overlap(samePhone, pro);
+      expect(heldSame, matches(uuid), reason: heldSame);
+      expect(waitedSame, greaterThan(const Duration(seconds: 2)),
+          reason: 'the second call waited for the held one, so the two overlapped');
+      expect(secondSame, heldSame, reason: 'the overlapping same-slot call answers with the successor');
+      expect((await stack.admissionChain(day.eventId, samePhone)).map((a) => a['role']),
+          ['scorer', 'overall_pro'], reason: 'and adds no row');
+
+      // Another slot: the overlapping call supersedes the held call's admission.
+      final otherPhone = randomUuid();
+      final (heldOther, secondOther, waitedOther) = await overlap(otherPhone, safety);
+      expect(waitedOther, greaterThan(const Duration(seconds: 2)));
+      expect(secondOther, matches(uuid), reason: secondOther);
+      final chain = await stack.admissionChain(day.eventId, otherPhone);
+      expect(chain, [
+        {'id': chain.first['id'], 'role': 'scorer', 'superseded_by': heldOther},
+        {'id': heldOther, 'role': 'overall_pro', 'superseded_by': secondOther},
+        {'id': secondOther, 'role': 'safety', 'superseded_by': null},
+      ], reason: 'the overlapping call for another slot supersedes the successor');
+    });
   }, skip: localStackRequested ? false : localStackSkip);
+}
+
+/// A lowercase hyphenated UUID, as admit_device answers.
+final uuid = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+
+/// A random v4 UUID, for a phone's Auth user id in a database session that spends no sign-in.
+String randomUuid() {
+  final r = Random.secure();
+  final b = List<int>.generate(16, (_) => r.nextInt(256));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
+      '${h.substring(16, 20)}-${h.substring(20)}';
 }

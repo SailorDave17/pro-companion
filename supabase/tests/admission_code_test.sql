@@ -184,13 +184,15 @@ select is((select course_id from public.committee_device), '00000000-0000-0000-0
           'a bound phone reads the race area it was admitted to');
 select is((select person from public.committee_device), 'Jo Volunteer', 'the person it named is on its admission');
 
--- 32–33. Holding a second code changes nothing: the recorder presenting the overall PRO's code gets
--- its own admission back, still recorder. Changing role is #70's.
-select is(public.admit_device('00000000-0000-0000-0000-000000000e01', 'OPRO-E01A'),
+-- 32–33. Presenting its own code again changes nothing: the recorder gets its own admission back,
+-- still recorder. Presenting another role's code is a role change, held in re_admission_test.sql
+-- (#70); until #70 this presented the overall PRO's code and expected nothing to change.
+select is(public.admit_device('00000000-0000-0000-0000-000000000e01', 'RECO-ALFA'),
           (select id from public.committee_device),
           'a phone already admitted gets its own admission back');
-select is((select role || ' ' || course_id::text from public.committee_device),
-          'recorder 00000000-0000-0000-0000-00000000ca01',
+-- 33 reads an array, not "the one row": a mutation that adds a row aborted the file here once.
+select is(array(select role || ' ' || course_id::text from public.committee_device),
+          array['recorder 00000000-0000-0000-0000-00000000ca01'],
           'and it is still the recorder on its race area');
 
 -- 34. No client reads a code, even a phone admitted as overall PRO.

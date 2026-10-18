@@ -259,6 +259,52 @@ class LocalStack {
     return [for (final text in jsonDecode(out) as List) text as String];
   }
 
+  /// admit_device called for the phone [uid] from a database session of its own, as PostgREST calls
+  /// it (role authenticated, the token's claims as a device-handoff sign-in), with the transaction
+  /// then held open for [hold] before it commits. Returns the admission id, or `refused: <error>`.
+  /// A call started while another is held overlaps it, which no API request can arrange (#70: an
+  /// admission overlapping a role change of the same phone). No sign-in is spent.
+  Future<String> admitInSession(String uid, String eventId, String code,
+      {Duration hold = Duration.zero}) async {
+    final claims = jsonEncode({'sub': uid, 'role': 'authenticated', 'is_anonymous': true});
+    final result = await Process.run('docker', [
+      'exec', _dbContainer, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q', '-t', '-A',
+      '-c', 'begin',
+      '-c', 'set local role authenticated',
+      '-c', "select set_config('request.jwt.claims', '$claims', true) is null",
+      '-c', "select 'admitted ' || public.admit_device('$eventId', '$code')",
+      '-c', 'select pg_sleep(${hold.inMilliseconds / 1000})',
+      '-c', 'commit',
+    ]);
+    if (result.exitCode != 0) return 'refused: ${(result.stderr as String).trim()}';
+    final line = (result.stdout as String)
+        .split('\n')
+        .firstWhere((l) => l.startsWith('admitted '), orElse: () => '');
+    return line.isEmpty ? 'no answer: ${result.stdout}' : line.substring('admitted '.length).trim();
+  }
+
+  /// Waits until a session started by [admitInSession] with a hold is sleeping: its admission is
+  /// made and its locks are held, so a call started now overlaps it.
+  Future<void> untilHeld({Duration timeout = const Duration(seconds: 20)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final out = await _psql("select count(*) from pg_stat_activity where pid <> pg_backend_pid() "
+          "and state = 'active' and query like 'select pg_sleep(%';");
+      if (out != '0') return;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    throw StateError('no held admission session appeared within $timeout');
+  }
+
+  /// The admissions of the phone [uid] to [eventId] in the order made, read as the table owner:
+  /// `id`, `role` and `superseded_by` (null on the active one), #70's chain.
+  Future<List<Map<String, Object?>>> admissionChain(String eventId, String uid) async {
+    final out = await _psql('select coalesce(json_agg(json_build_object('
+        "'id', id, 'role', role, 'superseded_by', superseded_by) order by admitted_at, id), '[]') "
+        "from public.committee_device where event_id = '$eventId' and auth_uid = '$uid';");
+    return [for (final row in jsonDecode(out) as List) Map<String, Object?>.from(row as Map)];
+  }
+
   Future<String> _psql(String sql) async {
     final result = await Process.run('docker', [
       'exec', _dbContainer, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q', '-t', '-A',
