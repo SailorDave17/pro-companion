@@ -200,7 +200,11 @@ class VolumeKeyFinishTest {
         inject(KeyEvent.ACTION_UP, down)
     }
 
+    /** When the last key was injected, for [screenState]. */
+    private var lastKeyAt = 0L
+
     private fun inject(action: Int, downTime: Long, repeat: Int = 0, flags: Int = 0) {
+        lastKeyAt = SystemClock.uptimeMillis()
         val event = KeyEvent(
             downTime, SystemClock.uptimeMillis(), action, KeyEvent.KEYCODE_VOLUME_DOWN, repeat, 0,
             KeyCharacterMap.VIRTUAL_KEYBOARD, 0, flags, InputDevice.SOURCE_KEYBOARD,
@@ -224,8 +228,33 @@ class VolumeKeyFinishTest {
 
     private fun open(label: String) {
         await(button(label)).click()
-        if (label == "FINISHES") await(listOf(By.desc(HEADING), By.text(HEADING)))
+        val clickedAt = SystemClock.uptimeMillis()
+        if (label == "FINISHES") {
+            try {
+                await(listOf(By.desc(HEADING), By.text(HEADING)))
+            } catch (e: IllegalStateException) {
+                throw IllegalStateException("${e.message}; ${screenState(label, clickedAt)}", e)
+            }
+        }
         SystemClock.sleep(SETTLE_MS) // the route's push, and with it the arming
+    }
+
+    /**
+     * #130: what the screen held when a screen did not open, so a lost click can be told from a slow
+     * screen and from a window in front. Whether the clicked button is still there, how long since
+     * the click and the last key, the focused window, any volume window, and the labels on screen.
+     */
+    private fun screenState(label: String, clickedAt: Long): String {
+        val now = SystemClock.uptimeMillis()
+        val stillThere = button(label).any { device.findObject(it) != null }
+        val windows = shell("dumpsys window windows").lineSequence()
+        val focus = shell("dumpsys window").lineSequence()
+            .filter { "mCurrentFocus" in it || "mFocusedApp" in it }.map { it.trim() }.toList()
+        val volume = windows.filter { "Window{" in it && "olume" in it }.map { it.trim() }.toList()
+        val labels = device.findObjects(By.pkg(context.packageName))
+            .mapNotNull { it.contentDescription ?: it.text }.filter { it.isNotBlank() }.take(20)
+        return "button '$label' still on screen: $stillThere; ${now - clickedAt} ms after the click, " +
+            "${now - lastKeyAt} ms after the last key; focus: $focus; volume windows: $volume; labels: $labels"
     }
 
     /** The finish screen's heading count: "Finishes · N". */

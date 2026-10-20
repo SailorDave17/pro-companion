@@ -9,91 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  flutter:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: "21"
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          channel: stable
-          flutter-version: "3.44.9"
-          cache: true
-      - run: flutter --version
-      # Fatal on errors, warnings and infos (flutter analyze's defaults).
-      - run: flutter analyze
-      - run: flutter test
-      # The local core (#24) is a pure-Dart workspace package; the root's
-      # flutter test does not run its tests.
-      - run: dart test
-        working-directory: packages/core
-      # Sync (#6) is one too. Its tests here meet a scripted server; the ones
-      # against the local stack are under test/ and run in the local-stack job.
-      - run: dart test
-        working-directory: packages/sync
-      - run: flutter build apk --debug
-
-  # Release signing (#23), proven without the owner's key: with no key the
-  # release build fails naming what is missing, and with a throwaway keystore
-  # made here, named by environment variables and then by android/key.properties,
-  # apksigner reports exactly that keystore's certificate. docs/field-builds.md.
-  # Each of those APKs must also request INTERNET and ACCESS_NETWORK_STATE (#46):
-  # these are the only release builds CI makes, and the debug APK carries INTERNET
-  # from the debug manifest whatever the main one says.
-  release-signing:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: "21"
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          channel: stable
-          flutter-version: "3.44.9"
-          cache: true
-      - run: sh scripts/check_release_signing.sh
-
-  # Server-facing tests (#41) against a local Supabase built from this repo's own
-  # migrations (ADR 005). supabase start applies every file under
-  # supabase/migrations to a fresh database, and db reset applies them again from
-  # empty, so a migration that fails to apply fails the job. The whole suite then
-  # runs with PRO_COMPANION_LOCAL_STACK=1, which un-skips every local-stack test
-  # with nothing to register; the rest run a second time, beside the emulator job.
-  local-stack:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      # ghcr.io refused supabase start's pulls across whole runs on 2026-09-23 while
-      # ECR served them. ECR throttles too (PR #102's first two runs), so the start
-      # script retries a throttled pull and nothing else.
-      SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          channel: stable
-          flutter-version: "3.44.9"
-          cache: true
-      # The CLI is pinned, and the owner script's readLocalStatus runs the same version.
-      - name: Start the local stack from supabase/migrations
-        run: sh scripts/start_local_stack.sh
-      - name: Reset the database, applying every migration again
-        run: npx --yes supabase@2.117.0 db reset --local
-      - run: flutter test
-        env:
-          PRO_COMPANION_LOCAL_STACK: "1"
-
-  # On-device tests (#16): force-kill, headless-core and manifest criteria can
-  # only be proven on Android, so every integration_test/ file runs here on an
-  # API 34 emulator. Standard 2-vCPU Linux runners get KVM once the udev rule
-  # below grants it (GitHub changelog 2024-04-02); without it the emulator
-  # falls back to software and does not boot in any useful time.
+  # THROWAWAY for #130: only the integration job, its volume-key line looped 14 times.
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -131,4 +47,4 @@ jobs:
             flutter test integration_test -d emulator-5554
             sh integration_test/force_kill.sh emulator-5554
             sh integration_test/offline_results.sh emulator-5554
-            sh integration_test/volume_key.sh emulator-5554
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do echo "LOOP130 run $i"; sh integration_test/volume_key.sh emulator-5554 | grep -E "OK [(]|Tests run|Error in|IllegalStateException: nothing"; done; true
