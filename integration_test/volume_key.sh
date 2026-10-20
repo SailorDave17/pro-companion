@@ -35,9 +35,13 @@ cd "$(dirname "$0")/.." || exit 1
 # so no permission dialog holds the window focus the volume key needs (all 5 tests failed without).
 sh integration_test/grant_location.sh "$ADB" "$DEVICE" || exit 1
 
+"$ADB" -s "$DEVICE" logcat -c
 out=$("$ADB" -s "$DEVICE" shell am instrument -w -e class "$APP.VolumeKeyFinishTest" \
   "$APP.test/androidx.test.runner.AndroidJUnitRunner" | tr -d '\r')
 printf '%s\n' "$out"
+# #130: a click on FINISHES that open() had to repeat is logged; print it, so a recovered click
+# shows in the job's log rather than vanishing behind the pass.
+"$ADB" -s "$DEVICE" logcat -d -s VolumeKeyFinishTest:W | tr -d '\r' | grep 're-clicked' || true
 case "$out" in
   *"OK ($TESTS tests)"*) echo "volume-key: passed" ;;
   *) echo "FAIL: VolumeKeyFinishTest did not pass all $TESTS of its tests"; exit 1 ;;
