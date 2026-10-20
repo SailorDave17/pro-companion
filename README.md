@@ -55,8 +55,10 @@ in that club, active, superseded or revoked, the server keeps the event in `even
 (groom decision G37). It is kept with its exact bytes: the full payload, including GPS, names and
 notes. A phone with no admission in the club leaves nothing behind (G43).
 
-- **Only service_role and the owner's tooling can read the refusals.** No phone can read, write,
-  change or delete one.
+- **Only service_role and the owner's tooling can read a whole refusal.** A phone admitted to the
+  race day reads its stub only (#60, G41): the device, the sequence, the refused event's hash and
+  the reason, so it can show another phone's chain as refused at that point. No phone can read the
+  text or who sent it, and none can write, change or delete a refusal.
 - **They are kept as long as the event's log, with no separate purge** (G45). Like the log, they
   cannot be updated or deleted by any role, the owner included.
 
