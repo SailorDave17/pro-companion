@@ -1,6 +1,7 @@
 -- pgTAP tests for append_event and the refusal record (#48; groom decisions G37, G43 and G45): the
 -- one client path into the event log, what it refuses and why, which refusals are kept, who can read
--- them (only service_role), and that nobody can change one. Run with `supabase test db` against the
+-- them (service_role the whole record; since #60 a phone of the race day reads its stub only, held by
+-- event_refusal_stub_test.sql), and that nobody can change one. Run with `supabase test db` against the
 -- local stack; the whole file is one transaction and rolls back.
 --
 -- Roles are switched the way PostgREST switches them, as in committee_spine_test.sql. What these
@@ -44,7 +45,8 @@ select is(array(select p.proname::text from pg_proc p
           array['append_event'],
           'append_event is the only function a client can call whose body names the log');
 
--- 6–10. Criterion 4: the refusal table, which no client role can reach.
+-- 6–10. Criterion 4: the refusal table, which no client role can write. A phone reads #60's stub
+-- columns only, and no other.
 select has_table('public', 'event_refusal', 'the refusal table exists');
 select columns_are('public', 'event_refusal',
                    array['id', 'event_id', 'canonical', 'event_hash', 'device_id', 'seq', 'reason',
@@ -53,14 +55,14 @@ select columns_are('public', 'event_refusal',
 select ok((select relrowsecurity from pg_class where oid = 'public.event_refusal'::regclass),
           'event_refusal has RLS enabled');
 select ok(not has_table_privilege('authenticated', 'public.event_refusal', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
-          and not has_any_column_privilege('authenticated', 'public.event_refusal', 'SELECT, INSERT, UPDATE, REFERENCES')
+          and not has_any_column_privilege('authenticated', 'public.event_refusal', 'INSERT, UPDATE, REFERENCES')
           and not has_table_privilege('anon', 'public.event_refusal', 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
           and not has_any_column_privilege('anon', 'public.event_refusal', 'SELECT, INSERT, UPDATE, REFERENCES')
           and has_table_privilege('service_role', 'public.event_refusal', 'SELECT')
           and not has_table_privilege('service_role', 'public.event_refusal', 'INSERT, UPDATE, DELETE, TRUNCATE'),
-          'no client role holds any privilege on event_refusal, and service_role holds SELECT only');
-select is((select count(*) from pg_policy where polrelid = 'public.event_refusal'::regclass), 0::bigint,
-          'event_refusal has no policy for any role');
+          'no client role can write event_refusal, a phone holds no table-wide read, anon holds nothing, and service_role holds SELECT only');
+select is((select count(*) from pg_policy where polrelid = 'public.event_refusal'::regclass and polcmd <> 'r'), 0::bigint,
+          'event_refusal has no write policy for any role');
 
 -- Fixture: two clubs and three events (service context: table owner, RLS bypassed).
 insert into public.club (id, name) values
@@ -283,9 +285,10 @@ select is((select count(*) from public.event_refusal r join fx f on f.canonical 
           'the failed event is neither kept as a refusal nor stored');
 drop trigger append_event_test_fail on public.event_log;
 
--- 41–48. Criterion 4: no client role can select, insert, update or delete a refusal record.
+-- 41–48. Criterion 4: no client role can select a whole refusal record, or insert, update or delete
+-- one. A phone's select * reaches the columns #60's stub withholds, so it is refused.
 set local role authenticated;
-select throws_ok($$select * from public.event_refusal$$, '42501', null, 'an admitted phone cannot read refusals');
+select throws_ok($$select * from public.event_refusal$$, '42501', null, 'an admitted phone cannot read a whole refusal record');
 select throws_ok($$insert into public.event_refusal (event_id, canonical, event_hash, reason, auth_uid)
                    values ('00000000-0000-0000-0000-000000000e01', 'x', 'x', 'revoked', '00000000-0000-0000-0000-00000000aa01')$$,
                  '42501', null, 'an admitted phone cannot insert a refusal');
