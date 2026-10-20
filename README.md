@@ -39,6 +39,10 @@ A phone sends every event through one function, `append_event(event, canonical t
 writes the log (`event_log`) any other way. The function stores an event the phone is admitted to
 write, exactly as sent, and a re-send of a stored event is a no-op.
 
+**A phone reads the log of the race day it is admitted to, and nothing else** (#50). A phone never
+admitted, or revoked from that race day, reads no rows, and the anon key alone is refused. A phone
+whose role changed reads on through its new admission.
+
 It refuses an event from a phone that is revoked or not admitted to that race day. It also refuses a
 text that cannot be stored as an event, and a different event under a ULID already stored. A
 refusal answers HTTP 422 with code `append_event_refused` and the reason in `details`. It is final,
