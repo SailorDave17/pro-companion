@@ -86,7 +86,7 @@ jobs:
       # The registry is printed so the log shows the start script's export arrived.
       - name: Reset the database, applying every migration again
         run: |
-          echo "db reset with images from ${SUPABASE_INTERNAL_IMAGE_REGISTRY:-the CLI's default}"
+          echo "db reset with images from ${SUPABASE_INTERNAL_IMAGE_REGISTRY:-the default registry}"
           npx --yes supabase@2.117.0 db reset --local
       - run: flutter test
         env:
