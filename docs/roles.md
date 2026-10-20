@@ -10,6 +10,10 @@
   `committee_device_race_area_check` refuses a bound role with no race area, and an event-wide role
   with one. A phone bound to a race area adds fleets only on that race area.
   `supabase/tests/admission_code_test.sql` holds all of it.
+- **A phone changes role by re-admission from #70** (G44). Presenting the code of another role, or of
+  the same role on another race area, supersedes its admission with a new one. Both rows stay, and
+  only the active one admits: a superseded role adds no fleet. `supabase/tests/re_admission_test.sql`
+  holds it.
 - **Decided, not yet enforced:** the critical kinds. The server refuses a critical kind outside the
   writer's role and race area from #75.
 

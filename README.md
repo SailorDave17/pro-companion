@@ -201,8 +201,14 @@ dart run scripts/owner.dart sign-in-mode --club "Hoover Sailing Club" --mode nam
 
 - **A switch applies to phones admitted after it.** A phone on a path the mode excludes is refused
   with HTTP 403, code `42501`, and `details` naming the mode and the path it signed in by, such as
-  `sign_in_mode=named_volunteers path=device_handoff`. A phone already admitted gets its admission
-  back whatever the mode, and goes on writing. Nothing is reinstalled.
+  `sign_in_mode=named_volunteers path=device_handoff`. A phone already admitted that presents its own
+  code again gets its admission back whatever the mode, and goes on writing. Nothing is reinstalled.
+- **A role change is a new admission** (#70). A phone presenting another role's code, or the same
+  role's code for another race area, gets a new admission under that role. Its old admission is
+  marked superseded (`superseded_by` names the new one) and kept, so the record still says which
+  role wrote what. A role change is held to the mode like a first admission. A named volunteer keeps
+  their name unless they give a new one. A phone holding any revoked admission in the event is
+  refused, whatever code it presents.
 - **The path is read from the phone's token.** Its `is_anonymous` claim is true on device handoff
   and false for a named account. A token without the claim is neither, so only `both` admits it.
 - **A replacement phone** presents the same role's code and gets an admission of its own. The phone
