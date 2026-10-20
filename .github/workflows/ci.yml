@@ -68,11 +68,11 @@ jobs:
   local-stack:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      # ghcr.io refused supabase start's pulls across whole runs on 2026-09-23 while
-      # ECR served them. ECR throttles too (PR #102's first two runs), so the start
-      # script retries a throttled pull and nothing else.
-      SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
+    # No SUPABASE_INTERNAL_IMAGE_REGISTRY here (#140). The start script picks the
+    # registry: public.ecr.aws first (ghcr.io refused whole runs on 2026-09-23),
+    # then ghcr.io and docker.io when ECR refuses on its data limit (PR #138,
+    # 2026-10-20). It writes the one that served to $GITHUB_ENV, so db reset and
+    # the tests name the same images.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
@@ -83,8 +83,11 @@ jobs:
       # The CLI is pinned, and the owner script's readLocalStatus runs the same version.
       - name: Start the local stack from supabase/migrations
         run: sh scripts/start_local_stack.sh
+      # The registry is printed so the log shows the start script's export arrived.
       - name: Reset the database, applying every migration again
-        run: npx --yes supabase@2.117.0 db reset --local
+        run: |
+          echo "db reset with images from ${SUPABASE_INTERNAL_IMAGE_REGISTRY:-the CLI's default}"
+          npx --yes supabase@2.117.0 db reset --local
       - run: flutter test
         env:
           PRO_COMPANION_LOCAL_STACK: "1"
