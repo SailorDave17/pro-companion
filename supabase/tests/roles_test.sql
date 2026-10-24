@@ -21,7 +21,7 @@ select is((select array_agg(m[1] order by m[1])
            from regexp_matches((select pg_get_constraintdef(oid) from pg_constraint
                                 where conname = 'committee_device_role_g28_check'),
                                '''([a-z_]+)''', 'g') as m),
-          array['course_pro', 'mark_boat', 'overall_pro', 'recorder', 'safety', 'scorer'],
+          array['course_pro', 'mark_boat', 'overall_pro', 'recorder', 'scorer'],
           'the check allows exactly the six roles of G28');
 
 -- Fixture: a club, an event, a race area and a code for each role (service context: table owner,
