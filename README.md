@@ -84,7 +84,8 @@ headless core engine; the UI never imports it (`test/import_boundary_test.dart`)
 - **Its tests:** `dart test` in `packages/sync` against a scripted server (the real Supabase client,
   only the transport faked), and `test/sync_test.dart` against the local stack.
 - **Not yet in the app.** Starting it from the core host, with the project's URL and key, is
-  #113's, after #32 builds the host. Since #46 a release build may use the network: the main
+  #113's. The host itself is #32's (ADR 003, `lib/core_host.dart`), the foreground service that
+  keeps the core running with the app closed. Since #46 a release build may use the network: the main
   manifest requests `INTERNET` and `ACCESS_NETWORK_STATE`, held there by
   `test/main_manifest_test.dart` and, in the release APK, by `scripts/check_release_signing.sh`.
 
@@ -224,7 +225,7 @@ dart run scripts/owner.dart sign-in-mode --club "Hoover Sailing Club" --mode nam
 
 Not built yet: the phone's sign-in screens (the code entry is #71, the magic link #104), revoking a
 phone (#72), the server's check of the admission each event carries (#73), starting sync in the app
-(#113, after #32), and magic-link mail and its redirect on the live project, which are held for
+(#113), and magic-link mail and its redirect on the live project, which are held for
 the pilot's sixth milestone.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored

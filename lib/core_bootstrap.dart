@@ -1,12 +1,16 @@
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+import 'dart:ui' show IsolateNameServer;
+
 import 'package:pro_companion_core/host.dart';
 
-/// Where the phone's event log lives: app-private storage, never backed up to
-/// or shared with another app.
-Future<String> coreDbPath() async =>
-    p.join((await getApplicationSupportDirectory()).path, 'core.db');
+// The core host's entry point travels with startCore: CoreService runs it by
+// its library's name, and a library is compiled into a build only when
+// something the build starts from imports it. Every build that reaches the core
+// comes through here - the app, and each integration flow, whose own file is
+// the root library - so each one carries the host too.
+export 'core_host.dart' show coreMain;
 
-/// Starts the local core for this app (ADR 001) in its own isolate (ADR 003).
-/// #32 moves it into the foreground service; callers keep the same client.
-Future<CoreClient> startCore() async => spawnCore(await coreDbPath());
+/// Connects to the local core (ADR 001), which runs in the foreground
+/// service's own engine (ADR 003, #32). MainActivity binds that service as it
+/// is created, so the core may still be opening the log: this waits until the
+/// port it publishes answers.
+Future<CoreClient> startCore() => connectCore(() => IsolateNameServer.lookupPortByName(corePortName));

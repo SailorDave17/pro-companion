@@ -19,6 +19,8 @@
 # INTERNET for the Flutter tool. AAPT2=/path/to/aapt2 overrides.
 # #31: and ACCESS_FINE_LOCATION and ACCESS_COARSE_LOCATION, the same way, so
 # every event can carry where it happened.
+# #32: and FOREGROUND_SERVICE, FOREGROUND_SERVICE_LOCATION and POST_NOTIFICATIONS,
+# the core host's (ADR 003), without which it cannot keep logging with the UI gone.
 # The CI job release-signing runs this. It stops before building anything if
 # android/key.properties already exists: that file names the owner's real key,
 # and this script writes and deletes its own copy. It also deletes any release
@@ -149,10 +151,10 @@ build_and_verify() {
   check_permissions "$1"
 }
 
-# #46 and #31. aapt2 prints one "uses-permission: name='...'" line per permission, with any
+# #46, #31 and #32. aapt2 prints one "uses-permission: name='...'" line per permission, with any
 # maxSdkVersion after it on the same line, so a whole-line match also refuses a permission capped
 # below current phones.
-REQUIRED_PERMISSIONS="android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.ACCESS_FINE_LOCATION android.permission.ACCESS_COARSE_LOCATION"
+REQUIRED_PERMISSIONS="android.permission.INTERNET android.permission.ACCESS_NETWORK_STATE android.permission.ACCESS_FINE_LOCATION android.permission.ACCESS_COARSE_LOCATION android.permission.FOREGROUND_SERVICE android.permission.FOREGROUND_SERVICE_LOCATION android.permission.POST_NOTIFICATIONS"
 check_permissions() {
   if ! "$AAPT2" dump permissions "$APK" >"$WORK/$1.permissions" 2>&1; then
     cat "$WORK/$1.permissions"

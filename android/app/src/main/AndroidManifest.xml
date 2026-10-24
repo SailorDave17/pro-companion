@@ -7,11 +7,18 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <!-- Where each logged event happened (#31, ADR 001), and the core host's location type (ADR 003).
-         Android 12+ grants FINE only when COARSE is requested beside it. Nothing reads location in
-         the background, so ACCESS_BACKGROUND_LOCATION is not requested. test/main_manifest_test.dart
+         Android 12+ grants FINE only when COARSE is requested beside it. Since #32 the core host reads
+         it with the app closed, but from a foreground service started while the app was visible,
+         which Android counts as in use, so ACCESS_BACKGROUND_LOCATION is not requested. test/main_manifest_test.dart
          and scripts/check_release_signing.sh hold both here. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- The core host (#32, ADR 003): a foreground service of type location, and the notification
+         it shows while it logs. test/main_manifest_test.dart and scripts/check_release_signing.sh
+         hold all three here. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="pro_companion"
         android:name="${applicationName}"
@@ -38,6 +45,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Not exported: only this app's own process may start, bind or append to the core. -->
+        <service
+            android:name=".CoreService"
+            android:exported="false"
+            android:foregroundServiceType="location"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
