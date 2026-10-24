@@ -88,6 +88,13 @@ jobs:
         run: |
           echo "db reset with images from ${SUPABASE_INTERNAL_IMAGE_REGISTRY:-the default registry}"
           npx --yes supabase@2.117.0 db reset --local
+      # pgTAP (#51): every file under supabase/tests, on the freshly reset database. It runs before
+      # the Dart suite, whose rows stay committed and would turn the files' whole-table counts red.
+      # --debug is what reports each test: the CLI then runs pg_prove --verbose, which prints every
+      # TAP line instead of one verdict per file. A failing assertion exits non-zero and fails the
+      # job. The pg_prove image comes from the registry the start script exported.
+      - name: Run the pgTAP suite in supabase/tests
+        run: npx --yes supabase@2.117.0 test db --local --debug
       - run: flutter test
         env:
           PRO_COMPANION_LOCAL_STACK: "1"
