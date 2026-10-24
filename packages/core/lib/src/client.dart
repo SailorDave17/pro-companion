@@ -50,10 +50,15 @@ abstract interface class CoreClient {
 }
 
 /// A [CoreClient] speaking the wire protocol to a core behind [SendPort].
+///
+/// With [closesCore] false it is a client of a core it does not own: one a
+/// host serves for every client, as the foreground service does (#32). Its
+/// [close] then sends nothing, and the core goes on serving the others.
 class PortCoreClient implements CoreClient {
-  PortCoreClient(this._core);
+  PortCoreClient(this._core, {this.closesCore = true});
 
   final SendPort _core;
+  final bool closesCore;
 
   Future<Object?> _call(String command, Map<String, Object?> args) {
     requireWireSafe(args, 'args');
@@ -111,6 +116,7 @@ class PortCoreClient implements CoreClient {
 
   @override
   Future<void> close() async {
+    if (!closesCore) return;
     await _call(Wire.close, const {});
   }
 }

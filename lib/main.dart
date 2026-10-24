@@ -4,16 +4,15 @@ import 'package:pro_companion_core/core.dart';
 import 'confirmation.dart';
 import 'core_bootstrap.dart';
 import 'finish/volume_key.dart';
-import 'location/location_feed.dart';
 import 'roles/role_gate.dart';
 import 'ui/clock.dart';
 import 'ui/sunlight.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // The core runs in the foreground service, which also tells it where the
+  // phone is (#31), so it keeps logging with the UI gone (ADR 003, #32).
   final core = await startCore();
-  // Where the phone is, for every event the core stamps (#31).
-  forwardLocation(const PlatformLocationFeed(), core);
   runApp(ProCompanionApp(
     core: core,
     confirmation: ConfirmationService(const PlatformConfirmationDevice()),

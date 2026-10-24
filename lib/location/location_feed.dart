@@ -10,7 +10,9 @@ abstract interface class LocationFeed {
   Stream<Map<Object?, Object?>> get reports;
 }
 
-/// The phone's own, from MainActivity's `pro_companion/location` channel.
+/// The phone's own, from the `pro_companion/location` channel. Since #32
+/// CoreService serves it, on the core host's engine (lib/core_host.dart), so
+/// it keeps reporting with the UI gone.
 class PlatformLocationFeed implements LocationFeed {
   const PlatformLocationFeed();
 

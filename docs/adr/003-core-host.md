@@ -9,6 +9,8 @@
   "Consequences and limits".
 - **Kill condition fired 2026-10-07 on the club phone (#21)**: with the screen off and nothing
   holding a wake lock, the core's 10-second tick ran minutes late. See "Kill condition".
+- **Built 2026-10-23 by #32**, with three owner decisions at pickup that amend decisions 1, 5 and
+  the kill condition's answer. See "Built (#32)".
 
 ## Context
 
@@ -181,3 +183,70 @@ here.
 
 So the decision is reopened at its first answer: a partial wake lock held by the core host. That has
 not been tried yet. Its cost on a race day's battery is the measurement it needs.
+
+## Built (#32), 2026-10-23
+
+The host is in the app: `android/app/src/main/kotlin/com/procompanion/app/CoreService.kt`, and
+`lib/core_host.dart` for its engine. The UI engine connects through `lib/core_bootstrap.dart`.
+
+**What changed from the decisions above.** The first three bullets are owner decisions taken at
+#32's pickup.
+
+- **Without location the core still runs, but only while the activity lives** (amends decisions 1
+  and 5). Android 14 refuses a `location` foreground service to an app holding no location
+  permission. *Measured* on the API 34 emulator: `SecurityException: Starting FGS with type
+  location … requires permissions … any of … ACCESS_COARSE_LOCATION, ACCESS_FINE_LOCATION`. So
+  `MainActivity` binds `CoreService` for as long as it lives, and the core runs in the service
+  whatever the user granted. The activity also starts the service, but only once location is
+  held, and only then does the service go into the foreground and outlive the UI. Refused,
+  every event says `no_permission` and still appends, as #31 had it, until the activity goes.
+- **The wake lock is not in this host** (amends "Kill condition"). #127 measures it on this host,
+  not the spike, and adds it. The spike requested no location updates. This host's feed asks for a
+  high-accuracy fix every 5 s, and whether that wakes the CPU is part of what #127 now reads. Until
+  #127 lands, a timer in this host stalls with the screen off, as #21 measured on the spike.
+- **The location feed (#31) runs in the service**, on the host's engine, so an event appended with
+  the UI gone carries a current fix. The activity's start of the service after a permission answer
+  restarts the feed.
+- **The activity calls `startService`, not `startForegroundService`.** `startForegroundService`
+  obliges the service to call `startForeground` within seconds or Android stops the app. A refused
+  start that the service survived by stopping itself would then still end the app (*reasoned*,
+  from Android's documented contract, not tried). A plain start from a visible activity is allowed
+  and carries no deadline. The service calls `startForeground` in `onStartCommand`, never in
+  `onCreate`, because a bind alone must not try to go into the foreground.
+- **A refused `startForeground` is caught.** The service stops itself and returns
+  `START_NOT_STICKY`, and the process stays up. Unbound, the engine never starts, so an append that
+  reached the process is answered `no_core`. *Measured* by `CoreHostRefusedTest` on the API 34
+  emulator, with location revoked: three refusals, all caught, one pid throughout, and a second
+  refused start was answered the same way. #15's own case, the sticky restart refused because a
+  link event started the process first, cannot happen in the app yet: it has no exported component
+  other than the launcher activity, and an activity start puts the app in the foreground. **#33
+  adds one, so #33 re-runs `link_kill_probe.sh`'s case against this host**: the catch is the same
+  code, but that it stops the crash loop there is still *reasoned*.
+- **The entry point is found by library as well as name**:
+  `DartEntrypoint(bundle, "package:pro_companion/core_host.dart", "coreMain")`, as ADR 006
+  decision 4 proposed. In an integration test the root library is the test's own file, so a lookup
+  by name alone finds no `coreMain` there. A library is compiled into a build only when something
+  imports it, so `lib/core_bootstrap.dart`, which every route to the core goes through, re-exports
+  it.
+- **The UI waits for a port that answers.** The host publishes its port with `IsolateNameServer`
+  under `pro_companion.core`. The name outlives the engine: when the activity goes with no location
+  held, the service and its engine go, and the next activity in the same process finds the old
+  port still published. `connectCore` pings a port with a device-id request and uses it only once
+  it answers, so it waits until the next host publishes over it. Neither the UI nor any other
+  client can close the host's core: the server refuses a close, and the UI's client sends none.
+- **Appends by intent.** `ACTION_APPEND`, with the event's wire form as JSON and an optional
+  `ResultReceiver` that hears `accepted` with the stored event, `refused` with the core's code, or
+  `no_core`. The service is not exported, so only the app's own process can send one. An append
+  that arrives before the engine says `ready` is queued, as decision 4 had it.
+- **The notification** says "PRO Companion is logging", "Logging continues with the screen off.
+  Tap to open.", and opens the app the way its launcher icon does. It is shown at once
+  (`FOREGROUND_SERVICE_IMMEDIATE`), not after Android 12's ten-second grace.
+
+**Measured on the API 34 emulator** (`pc47_api34`, `google_apis`, the image CI uses), each test
+proven able to fail by a mutation with its red count predicted first:
+
+- `CoreHostTest`: with location and notifications granted, an append sent by intent after the
+  activity is destroyed is accepted, and read back from the log's own file. The notification is the
+  foreground service's, and tapping it in the shade opens the app.
+- `CoreHostRefusedTest`: as above, with location revoked.
+- `integration_test/core_host.sh` runs both, and is a line in CI's `integration` job.

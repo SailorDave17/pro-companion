@@ -8,12 +8,17 @@ import 'store.dart';
 import 'wire.dart';
 
 /// Serves the wire protocol over one [EventStore]. Hosted by whatever owns the
-/// core: an isolate spawned by the app today, the foreground service's engine
-/// once #32 lands. The protocol is the same in both.
+/// core: the foreground service's engine in the app (#32), or an isolate
+/// spawned for a test. The protocol is the same in both.
 class CoreServer {
-  CoreServer(this.store);
+  CoreServer(this.store, {this.closable = true});
 
   final EventStore store;
+
+  /// False when the host, not a client, owns the core's lifetime: the
+  /// foreground service's core serves every client, so a close request from
+  /// one of them is refused rather than closing the log under the others.
+  final bool closable;
 
   /// Handles one request, `[replyPort, command, args]`, and sends the reply.
   /// Returns false once the core has been asked to close.
@@ -30,6 +35,10 @@ class CoreServer {
         return true;
       }
       if (args is! Map) throw ArgumentError.value(args, 'args', 'must be a map');
+      if (command == Wire.close && !closable) {
+        reply.send([Wire.err, 'refused', 'the core host owns this core, and it stays open']);
+        return true;
+      }
       final result = _dispatch(command, args);
       requireWireSafe(result, 'result');
       reply.send([Wire.ok, result]);

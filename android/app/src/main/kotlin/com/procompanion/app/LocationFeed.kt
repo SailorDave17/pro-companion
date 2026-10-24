@@ -25,7 +25,9 @@ import io.flutter.plugin.common.EventChannel
  * own elapsed-realtime stamp, so the phone's last known fix, however old, is
  * reported with its true age and never as current.
  *
- * #32 moves the core into the foreground service, and this moves with it.
+ * Since #32 CoreService runs it, on the core host's engine, so it keeps
+ * reporting with the activity gone. The activity's start of the service after
+ * a permission answer is what restarts it.
  */
 class LocationFeed(context: Context) : EventChannel.StreamHandler, LocationListener {
     private val appContext = context.applicationContext
