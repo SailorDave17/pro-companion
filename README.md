@@ -112,9 +112,15 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
   - A row no client can write, like the event log's, is seeded as the table owner through `psql`
     in the database container.
 - **CI runs them in the `local-stack` job.** It starts the stack from `supabase/migrations` with
-  `scripts/start_local_stack.sh`, resets it, and runs the whole suite with the variable set. So a
-  migration that fails to apply fails the job, and a new local-stack test runs there with nothing
-  to register.
+  `scripts/start_local_stack.sh`, resets it, runs the pgTAP suite under `supabase/tests/` (#51),
+  and then runs the whole suite with the variable set. So a migration that fails to apply fails
+  the job, a failing pgTAP assertion fails it, and a new local-stack test or pgTAP file runs there
+  with nothing to register.
+  - pgTAP runs first, on the freshly reset database, because the Dart tests commit rows that the
+    pgTAP files' whole-table counts would see. Locally, run `db reset` again after a
+    `PRO_COMPANION_LOCAL_STACK=1` run, before `test db`.
+  - It runs as `supabase test db --debug`, which makes the CLI run pg_prove `--verbose`, so the log
+    shows every test, not just one verdict per file.
   - The script starts only the four services the tests use: the database, auth, the REST API and
     its gateway.
   - It retries `supabase start` only when an image pull fails outright. That is the CLI's
