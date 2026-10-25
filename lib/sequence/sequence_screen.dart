@@ -69,7 +69,7 @@ class _SequenceScreenState extends State<SequenceScreen> {
   @override
   void initState() {
     super.initState();
-    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
+    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
         // Finishes too: their sail numbers are the boats the OCS panel knows.

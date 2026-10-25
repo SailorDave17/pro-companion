@@ -37,7 +37,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
   @override
   void initState() {
     super.initState();
-    widget.core.readAll().then(
+    // Its own log only: another phone's finishes, pulled down by sync (#64),
+    // would score that phone's line a second time.
+    widget.core.readOwn().then(
       (events) {
         if (!mounted) return;
         setState(() {

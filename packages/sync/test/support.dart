@@ -87,6 +87,25 @@ class FakeServer extends http.BaseClient {
   /// The event log: ULID to the race day it was sent to and its text.
   final log = <String, ({String event, String canonical})>{};
 
+  /// The refusal records (#48): what a phone admitted to the race day reads as a stub (#60).
+  final refusals = <({String event, String? device, int? seq, String hash, String reason})>[];
+
+  /// Another phone's event, already on shore, as its own append_event would have left it.
+  void seedLog(String event, String canonical) {
+    final ulid = (jsonDecode(canonical) as Map)['ulid'] as String;
+    log[ulid] = (event: event, canonical: canonical);
+  }
+
+  /// Whether [user] may read race day [event]: an admission there, and none of them revoked, as
+  /// is_admitted_to_event answers (#50, #70).
+  bool readable(String? user, String event) {
+    final rows = [
+      for (final MapEntry(key: id, value: e) in (admissions[user] ?? const <String, String>{}).entries)
+        if (e == event) id,
+    ];
+    return rows.isNotEmpty && !rows.any(revoked.contains);
+  }
+
   /// Admissions: user to admission id to race day.
   final admissions = <String, Map<String, String>>{};
   final revoked = <String>{};
@@ -197,8 +216,34 @@ class FakeServer extends http.BaseClient {
         final user = r.caller;
         if (user == null) return _denied('table committee_device');
         return _json(200, [
-          for (final MapEntry(key: id, value: event) in (admissions[user] ?? const {}).entries) {'id': id, 'event_id': event},
+          for (final MapEntry(key: id, value: event) in (admissions[user] ?? const {}).entries)
+            {
+              'id': id,
+              'event_id': event,
+              'revoked_at': revoked.contains(id) ? '2026-10-24T12:00:00+00:00' : null,
+              'superseded_by': null,
+            },
         ]);
+      case ('GET', '/rest/v1/event_log'):
+        if (r.caller == null) return _denied('table event_log');
+        return _json(200, _read(r, [
+          for (final MapEntry(key: ulid, value: row) in log.entries)
+            if (readable(r.caller, row.event))
+              {
+                'ulid': ulid,
+                'event_id': row.event,
+                'device_id': (jsonDecode(row.canonical) as Map)['device_id'],
+                'seq': (jsonDecode(row.canonical) as Map)['seq'],
+                'canonical': row.canonical,
+              },
+        ]));
+      case ('GET', '/rest/v1/event_refusal'):
+        if (r.caller == null) return _denied('table event_refusal');
+        return _json(200, _read(r, [
+          for (final x in refusals)
+            if (readable(r.caller, x.event))
+              {'event_id': x.event, 'device_id': x.device, 'seq': x.seq, 'event_hash': x.hash, 'reason': x.reason},
+        ]));
       case ('POST', '/rest/v1/rpc/admit_device'):
         final user = r.caller;
         if (user == null) return _denied('function admit_device');
@@ -218,25 +263,96 @@ class FakeServer extends http.BaseClient {
     final event = r.json['p_event'] as String;
     final canonical = r.json['p_canonical'] as String;
     final rows = (admissions[user] ?? const {}).entries.where((e) => e.value == event).map((e) => e.key);
-    if (rows.any(revoked.contains)) return refusal('revoked', canonical);
-    if (!rows.any((id) => !revoked.contains(id))) return refusal('not_admitted', canonical);
     Object? parsed;
     try {
       parsed = jsonDecode(canonical);
     } on FormatException {
       parsed = null;
     }
+    // Kept as #48 keeps them, from a caller holding a row: what a phone of the race day reads back
+    // as a stub (#60), with no device or number when the text names none.
+    http.Response kept(String reason) {
+      final map = parsed is Map ? parsed : const {};
+      final hash = chainHash(canonical);
+      if (!refusals.any((x) => x.event == event && x.hash == hash)) {
+        refusals.add((
+          event: event,
+          device: map['device_id'] is String ? map['device_id'] as String : null,
+          seq: map['seq'] is int ? map['seq'] as int : null,
+          hash: hash,
+          reason: reason,
+        ));
+      }
+      return refusal(reason, canonical);
+    }
+
+    if (rows.any(revoked.contains)) return kept('revoked');
+    if (!rows.any((id) => !revoked.contains(id))) return refusal('not_admitted', canonical);
     if (parsed is! Map || parsed['ulid'] is! String || parsed['seq'] is! int) {
-      return refusal('inconsistent_canonical', canonical);
+      return kept('inconsistent_canonical');
     }
     final ulid = parsed['ulid'] as String;
     final stored = log[ulid];
     if (stored != null) {
       if (stored.canonical == canonical && stored.event == event) return accepted(canonical, duplicate: true);
-      return refusal('ulid_conflict', canonical);
+      return kept('ulid_conflict');
     }
     log[ulid] = (event: event, canonical: canonical);
     return accepted(canonical, duplicate: false);
+  }
+
+  /// A read as PostgREST answers one: `col=eq.value` filters, one `or` logic tree, `order`, `limit`
+  /// and the `select` column list, over the rows RLS already lets the caller see. Only what the
+  /// pull sends is understood, and anything else fails the test rather than being ignored.
+  List<Map<String, Object?>> _read(Seen r, List<Map<String, Object?>> rows) {
+    final out = _filtered(r, rows);
+    reads.add((path: r.path, query: r.query, rows: out.length));
+    return out;
+  }
+
+  /// Every read the pull made, with how many rows it was answered with.
+  final reads = <({String path, Map<String, String> query, int rows})>[];
+
+  /// The rows answered to [path] reads, in order.
+  List<int> rowsRead(String path) => [for (final x in reads) if (x.path == path) x.rows];
+
+  List<Map<String, Object?>> _filtered(Seen r, List<Map<String, Object?>> rows) {
+    var out = [...rows];
+    for (final MapEntry(key: k, value: v) in r.query.entries) {
+      switch (k) {
+        case 'select' || 'order' || 'limit':
+          break;
+        case 'or':
+          if (!v.startsWith('(') || !v.endsWith(')')) fail('or=$v is not a parenthesised list');
+          final terms = splitLogic(v.substring(1, v.length - 1)).map(parseLogic).toList();
+          out = [for (final row in out) if (terms.any((t) => t(row))) row];
+        default:
+          if (!v.startsWith('eq.')) fail('the fake reads $k=$v only as eq.');
+          out = [for (final row in out) if ('${row[k]}' == v.substring(3)) row];
+      }
+    }
+    final order = r.query['order'];
+    if (order != null) {
+      final keys = [
+        for (final o in order.split(','))
+          if (o.split('.') case [final col, 'asc', ...]) col else fail('the fake orders ascending only: $o'),
+      ];
+      out.sort((a, b) {
+        for (final k in keys) {
+          final c = compareValues(a[k], b[k]);
+          if (c != 0) return c;
+        }
+        return 0;
+      });
+    }
+    final limit = r.query['limit'];
+    if (limit != null) out = out.take(int.parse(limit)).toList();
+    final select = r.query['select'];
+    if (select != null && select != '*') {
+      final cols = select.split(',').map((c) => c.trim()).toList();
+      out = [for (final row in out) {for (final c in cols) c: row[c]}];
+    }
+    return out;
   }
 
   static http.Response accepted(String canonical, {required bool duplicate}) =>
@@ -265,6 +381,82 @@ class FakeServer extends http.BaseClient {
   static http.Response _json(int status, Object? body) =>
       http.Response(jsonEncode(body), status, headers: {'content-type': 'application/json'});
 }
+
+/// The terms of a PostgREST logic list, split at its top-level commas: `a.eq.1,or(b.gt.2,b.lt.1)`
+/// is two terms, and `c.in.(x,y)` one. A double-quoted value is text, its `,` and `(` included,
+/// and inside it a backslash escapes the next character.
+List<String> splitLogic(String s) {
+  final terms = <String>[];
+  var depth = 0, start = 0;
+  var quoted = false;
+  for (var i = 0; i < s.length; i++) {
+    final ch = s[i];
+    if (quoted) {
+      if (ch == r'\') i++;
+      if (ch == '"') quoted = false;
+      continue;
+    }
+    if (ch == '"') quoted = true;
+    if (ch == '(') depth++;
+    if (ch == ')') depth--;
+    if (ch == ',' && depth == 0) {
+      terms.add(s.substring(start, i));
+      start = i + 1;
+    }
+  }
+  terms.add(s.substring(start));
+  return terms;
+}
+
+/// One PostgREST logic term as a test of a row: `or(...)`, `and(...)`, or `col.[not.]op.value`
+/// with op one of eq, gt, lt, in and match (a regular expression). A value may be double-quoted,
+/// with `\"` and `\\` escaped. SQL's rule for a null holds: no comparison of one is true, and
+/// neither is its negation.
+bool Function(Map<String, Object?>) parseLogic(String t) {
+  for (final (prefix, all) in const [('or(', false), ('and(', true)]) {
+    if (t.startsWith(prefix) && t.endsWith(')')) {
+      final parts = splitLogic(t.substring(prefix.length, t.length - 1)).map(parseLogic).toList();
+      return all ? (row) => parts.every((p) => p(row)) : (row) => parts.any((p) => p(row));
+    }
+  }
+  final dot = t.indexOf('.');
+  final col = t.substring(0, dot);
+  var rest = t.substring(dot + 1);
+  final negate = rest.startsWith('not.');
+  if (negate) rest = rest.substring(4);
+  final op = rest.substring(0, rest.indexOf('.'));
+  final raw = rest.substring(op.length + 1);
+  final value = raw.length >= 2 && raw.startsWith('"') && raw.endsWith('"')
+      ? raw.substring(1, raw.length - 1).replaceAllMapped(RegExp(r'\\(.)'), (m) => m[1]!)
+      : raw;
+  if (value == raw && RegExp(r'[,()"]').hasMatch(raw) && op != 'in') {
+    fail('an unquoted value holds a reserved character, which PostgREST would not read as text: $t');
+  }
+  bool? test(Object? v) {
+    if (v == null) return null;
+    return switch (op) {
+      'eq' => '$v' == value,
+      'gt' => compareValues(v, v is int ? int.parse(value) : value) > 0,
+      'lt' => compareValues(v, v is int ? int.parse(value) : value) < 0,
+      'in' => value.substring(1, value.length - 1).split(',').contains('$v'),
+      'match' => RegExp(value).hasMatch('$v'),
+      _ => fail('the fake does not read the operator $op in $t'),
+    };
+  }
+
+  return (row) {
+    final result = test(row[col]);
+    return result != null && (negate ? !result : result);
+  };
+}
+
+/// Orders two column values as Postgres would here: numbers as numbers, text by code unit (every
+/// id compared is upper-case Crockford base32 or hex, where a collation agrees with code units).
+int compareValues(Object? a, Object? b) => switch ((a, b)) {
+      (int x, int y) => x.compareTo(y),
+      (String x, String y) => x.compareTo(y),
+      _ => fail('the fake cannot order $a against $b'),
+    };
 
 /// A PostgREST error answer, for hooks.
 http.Response postgrestError(int status, String code, [String message = 'error']) =>
@@ -311,19 +503,26 @@ class TestPhone {
 
   /// An engine on this phone, with the production timeout and backoff: the timing tests hold
   /// what ships, so a change to either default is a change they see.
-  SyncEngine engine(FakeServer server) =>
-      SyncEngine.open(url: projectUrl, publishableKey: publishableKey, store: store, sessionDir: dir, transport: server);
+  /// [pullPageSize] is small in the pull tests, so a few rows make several pages.
+  SyncEngine engine(FakeServer server, {int pullPageSize = 500}) => SyncEngine.open(
+      url: projectUrl,
+      publishableKey: publishableKey,
+      store: store,
+      sessionDir: dir,
+      transport: server,
+      pullPageSize: pullPageSize);
 }
 
 /// A phone signed in as [user] (anonymously unless named) and admitted to [event]: its session
 /// kept where the engine looks, the admission stamped on its events, the race day learned.
-Future<(TestPhone, SyncEngine, String)> admittedPhone(FakeServer server, String user, String event) async {
+Future<(TestPhone, SyncEngine, String)> admittedPhone(FakeServer server, String user, String event,
+    {int pullPageSize = 500}) async {
   final phone = TestPhone();
   server.anonymous.putIfAbsent(user, () => true);
   final admission = server.admitDirectly(user, event);
   phone.store.setAdmissionId(admission);
   phone.keepSession(server.session(user));
-  final engine = phone.engine(server);
+  final engine = phone.engine(server, pullPageSize: pullPageSize);
   addTearDown(engine.close);
   return (phone, engine, admission);
 }

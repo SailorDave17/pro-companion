@@ -18,6 +18,7 @@ export 'src/location.dart' show GpsReasons;
 export 'src/mark_finishes.dart'
     show CourseEvents, CourseKinds, lastMarkFleet, lastUndoableMarkFinish, markFinishOrder, shortenedAt;
 export 'src/order.dart' show happened;
+export 'src/pulls.dart' show PullRun, PullRunState, PullStatus;
 export 'src/results.dart'
     show BetweenRaces, DuplicateSail, ProvisionalResults, ResultsEvents, ResultsKinds, UnnamedFinish, discardsSet, placeholderId, provisionalResults, raceStarts, racesOf;
 export 'src/roles.dart' show RoleEvents, RoleKinds, Roles, currentRole, currentRolePick;

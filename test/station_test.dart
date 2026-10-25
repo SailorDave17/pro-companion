@@ -402,6 +402,9 @@ class _HeldCore implements CoreClient {
   Future<List<EventEnvelope>> readAll() => _inner.readAll();
 
   @override
+  Future<List<EventEnvelope>> readOwn() => _inner.readOwn();
+
+  @override
   Future<int> count() => _inner.count();
 
   @override
@@ -421,6 +424,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<UploadStatus> uploadStatus() => _inner.uploadStatus();
+
+  @override
+  Future<PullStatus> pullStatus() => _inner.pullStatus();
 
   @override
   Future<void> close() => _inner.close();

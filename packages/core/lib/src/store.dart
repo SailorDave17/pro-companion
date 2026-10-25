@@ -6,6 +6,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 import 'chain.dart';
 import 'envelope.dart';
 import 'location.dart';
+import 'pulls.dart';
 import 'roles.dart';
 import 'stations.dart';
 import 'uploads.dart';
@@ -30,6 +31,7 @@ class EventStore {
     );
     _count = _db.prepare('SELECT count(*) AS n FROM events');
     _all = _db.prepare('SELECT body FROM events ORDER BY device_ts, device_id, ulid');
+    _own = _db.prepare('SELECT body FROM events WHERE device_id = ? ORDER BY device_ts, device_id, ulid');
     _canonical = _db.prepare('SELECT body FROM events ORDER BY device_id, seq');
     // The canonical text has no spaces (RFC 8785), so every role and station
     // event's body holds one of these, and LIKE narrows the read to them
@@ -83,6 +85,7 @@ class EventStore {
   late final sql.PreparedStatement _insert;
   late final sql.PreparedStatement _count;
   late final sql.PreparedStatement _all;
+  late final sql.PreparedStatement _own;
   late final sql.PreparedStatement _canonical;
 
   /// This install's device id. Every event it appends carries it.
@@ -152,6 +155,45 @@ class EventStore {
         value TEXT NOT NULL
       ) STRICT''');
     _createUploadSchema(db);
+    _createPullSchema(db);
+  }
+
+  /// What sync (#64) keeps about other phones' events it pulled down: the race
+  /// day each came from, so each race day has a cursor of its own, and the
+  /// refusal stubs (#60) beside them. Append-only like everything else here.
+  static void _createPullSchema(sql.Database db) {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS pulled_event (
+        ulid TEXT PRIMARY KEY NOT NULL,
+        event_id TEXT NOT NULL
+      ) STRICT''');
+    // One per refused event on a race day, as the server keeps them
+    // (event_refusal_once): a device may be refused twice at one sequence
+    // number, with two different texts.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS pulled_refusal (
+        event_id TEXT NOT NULL,
+        device_id TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        event_hash TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        PRIMARY KEY (event_id, event_hash)
+      ) STRICT''');
+    for (final (table, key) in const [
+      ('pulled_event', 'ulid = NEW.ulid'),
+      ('pulled_refusal', 'event_id = NEW.event_id AND event_hash = NEW.event_hash'),
+    ]) {
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_update BEFORE UPDATE ON $table
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: UPDATE refused'); END''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_delete BEFORE DELETE ON $table
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: DELETE refused'); END''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_replace BEFORE INSERT ON $table
+        WHEN EXISTS (SELECT 1 FROM $table WHERE $key)
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: an existing row cannot be replaced'); END''');
+    }
   }
 
   /// What sync (#6) keeps about each event on its way to shore. The events
@@ -274,8 +316,10 @@ class EventStore {
     return envelope;
   }
 
-  /// Stores an event exactly as given - one of this device's, or one written
-  /// by another phone and pulled down to this one (#64). Never replaces one.
+  /// Stores an event from its fields, as given, for the core's own tests and
+  /// tools. Never replaces one. Another phone's event pulled down by sync
+  /// goes through [insertPulled] instead, which keeps the server's text byte
+  /// for byte (#64).
   void insert(EventEnvelope e) {
     _store(e);
     _noteStateEvent(e);
@@ -435,6 +479,173 @@ class EventStore {
     );
   }
 
+  // Sync's pull (#64) -----------------------------------------------------------
+
+  /// Stores [canonical], another committee phone's event pulled down from race
+  /// day [eventId], byte for byte as the server holds it, so its hash and its
+  /// device's chain verify on this phone as they do on its own. Returns true
+  /// when it was stored, and false when this phone already holds exactly
+  /// that text: an echo of one of its own events, or one pulled before.
+  ///
+  /// It never enters this device's own chain (criterion 6). Refused with
+  /// [PullRefused], storing nothing: text that is not an event's canonical
+  /// text; an event naming this device that this device never wrote, which
+  /// would take the sequence number its next tap needs; and one that clashes
+  /// with an event already held under its ULID, or under its device and
+  /// sequence number.
+  bool insertPulled(String eventId, String canonical) {
+    if (!isAdmissionId(eventId)) {
+      throw ArgumentError.value(eventId, 'eventId', 'is not a UUID in the form Postgres prints');
+    }
+    final EventEnvelope e;
+    try {
+      final wire = jsonDecode(canonical);
+      e = EventEnvelope.fromWire(wire as Map);
+      if (canonicalJson(wire) != canonical) throw const PullRefused('it is not canonical text (RFC 8785)');
+    } on PullRefused {
+      rethrow;
+    } on Object catch (error) {
+      throw PullRefused('it is not an event: $error');
+    }
+    if (!isUlid(e.ulid) || !isUlid(e.deviceId) || e.seq < 1) {
+      throw PullRefused('${e.ulid} does not name an event: ulid, device id or seq is malformed');
+    }
+    final held = _db.select('SELECT body FROM events WHERE ulid = ?', [e.ulid]);
+    if (held.isNotEmpty) {
+      if (held.first['body'] == canonical) return false;
+      throw PullRefused('this phone holds another text under ${e.ulid}');
+    }
+    if (e.deviceId == deviceId) {
+      throw PullRefused('${e.ulid} names this phone, which never wrote it');
+    }
+    if (_db.select('SELECT 1 FROM events WHERE device_id = ? AND seq = ?', [e.deviceId, e.seq]).isNotEmpty) {
+      throw PullRefused('this phone holds another event at ${e.deviceId} seq ${e.seq}');
+    }
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      _insert.execute([e.ulid, e.deviceId, e.seq, e.deviceTs, canonical]);
+      _db.execute('INSERT INTO pulled_event (ulid, event_id) VALUES (?, ?)', [e.ulid, eventId]);
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+    return true;
+  }
+
+  /// Stores [stub], a refusal on its race day (criterion 7), and returns true;
+  /// or false when it is already held. One the server keeps once
+  /// (`event_refusal_once`) is refused when a held one disagrees with it.
+  bool insertRefusalStub(RefusalStub stub) {
+    if (!isAdmissionId(stub.eventId)) {
+      throw ArgumentError.value(stub.eventId, 'eventId', 'is not a UUID in the form Postgres prints');
+    }
+    if (!isUlid(stub.deviceId) || stub.seq < 1 || stub.eventHash.isEmpty || stub.reason.isEmpty) {
+      throw PullRefused('$stub does not name a refused event');
+    }
+    final held = _db.select(
+        'SELECT device_id, seq, reason FROM pulled_refusal WHERE event_id = ? AND event_hash = ?',
+        [stub.eventId, stub.eventHash]);
+    if (held.isNotEmpty) {
+      final r = held.first;
+      if (r['device_id'] == stub.deviceId && r['seq'] == stub.seq && r['reason'] == stub.reason) return false;
+      throw PullRefused('this phone holds another refusal of ${stub.eventHash} on ${stub.eventId}');
+    }
+    _db.execute(
+      'INSERT INTO pulled_refusal (event_id, device_id, seq, event_hash, reason) VALUES (?, ?, ?, ?, ?)',
+      [stub.eventId, stub.deviceId, stub.seq, stub.eventHash, stub.reason],
+    );
+    return true;
+  }
+
+  /// The refusal stubs held for race day [eventId], by device and sequence.
+  List<RefusalStub> refusalStubs(String eventId) => [
+        for (final r in _db.select(
+            'SELECT device_id, seq, event_hash, reason FROM pulled_refusal WHERE event_id = ? '
+            'ORDER BY device_id, seq, event_hash',
+            [eventId]))
+          RefusalStub(
+            eventId: eventId,
+            deviceId: r['device_id'] as String,
+            seq: r['seq'] as int,
+            eventHash: r['event_hash'] as String,
+            reason: r['reason'] as String,
+          ),
+      ];
+
+  /// The pull's cursor for race day [eventId] (criterion 2), one per device
+  /// seen there, from the numbers held from it: by an event pulled from that
+  /// race day, or by a refusal stub. Its floor, its highest held contiguously
+  /// from the floor, its highest held, and the ranges in between not held
+  /// ([PullCursor]). This device's own cursor runs from 1 to its last event,
+  /// all of which it holds, so its own events are never asked for again.
+  ///
+  /// Worked out from what is stored rather than kept beside it, so a pull
+  /// that died mid-page resumes from exactly what it stored (criterion 5).
+  Map<String, PullCursor> pullCursors(String eventId) {
+    final seen = <String, Set<int>>{};
+    for (final r in _db.select(
+        'SELECT e.device_id, e.seq FROM events e JOIN pulled_event p ON p.ulid = e.ulid WHERE p.event_id = ? '
+        'UNION SELECT device_id, seq FROM pulled_refusal WHERE event_id = ?',
+        [eventId, eventId])) {
+      (seen[r['device_id'] as String] ??= <int>{}).add(r['seq'] as int);
+    }
+    seen.remove(deviceId);
+    final cursors = <String, PullCursor>{};
+    for (final MapEntry(key: device, value: seqs) in seen.entries) {
+      final sorted = seqs.toList()..sort();
+      final missing = <(int, int)>[
+        for (var i = 1; i < sorted.length; i++)
+          if (sorted[i] > sorted[i - 1] + 1) (sorted[i - 1] + 1, sorted[i] - 1),
+      ];
+      cursors[device] = PullCursor(
+        floor: sorted.first,
+        contiguous: missing.isEmpty ? sorted.last : missing.first.$1 - 1,
+        highest: sorted.last,
+        missing: missing,
+      );
+    }
+    cursors[deviceId] = PullCursor(floor: 1, contiguous: _nextSeq - 1);
+    return cursors;
+  }
+
+  /// Keeps [run] as sync's latest pull, and, when it read every race day the
+  /// phone may read, its time as the last successful pull (criterion 8).
+  void recordPullRun(PullRun run) {
+    if (!PullRunState.all.contains(run.state)) {
+      throw ArgumentError.value(run.state, 'state', 'is not a pull run state');
+    }
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      _db.execute(
+        "INSERT INTO meta (key, value) VALUES ('pull_run', ?) "
+        'ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+        [jsonEncode(run.toWire())],
+      );
+      if (run.state == PullRunState.done) {
+        _db.execute(
+          "INSERT INTO meta (key, value) VALUES ('last_pulled_at', ?) "
+          'ON CONFLICT (key) DO UPDATE SET value = excluded.value',
+          ['${run.at}'],
+        );
+      }
+      _db.execute('COMMIT');
+    } catch (_) {
+      _db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// How up to date this phone is with the other committee phones.
+  PullStatus pullStatus() {
+    final run = _db.select("SELECT value FROM meta WHERE key = 'pull_run'");
+    final at = _db.select("SELECT value FROM meta WHERE key = 'last_pulled_at'");
+    return PullStatus(
+      lastPulledAt: at.isEmpty ? null : int.parse(at.first['value'] as String),
+      lastRun: run.isEmpty ? null : PullRun.fromWire(jsonDecode(run.first['value'] as String) as Map),
+    );
+  }
+
   String _store(EventEnvelope e) {
     final wire = e.toWire();
     requireWireSafe(wire, 'event');
@@ -447,6 +658,13 @@ class EventStore {
   /// 001), so every read and every phone agrees on the order.
   List<EventEnvelope> readAll() => _all
       .select()
+      .map((r) => EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map))
+      .toList();
+
+  /// This device's own events, in the same order as [readAll]: what every
+  /// screen reads, so another phone's pulled events (#64) change none of them.
+  List<EventEnvelope> readOwn() => _own
+      .select([deviceId])
       .map((r) => EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map))
       .toList();
 
@@ -463,6 +681,7 @@ class EventStore {
     _insert.close();
     _count.close();
     _all.close();
+    _own.close();
     _canonical.close();
     _db.close();
   }

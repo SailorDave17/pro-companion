@@ -24,6 +24,7 @@ class SyncRun {
     this.remaining = 0,
     this.neverAdmitted = 0,
     this.error,
+    this.pull,
   });
 
   /// One of [UploadRunState.all], or [deferred].
@@ -52,11 +53,37 @@ class SyncRun {
   /// The last error the run met, described without any token.
   final String? error;
 
+  /// How the run's pull of the other phones' events ended (#64), or null when
+  /// it did not pull: the upload half found no signal or no session, or the
+  /// run was deferred.
+  final PullRun? pull;
+
   bool get progressed => accepted + refused > 0;
+
+  SyncRun _withPull(PullRun? pull) => SyncRun(
+        state: state,
+        accepted: accepted,
+        refused: refused,
+        paused: paused,
+        remaining: remaining,
+        neverAdmitted: neverAdmitted,
+        error: error,
+        pull: pull,
+      );
 
   @override
   String toString() => 'SyncRun($state: accepted $accepted, refused $refused, paused $paused, '
-      'remaining $remaining, never admitted $neverAdmitted${error == null ? '' : ', $error'})';
+      'remaining $remaining, never admitted $neverAdmitted${error == null ? '' : ', $error'}'
+      '${pull == null ? '' : '; $pull'})';
+}
+
+/// Why a pull stopped before reading everything, carried out of the page loop.
+class _PullStop implements Exception {
+  const _PullStop(this.state, [this.error]);
+
+  /// One of [PullRunState.all], or null when the run was deferred.
+  final String? state;
+  final String? error;
 }
 
 /// append_event's answer to a request it did not judge: why it failed, and so
@@ -81,8 +108,9 @@ enum _Failure {
 
 /// Uploads this phone's own events to the companion's server through
 /// append_event, exactly once each, and keeps every outcome in the core's
-/// store (#6, ADR 006). Pure Dart: it runs in the headless core engine beside
-/// the store, never in the UI's.
+/// store (#6, ADR 006); then pulls the other committee phones' events down
+/// (#64). Pure Dart: it runs in the headless core engine beside the store,
+/// never in the UI's.
 ///
 /// Each event goes as its stored canonical text, verbatim, to the race day
 /// its own admission belongs to. The server keys it by its ULID, and a
@@ -95,9 +123,15 @@ enum _Failure {
 /// user holds no admission to: a lost session, or a new user not yet
 /// admitted, pauses sync rather than turning events into refusals (owner
 /// decision on #6).
+///
+/// The pull reads every race day the signed-in user is admitted to and not
+/// revoked on, from each device's cursor (`EventStore.pullCursors`), and
+/// stores what it reads page by page, so a pull cut off mid-page resumes from
+/// exactly what it stored. A race day where the phone was revoked is not read
+/// at all, and nothing already stored is touched (#64 criterion 10).
 class SyncEngine {
   SyncEngine._(this._store, this._client, this._session, this._transport, this._ownsTransport,
-      this.requestTimeout, this.maxBackoff, this.refreshSpacing, this._log) {
+      this.requestTimeout, this.maxBackoff, this.refreshSpacing, this.pullInterval, this.pullPageSize, this._log) {
     // Subscribed before anything can change the session, so no change is missed.
     _auth = _client.auth.onAuthStateChange.listen(_onAuth,
         onError: (Object e) => _log('SYNC AUTH_ERROR ${_describe(e)}'));
@@ -113,7 +147,9 @@ class SyncEngine {
   /// the whole session (ADR 006).
   ///
   /// Nothing is sent until the first run. [transport] replaces the network,
-  /// for tests.
+  /// for tests. [pullInterval] is how often a phone with nothing left to
+  /// upload runs again to pull (#64; owner decision at pickup, 15 s), or null
+  /// for never.
   static SyncEngine open({
     required String url,
     required String publishableKey,
@@ -123,8 +159,11 @@ class SyncEngine {
     Duration requestTimeout = const Duration(seconds: 10),
     Duration maxBackoff = const Duration(seconds: 15),
     Duration refreshSpacing = const Duration(seconds: 60),
+    Duration? pullInterval = const Duration(seconds: 15),
+    int pullPageSize = 500,
     void Function(String line)? log,
   }) {
+    if (pullPageSize < 1) throw ArgumentError.value(pullPageSize, 'pullPageSize', 'must be at least 1');
     requirePublishableKey(publishableKey);
     final inner = transport ?? IOClient(HttpClient()..connectionTimeout = const Duration(seconds: 5));
     final guarded = GuardedTransport(inner, timeout: requestTimeout);
@@ -138,7 +177,7 @@ class SyncEngine {
       postgrestOptions: const PostgrestClientOptions(retryEnabled: false),
     );
     return SyncEngine._(store, client, SessionFile(sessionDir), guarded, transport == null, requestTimeout,
-        maxBackoff, refreshSpacing, log ?? (_) {});
+        maxBackoff, refreshSpacing, pullInterval, pullPageSize, log ?? (_) {});
   }
 
   final EventStore _store;
@@ -160,6 +199,13 @@ class SyncEngine {
   /// far ahead of the server would otherwise refresh on every run, against
   /// the club's shared per-IP refresh limit.
   final Duration refreshSpacing;
+
+  /// How long a phone with nothing left to upload waits before the next run,
+  /// which pulls (#64). Null: it waits for a [nudge].
+  final Duration? pullInterval;
+
+  /// The most rows one pull request asks for.
+  final int pullPageSize;
 
   late final StreamSubscription<AuthState> _auth;
   Future<SyncRun>? _running;
@@ -183,7 +229,8 @@ class SyncEngine {
   // The loop ----------------------------------------------------------------
 
   /// Starts syncing: a run now, then a run after every [nudge] and, while
-  /// anything remains, on a backoff that grows to [maxBackoff].
+  /// anything remains, on a backoff that grows to [maxBackoff]; once nothing
+  /// remains, every [pullInterval], to pull.
   void start() {
     if (_started || _closed) return;
     _started = true;
@@ -240,6 +287,14 @@ class SyncEngine {
     if (!_started || _closed || run.state == SyncRun.deferred) return;
     if (run.remaining == 0) {
       _failures = 0;
+      // Nothing to upload, but other phones keep logging: pull again soon.
+      final every = pullInterval;
+      if (every != null) {
+        _timer = Timer(every, () {
+          _timer = null;
+          syncOnce();
+        });
+      }
       return;
     }
     // Blocked and paused runs are retried too: after a cold start with no
@@ -287,7 +342,237 @@ class SyncEngine {
       }
     }
     _log('SYNC RUN $run');
+    // The pull goes only where the upload half reached the server: offline,
+    // or with no session, it would only fail the same way again.
+    if (const {UploadRunState.done, UploadRunState.notAdmitted, UploadRunState.retrying}.contains(run.state) &&
+        _authOps == 0 &&
+        !_closed) {
+      run = run._withPull(await _pullRecorded());
+    }
     return run;
+  }
+
+  // The pull (#64) ---------------------------------------------------------
+
+  /// One pull, recorded. Null when it was deferred, and then not recorded.
+  Future<PullRun?> _pullRecorded() async {
+    PullRun? pull;
+    try {
+      pull = await _pull();
+    } catch (e) {
+      // As for the upload: whatever it was, the pull counts as a failed one
+      // and is tried again on the next run.
+      pull = PullRun(state: PullRunState.retrying, at: clock.now().millisecondsSinceEpoch, error: _describe(e));
+    }
+    if (pull == null) return null;
+    try {
+      _store.recordPullRun(pull);
+    } catch (e) {
+      _log('SYNC PULL_RECORD_FAILED ${_describe(e)}');
+    }
+    _log('SYNC PULL $pull');
+    return pull;
+  }
+
+  Future<PullRun?> _pull() async {
+    var stored = 0, rejected = 0, revokedDays = 0;
+    PullRun ended(String state, {String? error}) => PullRun(
+          state: state,
+          at: clock.now().millisecondsSinceEpoch,
+          stored: stored,
+          revoked: revokedDays,
+          rejected: rejected,
+          error: error,
+        );
+
+    final blocked = await _ensureSession();
+    if (blocked != null) return ended(blocked.$1, error: blocked.$2);
+    _persistIfStale();
+    final runUid = userId;
+    try {
+      // The phone's own admissions: which race days it may read, and which
+      // revoked it. revoked_at is granted to the phone (#39), so a revoked
+      // race day is refused here, by the phone, without reading its log: the
+      // server's RLS would answer it with no rows rather than an error (owner
+      // decision on #64).
+      final rows = await _read(() => _client.rest.from('committee_device').select('event_id, revoked_at, superseded_by'));
+      final revoked = <String>{}, active = <String>{};
+      for (final row in rows) {
+        final r = row as Map;
+        final day = r['event_id'] as String;
+        if (r['revoked_at'] != null) {
+          revoked.add(day);
+        } else if (r['superseded_by'] == null) {
+          active.add(day);
+        }
+      }
+      revokedDays = revoked.length;
+      final readable = active.difference(revoked).toList()..sort();
+      if (readable.isEmpty) return ended(revoked.isEmpty ? PullRunState.notAdmitted : PullRunState.revoked);
+
+      for (final day in readable) {
+        final scope = _scope(_store.pullCursors(day));
+        // The stubs first: a stubbed number counts as seen, and is what lets
+        // the cursor past a refused event.
+        await _pages(
+          runUid,
+          table: 'event_refusal',
+          columns: 'device_id,seq,event_hash,reason',
+          day: day,
+          scope: scope,
+          keys: const ['device_id', 'seq', 'event_hash'],
+          take: (r) {
+            // A text refused as unreadable names no device or number
+            // (event_refusal's device_id and seq are nullable). The scope
+            // never asks for one, since SQL's NOT IN and comparisons are null
+            // for a null; a row that arrives anyway is refused, not a crash.
+            final (device, seq, hash, reason) = (r['device_id'], r['seq'], r['event_hash'], r['reason']);
+            if (device is! String || seq is! int || hash is! String || reason is! String) {
+              throw const PullRefused('a refusal stub that names no device and sequence number');
+            }
+            final taken = _store.insertRefusalStub(
+                RefusalStub(eventId: day, deviceId: device, seq: seq, eventHash: hash, reason: reason));
+            if (taken) stored++;
+          },
+          onRefused: () => rejected++,
+        );
+        await _pages(
+          runUid,
+          table: 'event_log',
+          columns: 'ulid,device_id,seq,canonical',
+          day: day,
+          scope: scope,
+          keys: const ['device_id', 'seq', 'ulid'],
+          take: (r) {
+            final canonical = r['canonical'];
+            if (canonical is! String) throw const PullRefused('a log row with no canonical text');
+            if (_store.insertPulled(day, canonical)) stored++;
+          },
+          onRefused: () => rejected++,
+        );
+      }
+    } on _PullStop catch (stop) {
+      final state = stop.state;
+      return state == null ? null : ended(state, error: stop.error);
+    }
+    return ended(PullRunState.done);
+  }
+
+  /// Reads [table]'s rows for race day [day] within [scope], page by page in
+  /// [keys] order, handing each row to [take] before the next page is asked
+  /// for. Within one run the pages go by keyset, after the last row read, so
+  /// rows the cursor still asks for (above a gap not yet filled) never hold a
+  /// later page back.
+  Future<void> _pages(
+    String? runUid, {
+    required String table,
+    required String columns,
+    required String day,
+    required String scope,
+    required List<String> keys,
+    required void Function(Map row) take,
+    required void Function() onRefused,
+  }) async {
+    List<Object?>? after;
+    while (true) {
+      // A new event to upload, or a sign-in, goes first. The run goes round
+      // again and the pull resumes from what it has stored: at least one page
+      // is read per run, so it still progresses (review of #64).
+      if (_authOps > 0 || _closed || (_dirty && after != null)) throw const _PullStop(null);
+      if (userId != runUid) throw const _PullStop(PullRunState.noSession, 'the session changed during the pull');
+      final filter = after == null ? scope : 'and(or($scope),${_after(keys, after)})';
+      final query = _client.rest.from(table).select(columns).eq('event_id', day).or(filter);
+      final rows = await _read(() {
+        var ordered = query.order(keys.first, ascending: true);
+        for (final k in keys.skip(1)) {
+          ordered = ordered.order(k, ascending: true);
+        }
+        return ordered.limit(pullPageSize);
+      });
+      for (final row in rows) {
+        try {
+          take(row as Map);
+        } on PullRefused catch (e) {
+          onRefused();
+          _log('SYNC PULL_REFUSED $table ${e.message}');
+        }
+      }
+      if (rows.length < pullPageSize) return;
+      final last = rows.last as Map;
+      after = [for (final k in keys) last[k]];
+    }
+  }
+
+  /// The most missing ranges one device's part of the scope names. Past it,
+  /// the scope asks for everything above the last range it names, so a request
+  /// stays a bounded size whatever a chain's holes.
+  static const maxMissingRanges = 8;
+
+  /// The core's ULID rule (`isUlid`), as a Postgres regular expression: a
+  /// device not seen yet is asked for only when its id is one this phone's
+  /// store would take, so a row it would refuse is never sent at all.
+  static const _ulidPattern = r'^[0-9A-HJKMNP-TV-Z]{26}$';
+
+  /// What a pull asks for, from [cursors]: for each device seen, exactly the
+  /// numbers not held (below its floor, above its highest, and each missing
+  /// range); and every device not seen yet whose id is a ULID. This device's
+  /// own cursor covers all it wrote, so its own events are not sent back.
+  ///
+  /// Every id here came out of the store, which holds only ULIDs, so none
+  /// carries a character PostgREST reserves.
+  static String _scope(Map<String, PullCursor> cursors) {
+    final devices = cursors.keys.toList()..sort();
+    return [
+      for (final d in devices) 'and(device_id.eq.$d,or(${_notHeld(cursors[d]!)}))',
+      'and(device_id.not.in.(${devices.join(',')}),device_id.match.${_quoted(_ulidPattern)})',
+    ].join(',');
+  }
+
+  static String _notHeld(PullCursor c) {
+    final named = c.missing.take(maxMissingRanges).toList();
+    final above = c.missing.length > maxMissingRanges ? c.missing[maxMissingRanges].$1 - 1 : c.highest;
+    return [
+      'seq.lt.${c.floor}',
+      'seq.gt.$above',
+      for (final (from, to) in named) 'and(seq.gt.${from - 1},seq.lt.${to + 1})',
+    ].join(',');
+  }
+
+  /// Rows after [values] in [keys] order: a keyset, as a PostgREST filter.
+  /// The values come from the server's last row, which is a phone's own text,
+  /// so each text value is quoted and read by PostgREST as text, whatever
+  /// characters it holds.
+  static String _after(List<String> keys, List<Object?> values) {
+    String v(Object? value) => value is int ? '$value' : _quoted('$value');
+    final terms = <String>[];
+    for (var i = 0; i < keys.length; i++) {
+      final equal = [for (var j = 0; j < i; j++) '${keys[j]}.eq.${v(values[j])}'];
+      final greater = '${keys[i]}.gt.${v(values[i])}';
+      terms.add(equal.isEmpty ? greater : 'and(${[...equal, greater].join(',')})');
+    }
+    return 'or(${terms.join(',')})';
+  }
+
+  /// [value] in PostgREST's double-quoted form, which reads reserved
+  /// characters as text: a backslash and a double quote are escaped.
+  static String _quoted(String value) => '"${value.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"';
+
+  /// Runs one read of the pull, turning a failure into the [_PullStop] that
+  /// says what it proves, as the upload half does.
+  Future<List<dynamic>> _read(Future<List<dynamic>> Function() read) async {
+    try {
+      return await read();
+    } on PostgrestException catch (e) {
+      final failure = _classify(e);
+      if (failure == _Failure.tokenRejected) await _forceRefresh();
+      throw _PullStop(_stateOf(failure), _describe(e));
+    } on AuthRetryableFetchException catch (e) {
+      throw _PullStop(PullRunState.unreachable, _describe(e));
+    } on AuthException catch (e) {
+      throw _PullStop(PullRunState.noSession, _describe(e));
+    } on http.ClientException catch (e) {
+      throw _PullStop(PullRunState.unreachable, _describe(e));
+    }
   }
 
   List<PendingUpload> _uploadable() => [
