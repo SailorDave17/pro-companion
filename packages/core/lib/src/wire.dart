@@ -16,28 +16,33 @@ import 'dart:typed_data';
 abstract final class Wire {
   static const append = 'append';
   static const readAll = 'readAll';
+  static const readOwn = 'readOwn';
   static const count = 'count';
   static const deviceId = 'deviceId';
   static const admissionId = 'admissionId';
   static const setAdmissionId = 'setAdmissionId';
   static const reportLocation = 'reportLocation';
   static const uploadStatus = 'uploadStatus';
+  static const pullStatus = 'pullStatus';
   static const close = 'close';
 
   /// Every command the core serves. There is no update and no delete, and a
   /// command not listed here is refused (#24 criterion 3). setAdmissionId
   /// replaces the admission the phone holds (#49), and reportLocation the
   /// position it holds in memory (#31), never a stored event, and
-  /// uploadStatus reads what sync (#6) keeps beside the log.
+  /// uploadStatus and pullStatus read what sync (#6, #64) keeps beside the
+  /// log.
   static const commands = {
     append,
     readAll,
+    readOwn,
     count,
     deviceId,
     admissionId,
     setAdmissionId,
     reportLocation,
     uploadStatus,
+    pullStatus,
     close,
   };
 

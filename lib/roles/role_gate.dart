@@ -45,7 +45,7 @@ class _RoleGateState extends State<RoleGate> {
   @override
   void initState() {
     super.initState();
-    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
+    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
         _roleEvents.addAll((r[0] as List<EventEnvelope>).where((e) => RoleKinds.all.contains(e.kind)));

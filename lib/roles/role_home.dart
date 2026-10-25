@@ -48,7 +48,11 @@ class RoleHome extends StatefulWidget {
 }
 
 class _RoleHomeState extends State<RoleHome> {
-  late Future<int> _count = widget.core.count();
+  late Future<int> _count = _ownCount();
+
+  /// How many events this phone logged: its own only, so another phone's
+  /// events pulled down by sync (#64) never change the count.
+  Future<int> _ownCount() => widget.core.readOwn().then((events) => events.length);
 
   // The mark boat's station (#26), read only on a home that offers it. This
   // phone's role and station events: the station in force is the latest pick
@@ -63,7 +67,7 @@ class _RoleHomeState extends State<RoleHome> {
   void initState() {
     super.initState();
     if (!homeActions(widget.role).contains(HomeAction.station)) return;
-    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
+    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
         _stationEvents.addAll((r[0] as List<EventEnvelope>)
@@ -81,7 +85,7 @@ class _RoleHomeState extends State<RoleHome> {
     final result = await Navigator.of(context).push(MaterialPageRoute<Object?>(builder: (_) => screen()));
     if (mounted) {
       setState(() {
-        _count = widget.core.count();
+        _count = _ownCount();
         // The station screen pops with the pick it logged.
         if (result is EventEnvelope) {
           _stationEvents.add(result);
@@ -103,7 +107,7 @@ class _RoleHomeState extends State<RoleHome> {
         _stationEvents.add(stored);
         _stationNotLogged = false;
         // The undo is an event too. The render showed the count one short.
-        _count = widget.core.count();
+        _count = _ownCount();
       });
     } catch (_) {
       if (mounted) setState(() => _stationNotLogged = true);

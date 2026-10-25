@@ -62,6 +62,8 @@ class CoreServer {
         return store.append(NewEvent.fromWire(args['event'] as Map)).toWire();
       case Wire.readAll:
         return [for (final e in store.readAll()) e.toWire()];
+      case Wire.readOwn:
+        return [for (final e in store.readOwn()) e.toWire()];
       case Wire.count:
         return store.count();
       case Wire.deviceId:
@@ -83,6 +85,8 @@ class CoreServer {
         return null;
       case Wire.uploadStatus:
         return store.uploadStatus().toWire();
+      case Wire.pullStatus:
+        return store.pullStatus().toWire();
       case Wire.close:
         store.close();
         return null;

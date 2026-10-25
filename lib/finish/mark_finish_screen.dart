@@ -58,7 +58,7 @@ class _MarkFinishScreenState extends State<MarkFinishScreen> {
   @override
   void initState() {
     super.initState();
-    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
+    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
         _events.addAll((r[0] as List<EventEnvelope>).where((e) =>

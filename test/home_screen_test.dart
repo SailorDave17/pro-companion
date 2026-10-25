@@ -27,8 +27,9 @@ void main() {
     expect(find.text('Reading the log…'), findsOneWidget, reason: 'the call is async');
     await tester.pumpAndSettle();
     expect(find.text('3 events on this phone'), findsOneWidget, reason: 'the pick and two notes');
-    expect(core.calls, {'readAll': 1, 'deviceId': 1, 'count': 1},
-        reason: 'the role from the log, then the count: async calls, and nothing but the interface');
+    expect(core.calls, {'readOwn': 2, 'deviceId': 1},
+        reason: "the role from the log, then the count, both of this phone's own events (#64): async "
+            'calls, and nothing but the interface');
   });
 
   testWidgets('says "1 event", not "1 events"', (tester) async {

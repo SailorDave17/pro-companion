@@ -66,7 +66,7 @@ class _FinishScreenState extends State<FinishScreen> {
     super.initState();
     _volumePresses = widget.volumeKeys.presses
         .listen((_) => _append(FinishEvents.finish(fleet: _fleet, source: FinishSources.volumeKey)));
-    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
+    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
         _events.addAll((r[0] as List<EventEnvelope>)

@@ -33,7 +33,7 @@ class _FleetsScreenState extends State<FleetsScreen> {
   void initState() {
     super.initState();
     _name.addListener(() => setState(() => _problem = null));
-    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
+    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
         _events.addAll((r[0] as List<EventEnvelope>).where((e) => FleetKinds.all.contains(e.kind)));
@@ -80,7 +80,7 @@ class _FleetsScreenState extends State<FleetsScreen> {
       // the log actually holds rather than what this screen assumed.
       List<EventEnvelope>? events;
       try {
-        events = await widget.core.readAll();
+        events = await widget.core.readOwn();
       } catch (_) {
         events = null; // Keep what is shown; the message still says it failed.
       }

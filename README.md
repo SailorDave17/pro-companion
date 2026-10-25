@@ -83,7 +83,38 @@ headless core engine; the UI never imports it (`test/import_boundary_test.dart`)
   itself.
 - **Its tests:** `dart test` in `packages/sync` against a scripted server (the real Supabase client,
   only the transport faked), and `test/sync_test.dart` against the local stack.
-- **Not yet in the app.** Starting it from the core host, with the project's URL and key, is
+
+### Sync: the other phones' events, down to this one
+
+The same engine also pulls (#64). Once the upload half has reached the server, it reads every race
+day the phone is admitted to: the other committee phones' events, and the refusal stubs (#60).
+With nothing left to upload, a started engine runs again every 15 s to pull.
+
+- **A pulled event is kept as the server holds it, byte for byte**, so its device's chain verifies
+  on this phone as it does on its own. It never enters this phone's own chain. An event on shore
+  that names this phone but was never written here is refused, because it would take the number
+  the next tap needs.
+- **The cursor is per race day and per device**, worked out from what is stored. A pull asks for
+  exactly the numbers it does not hold: below the lowest held, above the highest held, and each
+  missing range in between (up to eight named per device, then everything above). So an event that
+  reaches shore late is still delivered, and nothing held is sent again. It counts from the
+  device's lowest number held there, not from 1, since a phone's first events (its role pick,
+  before it is admitted) never reach shore, and numbers a device logged on another race day are a
+  hole here that costs one range. A refused number counts as held, from its stub. A pull cut off
+  mid-page resumes from exactly what it stored.
+- **A device not seen yet is asked for only when its id is a ULID**, and every value the server
+  sent back is quoted when a later page's filter carries it. So a row whose ids hold PostgREST's
+  reserved characters can neither be stored nor break the pull for the phones after it.
+- **A new event goes up first.** A pull yields at its next page when an event is appended, and
+  resumes from what it stored.
+- **A revoked phone is refused by the phone itself**, from its own `committee_device.revoked_at`,
+  because the server's RLS answers a revoked phone's read with no rows, not an error. Nothing
+  already stored is touched.
+- **The UI reads it through the core**: `CoreClient.pullStatus()` says when a pull last read
+  everything, and `readAll()` includes the other phones' events. **Every screen reads
+  `readOwn()`**, this phone's events only, so a pull changes no screen (owner decision on #64).
+  A story that shows the committee's view reads `readAll()` on purpose.
+- **Neither half is in the app yet.** Starting it from the core host, with the project's URL and key, is
   #113's. The host itself is #32's (ADR 003, `lib/core_host.dart`), the foreground service that
   keeps the core running with the app closed. Since #46 a release build may use the network: the main
   manifest requests `INTERNET` and `ACCESS_NETWORK_STATE`, held there by
@@ -130,8 +161,8 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
   device-handoff phone is one. A full run signs in 18 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 16,
-  12 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 17,
+  13 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 
 ### Applying a migration to the live project
 

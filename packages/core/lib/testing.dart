@@ -8,6 +8,7 @@ import 'dart:math';
 import 'src/client.dart';
 import 'src/envelope.dart';
 import 'src/location.dart';
+import 'src/pulls.dart';
 import 'src/roles.dart';
 import 'src/stations.dart';
 import 'src/uploads.dart';
@@ -51,11 +52,23 @@ class FakeCore implements CoreClient {
     return body();
   }
 
-  /// Adds events as though they were already in the log.
+  /// Adds events as though they were already in the log: this phone's own,
+  /// or, with another device id, another committee phone's pulled down by
+  /// sync (#64), which [readAll] returns and [readOwn] does not.
   void seed(Iterable<EventEnvelope> events) => _events.addAll(events);
 
   /// What [uploadStatus] answers. The fake runs no sync, so a test sets it.
   UploadStatus uploadStatusValue = UploadStatus.empty;
+
+  /// What [pullStatus] answers, set by a test for the same reason.
+  PullStatus pullStatusValue = PullStatus.empty;
+
+  List<EventEnvelope> _ordered(Iterable<EventEnvelope> events) => [...events]..sort((a, b) {
+      final byTs = a.deviceTs.compareTo(b.deviceTs);
+      if (byTs != 0) return byTs;
+      final byDevice = a.deviceId.compareTo(b.deviceId);
+      return byDevice != 0 ? byDevice : a.ulid.compareTo(b.ulid);
+    });
 
   @override
   Future<EventEnvelope> append(NewEvent event) => _call(Wire.append, () {
@@ -89,15 +102,11 @@ class FakeCore implements CoreClient {
       });
 
   @override
-  Future<List<EventEnvelope>> readAll() => _call(Wire.readAll, () {
-        final sorted = [..._events]..sort((a, b) {
-            final byTs = a.deviceTs.compareTo(b.deviceTs);
-            if (byTs != 0) return byTs;
-            final byDevice = a.deviceId.compareTo(b.deviceId);
-            return byDevice != 0 ? byDevice : a.ulid.compareTo(b.ulid);
-          });
-        return sorted;
-      });
+  Future<List<EventEnvelope>> readAll() => _call(Wire.readAll, () => _ordered(_events));
+
+  @override
+  Future<List<EventEnvelope>> readOwn() =>
+      _call(Wire.readOwn, () => _ordered(_events.where((e) => e.deviceId == deviceIdValue)));
 
   @override
   Future<int> count() => _call(Wire.count, () => _events.length);
@@ -132,6 +141,13 @@ class FakeCore implements CoreClient {
         final wire = uploadStatusValue.toWire();
         requireWireSafe(wire, 'uploadStatus');
         return UploadStatus.fromWire(wire);
+      });
+
+  @override
+  Future<PullStatus> pullStatus() => _call(Wire.pullStatus, () {
+        final wire = pullStatusValue.toWire();
+        requireWireSafe(wire, 'pullStatus');
+        return PullStatus.fromWire(wire);
       });
 
   @override

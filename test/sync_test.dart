@@ -16,10 +16,11 @@ import 'support/local_stack.dart';
 
 /// #6: the sync engine against the local stack, as a phone meets the companion's server. Each
 /// phone signs in and is admitted through the engine itself; the owner's reads (psql as the table
-/// owner) are the instrument, since no phone can read the log before #50.
+/// owner) are the instrument, since no phone can read the log before #50. The last case is #64's
+/// pull, the other direction.
 ///
 /// Spend per run of this file: 2 anonymous sign-ins (the device-handoff case) of the stack's 30 an
-/// hour, and 12 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 16
+/// hour, and 13 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 17
 /// verifications (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than
 /// on what they test. Prove a mutation with --plain-name on one case.
 ///
@@ -37,7 +38,9 @@ void main() {
       day = await stack.raceDay();
       otherDay = await stack.raceDay();
       strangerDay = await stack.raceDay();
-      scorer = await StackPhone.open(stack);
+      // Two rows a page, so every pull the scorer makes pages, and real PostgREST parses the keyset
+      // filter (the review of #64: at 500 a page, only the fake's parser ever read it).
+      scorer = await StackPhone.open(stack, pullPageSize: 2);
       await scorer.signInNamed();
       await scorer.admitTo(day);
     });
@@ -518,6 +521,87 @@ void main() {
       // Accepted today: append_event judges the caller, not the admission in the text. #73 will
       // judge the text, and would refuse these; that conflict is raised on #73.
     });
+
+    test('#64 criteria 1, 2, 4, 7, 8 and 10: another phone\'s events pull down attributed to its '
+        'device and admission, byte for byte; nothing is asked for twice; a refusal arrives as a '
+        'stub; and a revoked phone is refused without losing anything', () async {
+      // The scorer is the puller, so this costs one sign-in: the writer's.
+      final writer = await StackPhone.open(stack);
+      addTearDown(writer.close);
+      await writer.signInNamed();
+      final writerAdmission = await writer.admitTo(day);
+      final written = writer.log(3);
+      expect((await writer.engine.syncOnce()).remaining, 0, reason: 'control: on shore');
+
+      final pulled = await scorer.engine.syncOnce();
+      expect(pulled.pull?.state, PullRunState.done, reason: '$pulled');
+      final theirs = {for (final e in scorer.store.readAll()) if (e.deviceId == writer.store.deviceId) e.ulid: e};
+      expect(theirs.keys, unorderedEquals(written), reason: 'criterion 1: they appear on this phone');
+      for (final u in written) {
+        expect(theirs[u]!.admissionId, writerAdmission, reason: 'attributed to the admission it was written under');
+        final kept = scorer.store.readCanonical().singleWhere((t) => t.contains('"ulid":"$u"'));
+        expect(kept, writer.storedByUlid()[u], reason: 'byte for byte as its phone wrote it');
+        expect(kept, await stack.eventLogCanonical(u), reason: 'and as the server holds it');
+      }
+      expect(scorer.store.pullStatus().lastPulledAt, pulled.pull?.at, reason: 'criterion 8');
+      expect(scorer.store.pullCursors(day.eventId)[writer.store.deviceId], const PullCursor(floor: 1, contiguous: 3));
+
+      // Criteria 2 and 4 on the real server: PostgREST runs the cursor's filter, and once caught up
+      // every read comes back empty, the phone's own events included.
+      final mark = scorer.transport.seen.length;
+      await scorer.engine.syncOnce();
+      final reads = [
+        for (final s in scorer.transport.seen.skip(mark))
+          if (s.path.endsWith('/rest/v1/event_log') || s.path.endsWith('/rest/v1/event_refusal')) s,
+      ];
+      expect(reads, isNotEmpty, reason: 'control: it read');
+      for (final s in reads) {
+        expect([s.status, s.answer], [200, '[]'], reason: 'nothing asked for twice: ${s.path}');
+      }
+
+      // Criterion 10, the premise: the server answers a revoked phone's read of the log with no
+      // rows, not an error. So the phone judges its own revoked_at (owner decision on #64).
+      await stack.revoke(writerAdmission);
+      final rlsAnswer = await writer.engine.clientForTests.rest.from('event_log').select('ulid').eq('event_id', day.eventId);
+      expect(rlsAnswer, isEmpty, reason: 'control: RLS filters, it does not refuse');
+      final before = writer.store.readCanonical();
+      final after = writer.log(1).single;
+      final writerMark = writer.transport.seen.length;
+      final refused = await writer.engine.syncOnce();
+      expect(refused.refused, 1, reason: 'its upload refused as revoked, which the server keeps');
+      expect(refused.pull?.state, PullRunState.revoked, reason: '$refused');
+      expect([for (final s in writer.transport.seen.skip(writerMark)) s.path],
+          isNot(contains(endsWith('/rest/v1/event_log'))), reason: 'the log is not read at all');
+      // Unordered: readCanonical sorts by device id, and criterion 4's skewed-clock phones, pulled
+      // down above, mint ids after this phone's (measured in a whole-file run).
+      expect(writer.store.readCanonical(), unorderedEquals([...before, writer.storedByUlid()[after]]),
+          reason: 'nothing it held is deleted');
+
+      // Criterion 7: the refusal reaches the other phone as a stub, and the cursor passes it.
+      await scorer.engine.syncOnce();
+      final stubs = [for (final s in scorer.store.refusalStubs(day.eventId)) if (s.deviceId == writer.store.deviceId) s];
+      expect(stubs, hasLength(1));
+      expect([stubs.single.seq, stubs.single.reason], [4, 'revoked']);
+      expect(stubs.single.eventHash, chainHash(writer.storedByUlid()[after]!));
+      expect(scorer.store.pullCursors(day.eventId)[writer.store.deviceId], const PullCursor(floor: 1, contiguous: 4));
+
+      // On the real server: a ULID holding PostgREST's reserved characters, as the last row of a full
+      // page, must not break the next page's filter. Seeded as the table owner.
+      final template = jsonDecode(writer.storedByUlid()[written.first]!) as Map;
+      final device = newUlid();
+      final crafted = [
+        for (final (seq, ulid) in [(1, newUlid()), (2, '01J8,(X).Y:Z'), (3, newUlid())])
+          canonicalJson({...template, 'device_id': device, 'seq': seq, 'ulid': ulid, 'admission_id': null}),
+      ];
+      for (final t in crafted) {
+        await stack.seedCanonical(day.eventId, t);
+      }
+      final paged = await scorer.engine.syncOnce();
+      expect(paged.pull?.state, PullRunState.done, reason: '$paged');
+      expect(paged.pull?.rejected, 1, reason: 'the crafted row was read, and refused by the store');
+      expect(scorer.store.readCanonical(), containsAll([crafted[0], crafted[2]]),
+          reason: 'the page after the crafted row was read: PostgREST took the quoted keyset');
+    });
   }, skip: localStackRequested ? false : localStackSkip);
 }
 
@@ -584,14 +668,15 @@ class SeenRequest {
 class StackPhone {
   StackPhone._(this._stack, this.dir, this.store, this.transport, this.engine);
 
-  static Future<StackPhone> open(LocalStack stack, {int Function()? clock}) async {
+  static Future<StackPhone> open(LocalStack stack, {int Function()? clock, int pullPageSize = 500}) async {
     final dir = Directory.systemTemp.createTempSync('pc_sync_stack_').path;
     final store = EventStore.open('$dir${Platform.pathSeparator}core.db', clock: clock);
-    return reopen(stack, dir, store: store);
+    return reopen(stack, dir, store: store, pullPageSize: pullPageSize);
   }
 
   /// A new engine on an existing phone's log and session, as the core restarting would make.
-  static Future<StackPhone> reopen(LocalStack stack, String dir, {required EventStore store, bool offline = false}) async {
+  static Future<StackPhone> reopen(LocalStack stack, String dir,
+      {required EventStore store, bool offline = false, int pullPageSize = 500}) async {
     final transport = StackTransport()..offline = offline;
     final engine = SyncEngine.open(
       url: stack.api.toString(),
@@ -599,6 +684,7 @@ class StackPhone {
       store: store,
       sessionDir: dir,
       transport: transport,
+      pullPageSize: pullPageSize,
       log: printOnFailure,
     );
     return StackPhone._(stack, dir, store, transport, engine);

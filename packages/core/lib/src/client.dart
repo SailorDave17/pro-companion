@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'envelope.dart';
+import 'pulls.dart';
 import 'uploads.dart';
 import 'wire.dart';
 
@@ -12,8 +13,14 @@ abstract interface class CoreClient {
   /// committed on the phone, with the event as stored.
   Future<EventEnvelope> append(NewEvent event);
 
-  /// Every event in the log, in ADR 001 order.
+  /// Every event in the log, in ADR 001 order: this phone's own and, once sync
+  /// pulls them (#64), the other committee phones' events too.
   Future<List<EventEnvelope>> readAll();
+
+  /// This phone's own events, in ADR 001 order. What every screen reads, so
+  /// another phone's pulled events change none of them (owner decision on
+  /// #64): a story that shows the committee's view reads [readAll] on purpose.
+  Future<List<EventEnvelope>> readOwn();
 
   /// How many events the log holds.
   Future<int> count();
@@ -44,6 +51,11 @@ abstract interface class CoreClient {
   /// wait, how many the server holds, which it refused and why, and how sync's
   /// latest run ended.
   Future<UploadStatus> uploadStatus();
+
+  /// How up to date this phone is with the other committee phones (#64): when
+  /// a pull last read every race day it may read, and how sync's latest pull
+  /// ended.
+  Future<PullStatus> pullStatus();
 
   /// Closes the store and stops the core.
   Future<void> close();
@@ -87,6 +99,11 @@ class PortCoreClient implements CoreClient {
       ];
 
   @override
+  Future<List<EventEnvelope>> readOwn() async => [
+        for (final w in await _call(Wire.readOwn, const {}) as List) EventEnvelope.fromWire(w as Map),
+      ];
+
+  @override
   Future<int> count() async => await _call(Wire.count, const {}) as int;
 
   @override
@@ -113,6 +130,9 @@ class PortCoreClient implements CoreClient {
   @override
   Future<UploadStatus> uploadStatus() async =>
       UploadStatus.fromWire(await _call(Wire.uploadStatus, const {}) as Map);
+
+  @override
+  Future<PullStatus> pullStatus() async => PullStatus.fromWire(await _call(Wire.pullStatus, const {}) as Map);
 
   @override
   Future<void> close() async {

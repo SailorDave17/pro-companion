@@ -95,8 +95,9 @@ void main() {
       await finish(tester, '11');
       core.calls.clear();
       await openResults(tester);
-      expect(core.calls, {'readAll': 2, 'deviceId': 1, 'count': 1},
-          reason: "the role from the log (#20), home's count, then the results screen's one read");
+      expect(core.calls, {'readOwn': 3, 'deviceId': 1},
+          reason: "the role from the log (#20), home's count, then the results screen's one read, each of "
+              "this phone's own events (#64)");
     });
 
     testWidgets('a day with nothing finished says so', (tester) async {
@@ -405,6 +406,9 @@ class _HeldCore implements CoreClient {
   Future<List<EventEnvelope>> readAll() => _inner.readAll();
 
   @override
+  Future<List<EventEnvelope>> readOwn() => _inner.readOwn();
+
+  @override
   Future<int> count() => _inner.count();
 
   @override
@@ -424,6 +428,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<UploadStatus> uploadStatus() => _inner.uploadStatus();
+
+  @override
+  Future<PullStatus> pullStatus() => _inner.pullStatus();
 
   @override
   Future<void> close() => _inner.close();
