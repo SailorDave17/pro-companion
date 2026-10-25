@@ -7,6 +7,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/revoked.dart';
 import 'support/roles.dart';
 
 /// #18 on the app, driven against the fake core: fleets are named on the
@@ -332,6 +333,16 @@ void main() {
           );
           expect(violations, isEmpty, reason: violations.join('\n'));
         });
+        if (scale == 2.0) {
+          testWidgets('${names.length} fleets at ${(scale * 100).round()}% text, under the revoked banner (#53)',
+              (tester) async {
+            final violations = await barCheck(
+              tester,
+              (observer) => app(textScale: scale, on: revoked(fleetDay(names)), observer: observer),
+            );
+            expect(violations, isEmpty, reason: violations.join('\n'));
+          });
+        }
       }
     }
   });

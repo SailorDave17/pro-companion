@@ -132,7 +132,9 @@ void main() {
   });
 
   group('criteria 10 and 11: a refusal is final and flagged; anything else is retried', () {
-    for (final reason in ['revoked', 'inconsistent_canonical', 'ulid_conflict', 'admission_mismatch']) {
+    // A refusal for revocation also stops the events after it (#53), so it has a group of its own
+    // below; these are the reasons that stop nothing but their own event.
+    for (final reason in ['inconsistent_canonical', 'ulid_conflict', 'admission_mismatch']) {
       test('a refusal ($reason) is kept with its reason, and never sent again', () async {
         final server = FakeServer();
         final (phone, engine, _) = await admittedPhone(server, alice, dayOne);
@@ -233,7 +235,7 @@ void main() {
     test('a refusal answered after an unknown outcome is flagged as maybe on shore; after a proved '
         'rollback it is not', () async {
       final server = FakeServer();
-      final (phone, engine, admission) = await admittedPhone(server, alice, dayOne);
+      final (phone, engine, _) = await admittedPhone(server, alice, dayOne);
       final ulids = phone.log(2);
       final first = <String>{};
       server.hooks.add((r) {
@@ -247,12 +249,15 @@ void main() {
         return postgrestError(400, 'P0001', 'rolled back'); // nothing stored
       });
       await engine.syncOnce();
-      server.revoked.add(admission);
+      // Every later send refused, for a reason that stops nothing else. A revocation would answer
+      // only the first of the two, since it holds everything after it (#53); the flag on a
+      // revocation is the single-event tests' above.
+      server.hooks.add((r) => r.isAppend ? FakeServer.refusal('admission_mismatch', r.json['p_canonical'] as String) : null);
       await engine.syncOnce();
       await engine.syncOnce();
       expect(phone.store.uploadStatus().refused, [
-        RefusedUpload(ulid: ulids[0], reason: 'revoked', mayBeOnShore: true),
-        RefusedUpload(ulid: ulids[1], reason: 'revoked', mayBeOnShore: false),
+        RefusedUpload(ulid: ulids[0], reason: 'admission_mismatch', mayBeOnShore: true),
+        RefusedUpload(ulid: ulids[1], reason: 'admission_mismatch', mayBeOnShore: false),
       ]);
       expect(server.log.keys, [ulids[0]], reason: 'the flag is right: the first one is on shore');
     });
@@ -289,6 +294,173 @@ void main() {
       never.completeError(http.ClientException('the killed process never hears back'));
       await killed;
       await engine.close();
+    });
+  });
+
+  group('#53: a refusal for revocation is the last send under its admission', () {
+    test('criterion 1: the events after it stay on the phone unsent, the phone learns which race day '
+        'revoked it, and no later run sends anything', () async {
+      final server = FakeServer();
+      final (phone, engine, admission) = await admittedPhone(server, alice, dayOne);
+      final before = phone.log(1).single;
+      expect((await engine.syncOnce()).accepted, 1, reason: 'control: admitted, it uploads');
+      expect(phone.store.revocation(), isNull);
+
+      server.revoked.add(admission);
+      final ulids = phone.log(3);
+      final run = await engine.syncOnce();
+      expect([run.state, run.refused, run.held, run.remaining], [UploadRunState.done, 1, 2, 0], reason: '$run');
+      expect([for (final u in ulids) server.appendsOf(u)], [1, 0, 0], reason: 'only the first went');
+      expect(phone.store.revocation()?.eventId, dayOne);
+
+      final sent = server.requests.where((r) => r.isAppend).length;
+      for (var i = 0; i < 3; i++) {
+        await engine.syncOnce();
+      }
+      expect(server.appends.length, sent, reason: 'stops retrying: nothing more is sent');
+      final status = phone.store.uploadStatus();
+      expect(status.refused, [RefusedUpload(ulid: ulids.first, reason: 'revoked', mayBeOnShore: false)]);
+      expect([status.pending, status.held, status.accepted], [0, 2, 1]);
+      expect(server.log.keys, [before]);
+    });
+
+    test('criterion 2: taps after the revocation are kept on the phone, in its chain, and never sent',
+        () async {
+      final server = FakeServer();
+      final (phone, engine, admission) = await admittedPhone(server, alice, dayOne);
+      server.revoked.add(admission);
+      phone.log(1);
+      await engine.syncOnce();
+      expect(phone.store.revocation(), isNotNull, reason: 'control: the phone knows');
+
+      final sent = server.appends.length;
+      final later = phone.log(5);
+      final run = await engine.syncOnce();
+      expect(server.appends.length, sent, reason: 'none of the five went');
+      expect([run.state, run.held, run.remaining], [UploadRunState.done, 5, 0], reason: '$run');
+      expect([for (final e in phone.store.readOwn()) e.ulid], containsAll(later));
+      expect(verifyChains(phone.store.readCanonical()).values.single.state, ChainState.intact,
+          reason: 'kept in this phone\'s own chain, like any other tap');
+      expect(phone.store.uploadStatus().held, 5);
+    });
+
+    test('an admission the phone moved to afterwards, on another race day, uploads, and the phone '
+        'is no longer shown as revoked', () async {
+      final server = FakeServer();
+      final (phone, engine, admission) = await admittedPhone(server, alice, dayOne);
+      server.revoked.add(admission);
+      final old = phone.log(2);
+      await engine.syncOnce();
+      expect(phone.store.revocation(), isNotNull);
+
+      phone.store.setAdmissionId(server.admitDirectly(alice, dayTwo));
+      expect(phone.store.revocation(), isNull, reason: 'the taps now go under an admission that stands');
+      final fresh = phone.log(2);
+      final run = await engine.syncOnce();
+      expect(run.accepted, 2, reason: '$run');
+      expect(server.log.keys, unorderedEquals(fresh));
+      expect(server.appendsOf(old.last), 0, reason: 'still held under the revoked admission');
+      expect(phone.store.uploadStatus().held, 1);
+    });
+
+    test('one refusal holds every admission the user holds on the race day, with no send under the '
+        'others', () async {
+      // The server refuses the user's every event there once any of their admissions is revoked
+      // (append_event, #70), so a second admission's events would only be refused too.
+      final server = FakeServer();
+      final (phone, engine, first) = await admittedPhone(server, alice, dayOne);
+      final a = phone.log(2);
+      phone.store.setAdmissionId(server.admitDirectly(alice, dayOne));
+      final b = phone.log(2);
+      server.revoked.add(first);
+      await engine.syncOnce();
+      await engine.syncOnce();
+      expect([for (final u in [...a, ...b]) server.appendsOf(u)], [1, 0, 0, 0]);
+      expect(phone.store.uploadStatus().held, 3);
+      expect(phone.store.revocation()?.eventId, dayOne);
+    });
+
+    test('a role change made on the race day before the revocation is shown as revoked at once, with '
+        'nothing under it yet to send', () async {
+      // The review of #53: keyed on the one admission refused, the banner stayed off until a tap
+      // under the new admission was itself sent and refused.
+      final server = FakeServer();
+      final (phone, engine, first) = await admittedPhone(server, alice, dayOne);
+      final a = phone.log(1);
+      phone.store.setAdmissionId(server.admitDirectly(alice, dayOne)); // the role change (#70)
+      server.revoked.add(first);
+      await engine.syncOnce();
+      expect(phone.store.revocation()?.eventId, dayOne, reason: 'the taps now go under the second admission');
+
+      final b = phone.log(2);
+      await engine.syncOnce();
+      expect([for (final u in [...a, ...b]) server.appendsOf(u)], [1, 0, 0]);
+      expect(phone.store.uploadStatus().held, 2);
+    });
+
+    test('an event whose earlier send may have landed still goes once after the revocation, and its '
+        'refusal is flagged; the rest are held', () async {
+      // #6's owner decision: a lost answer, then a revocation, is flagged as maybe on shore. The
+      // review of #53 found that flag lost when another event under the admission took the refusal.
+      final server = FakeServer();
+      final (phone, engine, admission) = await admittedPhone(server, alice, dayOne);
+      final u = phone.log(3);
+      final first = <String>{};
+      server.hooks.add((r) {
+        if (!r.isAppend) return null;
+        final x = u.firstWhere((x) => r.body.contains(x));
+        if (!first.add(x)) return null;
+        if (x == u[0]) return postgrestError(400, 'P0001', 'rolled back'); // nothing stored: voided
+        if (x == u[1]) {
+          server.answer(r); // stored, and the answer is lost
+          throw http.ClientException('lost');
+        }
+        return null;
+      });
+      await engine.syncOnce();
+      expect(server.log.keys, [u[1]], reason: 'control: the second landed unanswered, the third never went');
+
+      server.revoked.add(admission);
+      final run = await engine.syncOnce();
+      expect(
+          phone.store.uploadStatus().refused,
+          unorderedEquals([
+            RefusedUpload(ulid: u[0], reason: 'revoked', mayBeOnShore: false),
+            RefusedUpload(ulid: u[1], reason: 'revoked', mayBeOnShore: true),
+          ]));
+      expect([for (final x in u) server.appendsOf(x)], [2, 2, 0]);
+      expect([run.held, phone.store.uploadStatus().held], [1, 1]);
+    });
+  });
+
+  group('#53: the race day\'s name, for the revoked banner', () {
+    test('the pull reads it once while the phone is admitted, and the revocation names it after the '
+        'server stopped showing it', () async {
+      final server = FakeServer()..eventNames[dayOne] = 'Fall Series Day 2';
+      final (phone, engine, admission) = await admittedPhone(server, alice, dayOne);
+      await engine.syncOnce();
+      await engine.syncOnce();
+      expect(server.requests.where((r) => r.path == '/rest/v1/event').length, 1, reason: 'read once, then kept');
+      expect(phone.store.raceDayName(dayOne), 'Fall Series Day 2');
+
+      server.revoked.add(admission);
+      expect(server.readable(alice, dayOne), isFalse, reason: 'control: the server no longer shows it');
+      phone.log(1);
+      await engine.syncOnce();
+      expect(phone.store.revocation(), isA<Revocation>().having((r) => r.eventName, 'eventName', 'Fall Series Day 2'));
+    });
+
+    test('revoked before the name was ever read: the revocation names no race day, and nothing asks for '
+        'it while revoked', () async {
+      final server = FakeServer()..eventNames[dayOne] = 'Fall Series Day 2';
+      final (phone, engine, admission) = await admittedPhone(server, alice, dayOne);
+      server.revoked.add(admission);
+      phone.log(1);
+      await engine.syncOnce();
+      await engine.syncOnce();
+      expect(phone.store.revocation()?.eventName, isNull);
+      expect(phone.store.revocation()?.eventId, dayOne);
+      expect(server.requests.where((r) => r.path == '/rest/v1/event'), isEmpty);
     });
   });
 

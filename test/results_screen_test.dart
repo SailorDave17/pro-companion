@@ -95,7 +95,9 @@ void main() {
       await finish(tester, '11');
       core.calls.clear();
       await openResults(tester);
-      expect(core.calls, {'readOwn': 3, 'deviceId': 1},
+      // The revoked banner (#53) is the app shell's, not the screen's: it reads every 5 s whatever
+      // is open, so how many of its reads fall in here is a matter of time. Its own tests hold it.
+      expect({...core.calls}..remove('revocation'), {'readOwn': 3, 'deviceId': 1},
           reason: "the role from the log (#20), home's count, then the results screen's one read, each of "
               "this phone's own events (#64)");
     });
@@ -428,6 +430,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<UploadStatus> uploadStatus() => _inner.uploadStatus();
+
+  @override
+  Future<Revocation?> revocation() => _inner.revocation();
 
   @override
   Future<PullStatus> pullStatus() => _inner.pullStatus();

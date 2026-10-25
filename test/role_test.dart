@@ -10,6 +10,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/revoked.dart';
 import 'support/roles.dart';
 
 /// #20 on the app, driven against the fake core: a phone picks the committee
@@ -263,6 +264,17 @@ void main() {
         );
         expect(violations, isEmpty, reason: violations.join('\n'));
       });
+      if (scale == 2.0) {
+        testWidgets("the recorder's home and its flow, with fleets, at $pct text, under the revoked banner (#53)",
+            (tester) async {
+          final violations = await barCheck(
+            tester,
+            (observer) => app(textScale: scale, on: revoked(recorderDay()), observer: observer),
+            actionIds: recorderActions,
+          );
+          expect(violations, isEmpty, reason: violations.join('\n'));
+        });
+      }
 
       // With no station yet, so FINISH AT MARK is off and only the station's
       // actions can be reached. test/station_test.dart checks it with one
@@ -409,6 +421,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<UploadStatus> uploadStatus() => _inner.uploadStatus();
+
+  @override
+  Future<Revocation?> revocation() => _inner.revocation();
 
   @override
   Future<PullStatus> pullStatus() => _inner.pullStatus();

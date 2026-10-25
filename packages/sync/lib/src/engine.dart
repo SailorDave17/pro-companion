@@ -23,6 +23,7 @@ class SyncRun {
     this.paused = 0,
     this.remaining = 0,
     this.neverAdmitted = 0,
+    this.held = 0,
     this.error,
     this.pull,
   });
@@ -50,6 +51,10 @@ class SyncRun {
   /// Events written before the phone was ever admitted. They never upload.
   final int neverAdmitted;
 
+  /// Events written under an admission the server refused an event under as
+  /// revoked (#53). They are kept and never sent, and are not [remaining].
+  final int held;
+
   /// The last error the run met, described without any token.
   final String? error;
 
@@ -67,13 +72,14 @@ class SyncRun {
         paused: paused,
         remaining: remaining,
         neverAdmitted: neverAdmitted,
+        held: held,
         error: error,
         pull: pull,
       );
 
   @override
   String toString() => 'SyncRun($state: accepted $accepted, refused $refused, paused $paused, '
-      'remaining $remaining, never admitted $neverAdmitted${error == null ? '' : ', $error'}'
+      'remaining $remaining, never admitted $neverAdmitted, held $held${error == null ? '' : ', $error'}'
       '${pull == null ? '' : '; $pull'})';
 }
 
@@ -117,7 +123,12 @@ enum _Failure {
 /// byte-identical re-send is a no-op, so a retry after a lost answer is
 /// harmless. An answer of accepted is kept as accepted; a refusal
 /// (`append_event_refused`) is kept as refused, final and never sent again;
-/// anything else is retried.
+/// anything else is retried. A refusal for revocation is also the last send
+/// under the signed-in user's admissions on that race day (#53): their other
+/// events, and every one written under them later, stay on the phone unsent,
+/// but for one whose earlier send may have landed, which goes once more for
+/// its flagged refusal. Once every race day has revoked the phone, sync stops
+/// running on its own.
 ///
 /// A run is bound to one signed-in user. Nothing is sent to a race day that
 /// user holds no admission to: a lost session, or a new user not yet
@@ -149,7 +160,7 @@ class SyncEngine {
   /// Nothing is sent until the first run. [transport] replaces the network,
   /// for tests. [pullInterval] is how often a phone with nothing left to
   /// upload runs again to pull (#64; owner decision at pickup, 15 s), or null
-  /// for never.
+  /// for never. A phone every race day has revoked does not (#53).
   static SyncEngine open({
     required String url,
     required String publishableKey,
@@ -201,7 +212,8 @@ class SyncEngine {
   final Duration refreshSpacing;
 
   /// How long a phone with nothing left to upload waits before the next run,
-  /// which pulls (#64). Null: it waits for a [nudge].
+  /// which pulls (#64). Null: it waits for a [nudge]. So does a phone every
+  /// race day has revoked (#53).
   final Duration? pullInterval;
 
   /// The most rows one pull request asks for.
@@ -230,7 +242,8 @@ class SyncEngine {
 
   /// Starts syncing: a run now, then a run after every [nudge] and, while
   /// anything remains, on a backoff that grows to [maxBackoff]; once nothing
-  /// remains, every [pullInterval], to pull.
+  /// remains, every [pullInterval], to pull, unless every race day has
+  /// revoked the phone (#53).
   void start() {
     if (_started || _closed) return;
     _started = true;
@@ -287,6 +300,10 @@ class SyncEngine {
     if (!_started || _closed || run.state == SyncRun.deferred) return;
     if (run.remaining == 0) {
       _failures = 0;
+      // Every race day the phone was admitted to has revoked it (#53): nothing
+      // can go up and nothing may be read, so it stops trying. A tap's nudge or
+      // an admission starts a run again.
+      if (run.pull?.state == PullRunState.revoked) return;
       // Nothing to upload, but other phones keep logging: pull again soon.
       final every = pullInterval;
       if (every != null) {
@@ -409,6 +426,18 @@ class SyncEngine {
       revokedDays = revoked.length;
       final readable = active.difference(revoked).toList()..sort();
       if (readable.isEmpty) return ended(revoked.isEmpty ? PullRunState.notAdmitted : PullRunState.revoked);
+
+      // Each race day's name, once, while the phone may still read it: once
+      // revoked there, the server shows it no race day of the club unless it
+      // holds another admission in it, and the revoked banner names the day
+      // (#53). Nothing else here reads it.
+      for (final day in readable) {
+        if (_store.raceDayName(day) != null) continue;
+        for (final row in await _read(() => _client.rest.from('event').select('id, name').eq('id', day))) {
+          final (id, name) = ((row as Map)['id'], row['name']);
+          if (id == day && name is String && name.trim().isNotEmpty) _store.recordRaceDayName(day, name);
+        }
+      }
 
       for (final day in readable) {
         final scope = _scope(_store.pullCursors(day));
@@ -575,25 +604,48 @@ class SyncEngine {
     }
   }
 
-  List<PendingUpload> _uploadable() => [
-        for (final p in _store.pendingUploads())
-          if (p.admissionId != null) p,
-      ];
+  /// This phone's events that may still go: written under an admission, and
+  /// not held under one the server has refused an event under as revoked
+  /// (#53).
+  List<PendingUpload> _uploadable() {
+    final revoked = _store.revokedAdmissions();
+    final unanswered = _store.unansweredSends();
+    return [
+      for (final p in _store.pendingUploads())
+        if (p.admissionId != null && !_holds(p, revoked, unanswered)) p,
+    ];
+  }
+
+  /// Whether [p] is held on the phone, never sent: its admission is revoked
+  /// (#53). Except an event with a send whose outcome is unknown, which may
+  /// already be on shore: it goes once more, so its final refusal carries
+  /// that flag (#6's owner decision, a lost answer then a revocation).
+  static bool _holds(PendingUpload p, Set<String> revoked, Set<String> unanswered) =>
+      revoked.contains(p.admissionId) && !unanswered.contains(p.ulid);
 
   Future<SyncRun> _run() async {
     final pending = _store.pendingUploads();
+    // Admissions the server refused an event under as revoked (#53). Nothing
+    // more is sent under one: every later answer would be the same refusal,
+    // and each would leave a row in event_refusal for good.
+    final revoked = _store.revokedAdmissions();
+    final unanswered = _store.unansweredSends();
     final uploadable = [
       for (final p in pending)
-        if (p.admissionId != null) p,
+        if (p.admissionId != null && !_holds(p, revoked, unanswered)) p,
     ];
-    final neverAdmitted = pending.length - uploadable.length;
+    final neverAdmitted = pending.where((p) => p.admissionId == null).length;
+    final heldBefore = pending.length - neverAdmitted - uploadable.length;
+    // Events of this run held back because their admission was revoked during it.
+    var heldNow = 0;
     SyncRun ended(String state, {String? error, int accepted = 0, int refused = 0, int paused = 0}) => SyncRun(
           state: state,
           accepted: accepted,
           refused: refused,
           paused: paused,
-          remaining: uploadable.length - accepted - refused,
+          remaining: uploadable.length - accepted - refused - heldNow,
           neverAdmitted: neverAdmitted,
+          held: heldBefore + heldNow,
           error: error,
         );
     if (uploadable.isEmpty) return ended(UploadRunState.done);
@@ -604,7 +656,8 @@ class SyncEngine {
     final runUid = userId;
 
     // The race days this user holds an admission to, revoked ones included:
-    // a revoked phone's events are still sent, and get their final refusal.
+    // an admission's first event after a revocation is still sent, and its
+    // final refusal is what tells the phone (#53).
     final List<dynamic> rows;
     try {
       // Through rest, not SupabaseClient.from: in supabase 2.16.1 from() builds
@@ -624,10 +677,15 @@ class SyncEngine {
       return ended(UploadRunState.unreachable, error: _describe(e));
     }
     final held = <String>{};
+    // This user's admissions by race day: a refusal for revocation on one
+    // stands for all of them, since append_event refuses the user's every
+    // event on a race day where any of their admissions is revoked (#53).
+    final byDay = <String, Set<String>>{};
     for (final row in rows) {
       final r = row as Map;
       _store.recordAdmissionEvent(r['id'] as String, r['event_id'] as String);
       held.add(r['event_id'] as String);
+      (byDay[r['event_id'] as String] ??= {}).add(r['id'] as String);
     }
 
     var accepted = 0, refused = 0, paused = 0, serverErrors = 0;
@@ -638,8 +696,14 @@ class SyncEngine {
             state: SyncRun.deferred,
             accepted: accepted,
             refused: refused,
-            remaining: uploadable.length - accepted - refused,
-            neverAdmitted: neverAdmitted);
+            remaining: uploadable.length - accepted - refused - heldNow,
+            neverAdmitted: neverAdmitted,
+            held: heldBefore + heldNow);
+      }
+      if (_holds(p, revoked, unanswered)) {
+        // Revoked by an answer earlier in this run: kept, never sent.
+        heldNow++;
+        continue;
       }
       if (userId != runUid) {
         // Signed out, or someone else signed in, mid-run: what was held
@@ -679,6 +743,17 @@ class SyncEngine {
           }
           _store.recordRefused(p.ulid, reason, mayBeOnShore: attempt.earlierUnknown);
           refused++;
+          if (reason == 'revoked') {
+            // The last send under this user's admissions on the race day
+            // (#53): their other events, and every tap after, stay on the
+            // phone, and the UI says why. A role change made there earlier
+            // (#70) is one of them, so the banner shows whichever the taps
+            // now go under.
+            for (final admission in byDay[eventId] ?? {p.admissionId!}) {
+              _store.recordRevoked(admission);
+              revoked.add(admission);
+            }
+          }
           continue;
         }
         final failure = _classify(e);
@@ -716,7 +791,7 @@ class SyncEngine {
             accepted: accepted, refused: refused, paused: paused, error: _describe(e));
       }
     }
-    final remaining = uploadable.length - accepted - refused;
+    final remaining = uploadable.length - accepted - refused - heldNow;
     final state = remaining == 0
         ? UploadRunState.done
         : serverErrors > 0

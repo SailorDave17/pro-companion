@@ -52,6 +52,11 @@ abstract interface class CoreClient {
   /// latest run ended.
   Future<UploadStatus> uploadStatus();
 
+  /// The revocation of the admission this phone's taps go under (#53), or
+  /// null while it stands. Cheap enough to poll: the UI's revoked banner reads
+  /// it every few seconds, on every screen.
+  Future<Revocation?> revocation();
+
   /// How up to date this phone is with the other committee phones (#64): when
   /// a pull last read every race day it may read, and how sync's latest pull
   /// ended.
@@ -130,6 +135,12 @@ class PortCoreClient implements CoreClient {
   @override
   Future<UploadStatus> uploadStatus() async =>
       UploadStatus.fromWire(await _call(Wire.uploadStatus, const {}) as Map);
+
+  @override
+  Future<Revocation?> revocation() async {
+    final wire = await _call(Wire.revocation, const {});
+    return wire == null ? null : Revocation.fromWire(wire as Map);
+  }
 
   @override
   Future<PullStatus> pullStatus() async => PullStatus.fromWire(await _call(Wire.pullStatus, const {}) as Map);

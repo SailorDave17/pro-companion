@@ -76,6 +76,21 @@ headless core engine; the UI never imports it (`test/import_boundary_test.dart`)
 - **Nothing is sent to a race day the signed-in user holds no admission to.** A lost session, or a
   new user not yet admitted, pauses sync rather than turning events into refusals. Events written
   before the phone was ever admitted stay on the phone.
+- **A refusal for revocation is the last send under the user's admissions on that race day**
+  (#53), since the server refuses the user's every event there once any of them is revoked. Their
+  other events, and every tap after, stay on the phone unsent, counted as `held` in
+  `uploadStatus()`. Each would only be refused again, and every refusal stays in `event_refusal`
+  for good. One exception: an event whose earlier send may have landed goes once more, so its
+  refusal is flagged as maybe on shore. Once every race day has revoked the phone, sync stops
+  running on its own until a tap nudges it or the phone is admitted again. A revocation is never
+  lifted: a phone revoked on a race day is refused there whatever code it presents.
+- **A revoked phone says so above every screen** (#53): a banner naming the race day, from
+  `CoreClient.revocation()`, which the UI reads every 5 s. Capture goes on under it. Each line is
+  shrunk to fit and never drawn below 16 px; a name too long even then is cut with an ellipsis,
+  and a screen reader still reads it whole. The race day's name comes from the pull, which reads it
+  once while the phone may read it. Once revoked, the server shows the phone no race day of the
+  club unless it holds another admission there. A phone revoked before it ever read the name says
+  "this race day".
 - **It keeps trying on its own** while anything is waiting, backing off to 15 s between runs, with
   every request bounded at 10 s, so an upload starts within 30 s of signal returning.
 - **The session lives in one file**, rewritten on every change, in a directory that must not be
@@ -88,7 +103,8 @@ headless core engine; the UI never imports it (`test/import_boundary_test.dart`)
 
 The same engine also pulls (#64). Once the upload half has reached the server, it reads every race
 day the phone is admitted to: the other committee phones' events, and the refusal stubs (#60).
-With nothing left to upload, a started engine runs again every 15 s to pull.
+With nothing left to upload, a started engine runs again every 15 s to pull, unless every race day
+has revoked the phone (#53, above).
 
 - **A pulled event is kept as the server holds it, byte for byte**, so its device's chain verifies
   on this phone as it does on its own. It never enters this phone's own chain. An event on shore
@@ -161,8 +177,8 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
   device-handoff phone is one. A full run signs in 18 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 17,
-  13 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 19,
+  15 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 
 ### Applying a migration to the live project
 

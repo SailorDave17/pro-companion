@@ -175,6 +175,42 @@ void main() {
     });
   });
 
+  test('#53: once every race day has revoked the phone, it stops running on its own; a tap\'s nudge '
+      'runs once, sends nothing, and it stops again', () {
+    fakeAsync((async) {
+      final server = FakeServer();
+      final (phone, engine) = startedPhone(server);
+      final admission = phone.store.admissionId!;
+      async.elapse(const Duration(minutes: 1));
+      expect(phone.store.uploadStatus().accepted, 1);
+      final idle = server.requests.length;
+      async.elapse(const Duration(minutes: 1));
+      expect(server.requests.length, greaterThan(idle), reason: 'control: admitted, it pulls every 15 s');
+
+      server.revoked.add(admission);
+      phone.log(1);
+      engine.nudge();
+      async.elapse(const Duration(seconds: 5));
+      expect(phone.store.revocation(), isNotNull, reason: 'control: the refusal came back');
+      final stopped = server.requests.length;
+      async.elapse(const Duration(minutes: 30));
+      expect(server.requests.length, stopped, reason: 'no run on its own');
+
+      phone.log(1);
+      final appends = server.appends.length;
+      engine.nudge();
+      async.elapse(const Duration(seconds: 5));
+      expect(server.appends.length, appends, reason: 'the tap is held, not sent');
+      expect([for (final r in server.requests.skip(stopped)) r.path], ['/rest/v1/committee_device'],
+          reason: 'the run reads the phone\'s own admissions once, and finds every race day revoked');
+      final again = server.requests.length;
+      async.elapse(const Duration(minutes: 30));
+      expect(server.requests.length, again);
+      expect(phone.store.uploadStatus().held, 1);
+      closeIn(async, engine);
+    });
+  });
+
   test('an event appended while the loop is idle goes at once', () {
     fakeAsync((async) {
       final server = FakeServer();

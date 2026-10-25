@@ -179,9 +179,17 @@ class EventStore {
         reason TEXT NOT NULL,
         PRIMARY KEY (event_id, event_hash)
       ) STRICT''');
+    // Each race day's name, read while the phone may read it, so a phone
+    // later revoked there can still say which race day it was (#53).
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS race_day_name (
+        event_id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL
+      ) STRICT''');
     for (final (table, key) in const [
       ('pulled_event', 'ulid = NEW.ulid'),
       ('pulled_refusal', 'event_id = NEW.event_id AND event_hash = NEW.event_hash'),
+      ('race_day_name', 'event_id = NEW.event_id'),
     ]) {
       db.execute('''
         CREATE TRIGGER IF NOT EXISTS ${table}_no_update BEFORE UPDATE ON $table
@@ -237,11 +245,21 @@ class EventStore {
         at INTEGER NOT NULL,
         CHECK ((outcome = 'refused') = (reason IS NOT NULL))
       ) STRICT''');
+    // An admission the server refused an event for, as revoked (#53). A
+    // revocation is never lifted (a phone revoked on a race day is refused
+    // there whatever code it presents, #70), so nothing more is sent under it.
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS upload_revocation (
+        admission_id TEXT PRIMARY KEY NOT NULL,
+        event_id TEXT NOT NULL,
+        at INTEGER NOT NULL
+      ) STRICT''');
     for (final (table, key) in const [
       ('upload_admission', 'admission_id = NEW.admission_id'),
       ('upload_attempt', 'ulid = NEW.ulid AND n = NEW.n'),
       ('upload_attempt_void', 'ulid = NEW.ulid AND n = NEW.n'),
       ('upload_outcome', 'ulid = NEW.ulid'),
+      ('upload_revocation', 'admission_id = NEW.admission_id'),
     ]) {
       db.execute('''
         CREATE TRIGGER IF NOT EXISTS ${table}_no_update BEFORE UPDATE ON $table
@@ -456,12 +474,85 @@ class EventStore {
     );
   }
 
+  /// Records that the server refused an event under [admissionId] because the
+  /// admission was revoked (#53). Nothing more is sent under it, and the UI
+  /// says so while it is the admission the phone's taps go under
+  /// ([revocation]). Sync must have learned the admission's race day first:
+  /// it sent the event there. Recording it again is a no-op.
+  void recordRevoked(String admissionId) {
+    final eventId = admissionEvent(admissionId);
+    if (eventId == null) {
+      throw StateError('admission $admissionId names no race day sync has learned');
+    }
+    if (_db.select('SELECT 1 FROM upload_revocation WHERE admission_id = ?', [admissionId]).isNotEmpty) return;
+    _db.execute(
+        'INSERT INTO upload_revocation (admission_id, event_id, at) VALUES (?, ?, ?)', [admissionId, eventId, _clock()]);
+  }
+
+  /// Every admission sync has learned was revoked.
+  Set<String> revokedAdmissions() =>
+      {for (final r in _db.select('SELECT admission_id FROM upload_revocation')) r['admission_id'] as String};
+
+  /// This device's events with no outcome and a send whose outcome is
+  /// unknown: neither answered nor proved to have stored nothing
+  /// ([voidAttempt]). The server may hold any of them.
+  Set<String> unansweredSends() => {
+        for (final r in _db.select('SELECT DISTINCT a.ulid FROM upload_attempt a '
+            'WHERE NOT EXISTS (SELECT 1 FROM upload_attempt_void v WHERE v.ulid = a.ulid AND v.n = a.n) '
+            'AND NOT EXISTS (SELECT 1 FROM upload_outcome o WHERE o.ulid = a.ulid)'))
+          r['ulid'] as String,
+      };
+
+  /// Keeps [name] as race day [eventId]'s name, read while the phone could
+  /// read it (#53), and returns true; or false when a name is already kept,
+  /// which stays.
+  bool recordRaceDayName(String eventId, String name) {
+    if (!isAdmissionId(eventId)) {
+      throw ArgumentError.value(eventId, 'eventId', 'is not a UUID in the form Postgres prints');
+    }
+    if (raceDayName(eventId) != null) return false;
+    _db.execute('INSERT INTO race_day_name (event_id, name) VALUES (?, ?)', [eventId, name]);
+    return true;
+  }
+
+  /// Race day [eventId]'s name, or null when sync never read it.
+  String? raceDayName(String eventId) {
+    final rows = _db.select('SELECT name FROM race_day_name WHERE event_id = ?', [eventId]);
+    return rows.isEmpty ? null : rows.first['name'] as String;
+  }
+
+  /// The revocation of the admission this phone's taps go under (#53), or
+  /// null while that admission stands, or when the phone holds none. An
+  /// earlier admission revoked after the phone moved on is not this.
+  Revocation? revocation() {
+    final current = _admissionId;
+    if (current == null) return null;
+    final rows = _db.select(
+        'SELECT r.event_id, r.at, n.name FROM upload_revocation r '
+        'LEFT JOIN race_day_name n ON n.event_id = r.event_id WHERE r.admission_id = ?',
+        [current]);
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    return Revocation(eventId: r['event_id'] as String, eventName: r['name'] as String?, at: r['at'] as int);
+  }
+
   /// Where this device's own events stand on their way to shore.
   UploadStatus uploadStatus() {
     var pending = 0;
     var neverAdmitted = 0;
+    var held = 0;
+    final revoked = revokedAdmissions();
+    // One whose earlier send may have landed still goes once, for its flagged
+    // refusal, so it waits rather than being held (#53).
+    final unanswered = unansweredSends();
     for (final p in pendingUploads()) {
-      p.admissionId == null ? neverAdmitted++ : pending++;
+      if (p.admissionId == null) {
+        neverAdmitted++;
+      } else if (revoked.contains(p.admissionId) && !unanswered.contains(p.ulid)) {
+        held++;
+      } else {
+        pending++;
+      }
     }
     final accepted = _db.select("SELECT count(*) AS n FROM upload_outcome WHERE outcome = 'accepted'").first['n'] as int;
     final refused = [
@@ -475,6 +566,7 @@ class EventStore {
       accepted: accepted,
       neverAdmitted: neverAdmitted,
       refused: refused,
+      held: held,
       lastRun: run.isEmpty ? null : UploadRun.fromWire(jsonDecode(run.first['value'] as String) as Map),
     );
   }

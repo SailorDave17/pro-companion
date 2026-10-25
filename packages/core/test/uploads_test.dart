@@ -28,6 +28,8 @@ void main() {
       final attempt = store.beginAttempt(ulid);
       store.voidAttempt(ulid, attempt.n);
       store.recordAccepted(ulid, chainHash(store.readCanonical().single));
+      store.recordRevoked(admissionA);
+      store.recordRaceDayName(dayOne, 'Fall Series Day 2');
     });
 
     // Each table, a row it holds, and a statement that would replace that row.
@@ -38,6 +40,9 @@ void main() {
       // A value every CHECK allows, so only the trigger can refuse it.
       'upload_outcome': ('SET at = 0',
           "INSERT OR REPLACE INTO upload_outcome SELECT ulid, 'refused', 'x', NULL, 0, 0 FROM upload_outcome"),
+      'upload_revocation': ('SET at = 0',
+          "INSERT OR REPLACE INTO upload_revocation VALUES ('$admissionA', '$dayTwo', 0)"),
+      'race_day_name': ("SET name = 'x'", "INSERT OR REPLACE INTO race_day_name VALUES ('$dayOne', 'x')"),
     };
 
     // Matched on the trigger's own words: a statement some other constraint refuses would pass a
@@ -233,6 +238,107 @@ void main() {
       final status = await fake.uploadStatus();
       expect(status.toWire(), fake.uploadStatusValue.toWire());
       expect(fake.calls['uploadStatus'], 1);
+    });
+  });
+
+  group('#53: a revoked admission', () {
+    test('its events are held, not pending; the rest are counted as before', () {
+      final store = openStore(tempDbPath());
+      store.setAdmissionId(admissionA);
+      final refused = store.append(note).ulid;
+      store.append(note);
+      store.append(note);
+      store.setAdmissionId(admissionB);
+      store.append(note);
+      store.recordAdmissionEvent(admissionA, dayOne);
+      store.recordRefused(refused, 'revoked', mayBeOnShore: false);
+      expect([store.uploadStatus().pending, store.uploadStatus().held], [3, 0], reason: 'control: not yet revoked');
+
+      store.recordRevoked(admissionA);
+      final status = store.uploadStatus();
+      expect([status.pending, status.held, status.refused.length], [1, 2, 1]);
+      expect(store.pendingUploads().length, 3, reason: 'held events still have no outcome: nothing is invented');
+    });
+
+    test('an event whose earlier send may have landed waits rather than being held, since it goes once '
+        'more for its flagged refusal', () {
+      final store = openStore(tempDbPath());
+      store.setAdmissionId(admissionA);
+      final unknown = store.append(note).ulid;
+      final voided = store.append(note).ulid;
+      final never = store.append(note).ulid;
+      store.recordAdmissionEvent(admissionA, dayOne);
+      store.beginAttempt(unknown); // sent, never answered
+      store.voidAttempt(voided, store.beginAttempt(voided).n); // sent, proved to have stored nothing
+      expect(store.unansweredSends(), {unknown});
+      expect(never, isNotEmpty);
+
+      store.recordRevoked(admissionA);
+      expect([store.uploadStatus().pending, store.uploadStatus().held], [1, 2]);
+      store.recordRefused(unknown, 'revoked', mayBeOnShore: true);
+      expect(store.unansweredSends(), isEmpty, reason: 'answered now');
+      expect([store.uploadStatus().pending, store.uploadStatus().held], [0, 2]);
+    });
+
+    test('is recorded once, against the race day sync learned for it, and never for an unknown one', () {
+      var now = 1000;
+      final store = openStore(tempDbPath(), clock: () => now);
+      expect(() => store.recordRevoked(admissionA), throwsStateError);
+      store.recordAdmissionEvent(admissionA, dayOne);
+      store.recordRevoked(admissionA);
+      now = 2000;
+      store.recordRevoked(admissionA);
+      expect(store.revokedAdmissions(), {admissionA});
+      expect(store.debugDatabase.select('SELECT event_id, at FROM upload_revocation').map((r) => [r['event_id'], r['at']]),
+          [
+            [dayOne, 1000]
+          ],
+          reason: 'the second is a no-op: the first time sync learned it stays');
+    });
+
+    test('revocation() answers for the admission the taps go under, with the race day\'s name when '
+        'sync read it', () {
+      final store = openStore(tempDbPath(), clock: () => 7000);
+      expect(store.revocation(), isNull, reason: 'never admitted');
+      store.setAdmissionId(admissionA);
+      store.recordAdmissionEvent(admissionA, dayOne);
+      expect(store.revocation(), isNull, reason: 'admitted, standing');
+
+      store.recordRevoked(admissionA);
+      expect(store.revocation(), const Revocation(eventId: dayOne, at: 7000), reason: 'no name was read');
+      expect(store.recordRaceDayName(dayOne, 'Fall Series Day 2'), isTrue);
+      expect(store.recordRaceDayName(dayOne, 'Renamed'), isFalse, reason: 'the first name read stays');
+      expect(store.revocation(), const Revocation(eventId: dayOne, eventName: 'Fall Series Day 2', at: 7000));
+
+      store.setAdmissionId(admissionB);
+      expect(store.revocation(), isNull, reason: 'the phone moved on: its taps go under an admission that stands');
+      expect(() => store.recordRaceDayName('not-a-uuid', 'x'), throwsArgumentError);
+    });
+
+    test('crosses the core boundary as plain data, from the store a real core serves', () async {
+      final path = tempDbPath();
+      final store = EventStore.open(path);
+      store.setAdmissionId(admissionA);
+      store.recordAdmissionEvent(admissionA, dayOne);
+      store.recordRaceDayName(dayOne, 'Fall Series Day 2');
+      store.append(note);
+      store.recordRevoked(admissionA);
+      final at = store.revocation()!.at;
+      store.close();
+
+      final core = await spawnCore(path);
+      addTearDown(core.close);
+      expect(await core.revocation(), Revocation(eventId: dayOne, eventName: 'Fall Series Day 2', at: at));
+      expect((await core.uploadStatus()).held, 1);
+    });
+
+    test('the fake core answers what the test set, through the same wire form, and null by default',
+        () async {
+      final fake = FakeCore();
+      expect(await fake.revocation(), isNull);
+      fake.revocationValue = const Revocation(eventId: dayOne, eventName: 'Fall Series Day 2', at: 5);
+      expect(await fake.revocation(), fake.revocationValue);
+      expect(fake.calls['revocation'], 2);
     });
   });
 }
