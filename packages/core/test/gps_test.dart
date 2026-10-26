@@ -80,7 +80,7 @@ void main() {
     test('across the core interface, from a fix the UI reports', () async {
       final core = await spawnedCore();
       await core.reportFix(const GpsFix(lat: lat, lon: lon, accuracyM: 3.5, ageMs: 2000));
-      final e = await core.append(const NewEvent(kind: 'finish', source: 'tap'));
+      final e = await core.append(const NewEvent(kind: 'note', source: 'tap'));
       expect([e.gps!.lat, e.gps!.lon, e.gps!.accuracyM], [lat, lon, 3.5]);
       expect(e.gps!.ageMs, inInclusiveRange(2000, 30000), reason: 'its age, grown only by the time since the report');
       expect(e.gpsReason, isNull);
@@ -222,7 +222,7 @@ void main() {
       const mocked = GpsFix(lat: -33.8568, lon: 151.2153, accuracyM: 2.5, ageMs: 750);
       final provider = _MockedProvider(const GpsStamp.at(mocked));
       final store = openStore(tempDbPath(), location: provider);
-      final e = store.append(const NewEvent(kind: 'finish', source: 'tap'));
+      final e = store.append(const NewEvent(kind: 'note', source: 'tap'));
       expect(provider.reads, 1, reason: 'read once, at the append');
       expect(e.gps, mocked);
       expect(e.gpsReason, isNull);
@@ -297,4 +297,7 @@ class _MockedProvider implements LocationProvider {
     reads++;
     return stamp;
   }
+
+  @override
+  ClockOffsetStamp clockOffset(int nowMs) => const ClockOffsetStamp.none(GpsReasons.noSource);
 }

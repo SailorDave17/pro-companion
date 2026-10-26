@@ -85,7 +85,10 @@ void main() {
       micros.add(sw.elapsedMicroseconds);
     }
 
-    expect(await core.count(), retainedEvents + warmUp + timedAppends,
+    // The first finish of each fleet, F0 to F2 and none, joined its race of the day with a clock
+    // offset (#55). All four came in the warm-up, so no timed append carried one.
+    const joinedRaces = 4;
+    expect(await core.count(), retainedEvents + warmUp + timedAppends + joinedRaces,
         reason: 'every timed append landed; a write that did not happen must not time fast');
 
     micros.sort();

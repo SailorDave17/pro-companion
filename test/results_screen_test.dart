@@ -429,6 +429,12 @@ class _HeldCore implements CoreClient {
   Future<void> reportNoFix(String reason) => _inner.reportNoFix(reason);
 
   @override
+  Future<void> reportGpsTime(GpsTimeSample sample) => _inner.reportGpsTime(sample);
+
+  @override
+  Future<void> reportClockChanged() => _inner.reportClockChanged();
+
+  @override
   Future<UploadStatus> uploadStatus() => _inner.uploadStatus();
 
   @override

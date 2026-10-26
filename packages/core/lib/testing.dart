@@ -6,6 +6,7 @@ library;
 import 'dart:math';
 
 import 'src/client.dart';
+import 'src/clock_offsets.dart';
 import 'src/envelope.dart';
 import 'src/location.dart';
 import 'src/pulls.dart';
@@ -79,31 +80,51 @@ class FakeCore implements CoreClient {
         requireWireSafe(event.toWire(), 'event');
         validateNewEvent(event);
         final now = _clock();
-        final seq = 1 + _events.where((e) => e.deviceId == deviceIdValue).length;
         final where = location.current();
-        final e = EventEnvelope(
-          ulid: newUlid(now, _random),
-          deviceTs: now,
-          deviceId: deviceIdValue,
-          seq: seq,
-          person: event.person,
-          // As the real core does (#20): the phone's role, unless the event
-          // names one. Seeded role picks count, as stored ones do there.
-          role: event.role ?? currentRole(_events, deviceIdValue),
-          admissionId: _admissionId,
-          // And where the phone is (#31), as the real core stamps it.
-          gps: where.fix,
-          gpsReason: where.reason,
-          source: event.source,
-          kind: event.kind,
-          payloadVersion: event.payloadVersion,
-          correctsUlid: event.correctsUlid,
-          // And the phone's station (#26), unless the event names a mark.
-          payload: withStation(event.payload, currentStation(_events, deviceIdValue)),
+        // As the real core does (#55): an event that joins a race the phone
+        // has no clock offset for yet has one appended just before it, at
+        // the same time.
+        final stamp = location.clockOffset(now);
+        final join =
+            raceToJoin(_events, event, deviceId: deviceIdValue, now: now, measuredNow: stamp.offsetMs != null);
+        if (join == null) return _add(event, newUlid(now, _random), now, where);
+        var offsetUlid = newUlid(now, _random);
+        var eventUlid = newUlid(now, _random);
+        if (offsetUlid.compareTo(eventUlid) > 0) (offsetUlid, eventUlid) = (eventUlid, offsetUlid);
+        _add(
+          ClockEvents.offset(fleet: join.fleet, race: join.atOwnGun ? eventUlid : join.race, stamp: stamp),
+          offsetUlid,
+          now,
+          where,
         );
-        _events.add(e);
-        return e;
+        return _add(event, eventUlid, now, where);
       });
+
+  EventEnvelope _add(NewEvent event, String ulid, int now, GpsStamp where) {
+    final seq = 1 + _events.where((e) => e.deviceId == deviceIdValue).length;
+    final e = EventEnvelope(
+      ulid: ulid,
+      deviceTs: now,
+      deviceId: deviceIdValue,
+      seq: seq,
+      person: event.person,
+      // As the real core does (#20): the phone's role, unless the event
+      // names one. Seeded role picks count, as stored ones do there.
+      role: event.role ?? currentRole(_events, deviceIdValue),
+      admissionId: _admissionId,
+      // And where the phone is (#31), as the real core stamps it.
+      gps: where.fix,
+      gpsReason: where.reason,
+      source: event.source,
+      kind: event.kind,
+      payloadVersion: event.payloadVersion,
+      correctsUlid: event.correctsUlid,
+      // And the phone's station (#26), unless the event names a mark.
+      payload: withStation(event.payload, currentStation(_events, deviceIdValue)),
+    );
+    _events.add(e);
+    return e;
+  }
 
   @override
   Future<List<EventEnvelope>> readAll() => _call(Wire.readAll, () => _ordered(_events));
@@ -137,6 +158,21 @@ class FakeCore implements CoreClient {
 
   @override
   Future<void> reportNoFix(String reason) => _call(Wire.reportLocation, () => location.reportNone(reason));
+
+  @override
+  Future<void> reportGpsTime(GpsTimeSample sample) => _call(Wire.reportLocation, () {
+        final wire = sample.toWire();
+        requireWireSafe(wire, 'gps_time');
+        location.reportGpsTime(GpsTimeSample.fromWire(wire));
+      });
+
+  /// As the real core does: the offset held is dropped, and the set is logged.
+  @override
+  Future<void> reportClockChanged() => _call(Wire.reportLocation, () {
+        location.reportClockChanged();
+        final now = _clock();
+        _add(ClockEvents.changed(), newUlid(now, _random), now, location.current());
+      });
 
   @override
   Future<UploadStatus> uploadStatus() => _call(Wire.uploadStatus, () {

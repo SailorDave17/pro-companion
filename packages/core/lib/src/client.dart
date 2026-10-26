@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'envelope.dart';
+import 'location.dart';
 import 'pulls.dart';
 import 'uploads.dart';
 import 'wire.dart';
@@ -46,6 +47,18 @@ abstract interface class CoreClient {
   /// `GpsReasons.all` (#31). Every event appended from now on carries a null
   /// position and that reason, until the next fix.
   Future<void> reportNoFix(String reason);
+
+  /// Tells the core the satellites' time from the phone's latest fix that
+  /// carried it, against the phone's own clock at that fix (#55). Every
+  /// clock-offset event from now on is read from it, with its age, until the
+  /// next one or until [reportClockChanged].
+  Future<void> reportGpsTime(GpsTimeSample sample);
+
+  /// Tells the core the phone's clock was set (#55), so the offset it holds no
+  /// longer holds. The core appends a `clock.changed` event, so every race
+  /// this phone had joined is joined again by its next finish, and clock-offset
+  /// events say `clock_changed` until the next [reportGpsTime].
+  Future<void> reportClockChanged();
 
   /// Where this phone's own events stand on their way to shore (#6): how many
   /// wait, how many the server holds, which it refused and why, and how sync's
@@ -130,6 +143,16 @@ class PortCoreClient implements CoreClient {
   @override
   Future<void> reportNoFix(String reason) async {
     await _call(Wire.reportLocation, {'reason': reason});
+  }
+
+  @override
+  Future<void> reportGpsTime(GpsTimeSample sample) async {
+    await _call(Wire.reportLocation, {'gps_time': sample.toWire()});
+  }
+
+  @override
+  Future<void> reportClockChanged() async {
+    await _call(Wire.reportLocation, {'clock_changed': true});
   }
 
   @override

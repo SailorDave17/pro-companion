@@ -79,6 +79,55 @@ void main() {
     final e = await appendAfter({'reason': GpsReasons.noPermission});
     expect(e.gpsReason, GpsReasons.noPermission);
   });
+
+  group('#55: the satellites\' time', () {
+    Future<Map<String, Object?>> offsetAfter(List<Map<Object?, Object?>> reports) async {
+      reports.forEach(feed.add);
+      await pumpEventQueue();
+      await core.append(StartEvents.start(fleet: null, source: 'manual'));
+      return (await core.readAll()).lastWhere((e) => e.kind == ClockKinds.offset).payload;
+    }
+
+    test('a GPS fix\'s time, in the platform\'s shape, is the offset the next race is joined with', () async {
+      final fixAt = DateTime.now().millisecondsSinceEpoch - 1000;
+      final offset = await offsetAfter([
+        // A Kotlin Long arrives as an int, and no uncertainty as null.
+        {'gps_time_ms': fixAt + 4000, 'device_time_ms': fixAt, 'uncertainty_ms': 7},
+      ]);
+      expect([offset['offset_ms'], offset['uncertainty_ms'], offset['reason']], [4000, 7, null]);
+      expect(offset['age_ms'], inInclusiveRange(1000, 30000));
+      expect(core.calls['reportLocation'], 1);
+    });
+
+    test('a phone that states no uncertainty sends null, and it stays null', () async {
+      final fixAt = DateTime.now().millisecondsSinceEpoch;
+      final offset = await offsetAfter([
+        {'gps_time_ms': fixAt - 250, 'device_time_ms': fixAt, 'uncertainty_ms': null},
+      ]);
+      expect([offset['offset_ms'], offset['uncertainty_ms']], [-250, null]);
+    });
+
+    test('the phone\'s clock being set drops the offset the core held', () async {
+      final fixAt = DateTime.now().millisecondsSinceEpoch;
+      final offset = await offsetAfter([
+        {'gps_time_ms': fixAt, 'device_time_ms': fixAt, 'uncertainty_ms': 3},
+        {'clock_changed': true},
+      ]);
+      expect([offset['offset_ms'], offset['reason']], [null, ClockOffsetReasons.clockChanged]);
+      expect((await core.readAll()).where((e) => e.kind == ClockKinds.changed), hasLength(1),
+          reason: 'and the set is in the log');
+    });
+
+    test('a time the core cannot use is dropped, and the offset held is kept', () async {
+      final fixAt = DateTime.now().millisecondsSinceEpoch;
+      final offset = await offsetAfter([
+        {'gps_time_ms': fixAt + 4000, 'device_time_ms': fixAt, 'uncertainty_ms': 1},
+        {'gps_time_ms': 'noon', 'device_time_ms': fixAt},
+        {'gps_time_ms': 0, 'device_time_ms': fixAt},
+      ]);
+      expect(offset['offset_ms'], 4000);
+    });
+  });
 }
 
 class _Feed implements LocationFeed {

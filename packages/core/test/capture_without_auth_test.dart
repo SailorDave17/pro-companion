@@ -18,7 +18,7 @@ void main() {
       for (var n = 1; n <= 60; n++) {
         store.append(NewEvent(kind: 'finish', source: 'tap', payload: {'sail': '$n'}));
       }
-      expect(store.count(), 60);
+      expect(store.count(), 61, reason: '60 finishes, and the clock offset the first joined its race with (#55)');
       expect(verifyChains(store.readCanonical()).values.single.state, ChainState.intact);
     }, createHttpClient: (_) => throw StateError('capture reached for the network'));
   });

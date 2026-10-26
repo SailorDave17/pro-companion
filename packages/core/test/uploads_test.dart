@@ -68,7 +68,8 @@ void main() {
       final store = openStore(tempDbPath());
       final before = store.append(note); // written before any admission
       store.setAdmissionId(admissionA);
-      final a = store.append(const NewEvent(kind: 'finish', source: 'tap', payload: {'z': 12.0, 'a': 0.1}));
+      // A kind that joins no race, so no clock offset (#55) is appended before it.
+      final a = store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'z': 12.0, 'a': 0.1}));
       final b = store.append(note);
       // Another phone's event, pulled down (#64): never this phone's to upload.
       final otherPhone = '01J8${'Z'.padLeft(22, '0')}';

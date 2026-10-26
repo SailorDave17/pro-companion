@@ -4,10 +4,12 @@ import 'dart:math';
 import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'chain.dart';
+import 'clock_offsets.dart';
 import 'envelope.dart';
 import 'location.dart';
 import 'pulls.dart';
 import 'roles.dart';
+import 'starts.dart';
 import 'stations.dart';
 import 'uploads.dart';
 import 'wire.dart';
@@ -39,6 +41,12 @@ class EventStore {
     for (final r in _db.select('SELECT body FROM events WHERE device_id = ? AND (body LIKE ? OR body LIKE ?)',
         [deviceId, '%"kind":"role.%', '%"kind":"station.%'])) {
       _noteStateEvent(EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map));
+    }
+    // Every phone's guns, and this phone's clock offsets and changes, the same
+    // way.
+    for (final r in _db.select('SELECT body FROM events WHERE body LIKE ? OR body LIKE ?',
+        ['%"kind":"start%', '%"kind":"clock.%'])) {
+      _noteRaceEvent(EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map));
     }
   }
 
@@ -119,6 +127,20 @@ class EventStore {
   void _noteStateEvent(EventEnvelope e) {
     if (e.deviceId == deviceId && (RoleKinds.all.contains(e.kind) || StationKinds.all.contains(e.kind))) {
       _stateEvents.add(e);
+    }
+  }
+
+  /// What [raceToJoin] reads (#55): every phone's starts, recalls and their
+  /// undos, pulled ones included, since a finish joins the race of a gun
+  /// another phone fired; and this phone's own clock offsets and clock
+  /// changes. Read from the log when it opens and kept as events arrive.
+  final _raceEvents = <EventEnvelope>[];
+
+  void _noteRaceEvent(EventEnvelope e) {
+    if (StartKinds.sequence.contains(e.kind) ||
+        e.kind == StartKinds.undo ||
+        (ClockKinds.all.contains(e.kind) && e.deviceId == deviceId)) {
+      _raceEvents.add(e);
     }
   }
 
@@ -306,12 +328,58 @@ class EventStore {
   /// station the phone is at (#26), and returns it as stored. When this
   /// returns, it is committed. It never waits on GPS: the position is
   /// whatever [location] holds now, or the reason it holds none.
+  ///
+  /// When [event] joins a race this phone has no clock offset for yet
+  /// ([raceToJoin], #55), a clock-offset event read from [location] goes in
+  /// just before it, at the same time and in the same commit: both are
+  /// stored, or neither is.
   EventEnvelope append(NewEvent event) {
     validateNewEvent(event);
     final now = _clock();
     final where = location.current();
+    final stamp = location.clockOffset(now);
+    final join = raceToJoin(_raceEvents, event, deviceId: deviceId, now: now, measuredNow: stamp.offsetMs != null);
+    if (join == null) return _appendOne(event, newUlid(now, _random), now, where);
+
+    // Two ULIDs from one millisecond sort by their random tails, so the
+    // smaller goes to the offset: it then comes first in every read, as it
+    // does by sequence number.
+    var offsetUlid = newUlid(now, _random);
+    var eventUlid = newUlid(now, _random);
+    if (offsetUlid.compareTo(eventUlid) > 0) (offsetUlid, eventUlid) = (eventUlid, offsetUlid);
+    final offset = ClockEvents.offset(fleet: join.fleet, race: join.atOwnGun ? eventUlid : join.race, stamp: stamp);
+    final seq = _nextSeq;
+    final prevHash = _prevHash;
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      _appendOne(offset, offsetUlid, now, where);
+      final envelope = _appendOne(event, eventUlid, now, where);
+      _db.execute('COMMIT');
+      return envelope;
+    } catch (_) {
+      // Put memory back first: SQLite rolls some failures back itself (a full
+      // disk at COMMIT), and then a ROLLBACK of ours would throw before it.
+      _nextSeq = seq;
+      _prevHash = prevHash;
+      _raceEvents.removeWhere((e) => e.ulid == offsetUlid || e.ulid == eventUlid);
+      if (!_db.autocommit) _db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// The phone's clock was set (#55, after its review): the offset [location]
+  /// holds is dropped, and a `clock.changed` event is appended, so that every
+  /// race this phone joined before it is joined again with a fresh offset, and
+  /// the log says the clock moved. When this returns, it is committed.
+  EventEnvelope recordClockChanged() {
+    final location = this.location;
+    if (location is LatestFix) location.reportClockChanged();
+    return append(ClockEvents.changed());
+  }
+
+  EventEnvelope _appendOne(NewEvent event, String ulid, int now, GpsStamp where) {
     final envelope = EventEnvelope(
-      ulid: newUlid(now, _random),
+      ulid: ulid,
       deviceTs: now,
       deviceId: deviceId,
       seq: _nextSeq,
@@ -331,6 +399,7 @@ class EventStore {
     _nextSeq++;
     _prevHash = chainHash(text);
     _noteStateEvent(envelope);
+    _noteRaceEvent(envelope);
     return envelope;
   }
 
@@ -341,6 +410,7 @@ class EventStore {
   void insert(EventEnvelope e) {
     _store(e);
     _noteStateEvent(e);
+    _noteRaceEvent(e);
   }
 
   // Sync's records (#6) -------------------------------------------------------
@@ -622,6 +692,8 @@ class EventStore {
       _db.execute('ROLLBACK');
       rethrow;
     }
+    // Another phone's gun begins a race this phone's finishes may join (#55).
+    _noteRaceEvent(e);
     return true;
   }
 

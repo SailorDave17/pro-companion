@@ -14,6 +14,9 @@
 - Amended 2026-10-14 by pro-companion #31: the core stamps every event's `gps` from the phone's last
   fix, with the fix's age in `age_ms`, and when there is none, says why in the new envelope field
   `gps_reason`. See "Located and attributed" below.
+- Amended 2026-10-26 by pro-companion #55 (groom decision G10): as a phone joins a race, the core
+  appends a `clock.offset` event recording its clock against satellite time, and a `clock.changed`
+  event when the phone's clock is set. The envelope is unchanged. See "Two clocks" below.
 
 ## Context
 
@@ -101,7 +104,23 @@ link is work on both sides:
 - **Chained per device** — each event carries a hash of the device's previous event, so a removed or
   altered event breaks the chain visibly, on the phone and on shore.
 - **Two clocks** — the device timestamp is kept verbatim, and the server's receipt time is stored
-  separately; neither overwrites the other (the clock-skew rule in pro-companion#6).
+  separately; neither overwrites the other (the clock-skew rule in pro-companion#6). *Amended
+  2026-10-26 (#55):* phones' clocks disagree, so a finish on a mark boat cannot be timed against the
+  signal boat's gun from the two device timestamps alone. Each phone therefore records its clock's
+  **offset from satellite time** (satellite minus device) in a `clock.offset` event, which the core
+  appends itself just before the phone's gun, and before its first finish, at the line or at a mark,
+  in each race. That race is the fleet's latest gun the phone knows of, its own or pulled from
+  another phone, when that gun went that day; with none known, it is the fleet's race of the day
+  (owner decision on #55). The satellite time comes only from a GPS-provider fix, the one provider
+  whose time Android guarantees is the constellation's. The event carries the offset, its
+  uncertainty (null when the phone states none) and the fix's age, or a `reason` when there is
+  none: the four `gps_reason` values, `no_gps_time`, or `clock_changed` after the phone's clock was
+  set. When the phone reports its clock set, the core also appends a **`clock.changed`** event
+  (owner decision at #55's review), so a race counts as joined only by an offset recorded after it,
+  and the log says the clock moved. A race joined only by offsets that could not be measured is
+  joined again once the phone has satellite time. Device timestamps still stay verbatim: an elapsed
+  time across two phones, or across a clock set on one, reads each reading through its own phone's
+  latest offset, and is flagged, never computed from the raw clocks, when either has none.
 - **Located and attributed** — each event carries GPS position where available, the device id,
   the person and (amended 2026-09-26, #49) the admission it was written under, so it answers *who,
   when, where* without anyone's memory. *Amended 2026-10-14 (#31):* the core stamps the position,

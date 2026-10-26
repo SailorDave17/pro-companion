@@ -180,7 +180,8 @@ void main() {
       await core.append(StartEvents.postponement(fleet: null, source: 'manual'));
       await core.append(StartEvents.generalRecall(fleet: null, source: 'manual'));
       await core.append(StartEvents.correctTime(gun.ulid, time: gun.deviceTs - 1000));
-      final all = await core.readAll();
+      // The gun joined its race with a clock offset (#55), which is the core's own, not manual.
+      final all = [for (final e in await core.readAll()) if (e.kind != ClockKinds.offset) e];
       expect(all, hasLength(4));
       expect(all.map((e) => e.source), everyElement('manual'));
     });

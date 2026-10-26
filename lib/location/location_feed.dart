@@ -5,7 +5,10 @@ import 'package:pro_companion_core/core.dart';
 
 /// Where the phone is (#31), as the platform reports it. Each report is one
 /// map: a fix, `{lat, lon, accuracy_m, age_ms}` with `age_ms` the fix's age
-/// when reported, or no fix, `{reason}`, one of [GpsReasons.all].
+/// when reported, or no fix, `{reason}`, one of [GpsReasons.all]. Since #55
+/// also the satellites' time from a GPS fix, `{gps_time_ms, device_time_ms,
+/// uncertainty_ms}` ([GpsTimeSample]), and `{clock_changed: true}` when the
+/// phone's clock is set.
 abstract interface class LocationFeed {
   Stream<Map<Object?, Object?>> get reports;
 }
@@ -36,6 +39,14 @@ StreamSubscription<void> forwardLocation(LocationFeed feed, CoreClient core) => 
           final reason = report['reason'];
           if (reason is String) {
             await core.reportNoFix(reason);
+          } else if (report['clock_changed'] == true) {
+            await core.reportClockChanged();
+          } else if (report.containsKey('gps_time_ms')) {
+            await core.reportGpsTime(GpsTimeSample(
+              gpsTimeMs: (report['gps_time_ms'] as num).toInt(),
+              deviceTimeMs: (report['device_time_ms'] as num).toInt(),
+              uncertaintyMs: (report['uncertainty_ms'] as num?)?.toInt(),
+            ));
           } else {
             await core.reportFix(GpsFix(
               lat: (report['lat'] as num).toDouble(),

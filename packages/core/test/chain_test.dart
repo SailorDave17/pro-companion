@@ -109,15 +109,16 @@ void main() {
     });
 
     test('a replacement phone is a new device and starts its own chain from genesis', () {
+      // Notes join no race, so no clock offset (#55) takes a sequence number.
       final original = openStore(tempDbPath());
-      original.append(const NewEvent(kind: 'finish', source: 'tap'));
-      original.append(const NewEvent(kind: 'finish', source: 'tap'));
+      original.append(const NewEvent(kind: 'note', source: 'tap'));
+      original.append(const NewEvent(kind: 'note', source: 'tap'));
 
       final replacement = openStore(tempDbPath());
       for (final e in original.readAll()) {
         replacement.insert(e);
       }
-      final first = replacement.append(const NewEvent(kind: 'finish', source: 'tap'));
+      final first = replacement.append(const NewEvent(kind: 'note', source: 'tap'));
       expect(replacement.deviceId, isNot(original.deviceId));
       expect(first.seq, 1, reason: "the other device's events do not advance this one's sequence");
       expect(first.prevHash, genesisHash);

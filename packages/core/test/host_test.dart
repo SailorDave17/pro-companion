@@ -16,7 +16,7 @@ void main() {
   test('a client connects to a published core, and closing it leaves the core serving', () async {
     final host = await _Host.start(tempDbPath());
     final first = await connectCore(() => host.port);
-    await first.append(const NewEvent(kind: 'finish', source: 'tap'));
+    await first.append(const NewEvent(kind: 'note', source: 'tap'));
     await first.close();
 
     final second = await connectCore(() => host.port);
@@ -46,7 +46,7 @@ void main() {
     }, ping: const Duration(milliseconds: 100));
 
     expect(deadLookups, greaterThan(0), reason: 'the lookup must have met the dead port first');
-    await core.append(const NewEvent(kind: 'finish', source: 'tap'));
+    await core.append(const NewEvent(kind: 'note', source: 'tap'));
     expect(await PortCoreClient(live.port).count(), 1, reason: 'the client must be the live core\'s');
   });
 

@@ -162,8 +162,9 @@ void main() {
       expect([for (final e in later) markOf(e)], everyElement(StandardMarks.windward));
       expect(later.first.payload, {'sail': '22', 'mark': StandardMarks.windward}, reason: 'its own payload kept');
       expect(store.station, StandardMarks.windward);
+      // Five after the pick: the four, and the clock offset the finish joined its race with (#55).
       expect([for (final t in store.readCanonical()) markIn(t)],
-          [null, null, StandardMarks.windward, ...List.filled(4, StandardMarks.windward)]);
+          [null, null, StandardMarks.windward, ...List.filled(5, StandardMarks.windward)]);
     });
 
     test('an event that names a mark of its own keeps it, a null one included', () {

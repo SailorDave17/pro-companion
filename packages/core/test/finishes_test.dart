@@ -57,7 +57,7 @@ void main() {
 
     expect(undo.kind, FinishKinds.undo);
     expect(undo.correctsUlid, a.ulid);
-    expect(store.count(), 3, reason: 'appended, nothing removed');
+    expect(store.count(), 4, reason: 'appended, nothing removed: the first finish came after its clock offset (#55)');
     expect(bodies()[a.ulid], stored[a.ulid], reason: 'the original is unchanged');
     expect([for (final e in order()) (e.place, e.ulid)], [(1, b.ulid)],
         reason: 'the undone finish leaves the order and places renumber');
@@ -106,7 +106,7 @@ void main() {
     final s2 = store.append(FinishEvents.assignSail(a.ulid, '12346'));
 
     expect([s1.kind, s2.kind], [FinishKinds.sail, FinishKinds.sail]);
-    expect(store.count(), 4);
+    expect(store.count(), 5, reason: 'and the clock offset the first finish came after (#55)');
     for (final ulid in [a.ulid, s1.ulid, b.ulid]) {
       expect(bodies()[ulid], stored[ulid], reason: 'no earlier event is rewritten');
     }
