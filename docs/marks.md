@@ -68,6 +68,11 @@ pickup, 2026-10-14.
   never switches it.
 - **Elapsed time is pending reconciliation.** It needs the gun, which another phone logs, and a
   clock reference across phones (G10), so the phone shows the time of day only. Cross-phone elapsed
-  time is its own story.
+  time is its own story (#69). The clock reference exists since #55: a `clock.offset` event, the
+  phone's clock against satellite time, which the core appends itself just before the phone's first
+  finish here in each race whose gun it knows of, or once per fleet per day while it knows none
+  (ADR 001, "Two clocks"). Today a mark phone knows no gun: its home fires none and sync is not
+  started in the app (#113), so it is once per fleet per day, with another after the phone's clock
+  is set.
 - **Not yet:** a second shortened course for the same fleet at the same mark later in the day logs
   nothing new, because the first is still in force. The phone has no race boundary to end it.

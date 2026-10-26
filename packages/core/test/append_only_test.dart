@@ -21,7 +21,9 @@ void main() {
 
   setUp(() {
     store = openStore(tempDbPath());
-    stored = store.append(const NewEvent(kind: 'finish', source: 'tap', payload: {'sail': '7'}));
+    // A kind that joins no race, so no clock offset is appended before it
+    // (#55) and it is the log's only event.
+    stored = store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'sail': '7'}));
     bodyBefore = bodyOf(stored.ulid);
   });
 

@@ -30,7 +30,9 @@ abstract final class Wire {
   /// Every command the core serves. There is no update and no delete, and a
   /// command not listed here is refused (#24 criterion 3). setAdmissionId
   /// replaces the admission the phone holds (#49), and reportLocation the
-  /// position it holds in memory (#31), never a stored event, and
+  /// position (#31) and satellite time (#55) it holds in memory, never a
+  /// stored event (a report that the phone's clock was set appends a new
+  /// `clock.changed`, #55), and
   /// uploadStatus, revocation and pullStatus read what sync (#6, #53, #64)
   /// keeps beside the log.
   static const commands = {

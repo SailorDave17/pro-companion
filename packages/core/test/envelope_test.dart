@@ -9,7 +9,8 @@ void main() {
   test('an appended event carries every ADR 001 envelope field', () {
     final location = LatestFix(elapsedMs: () => 0);
     final store = openStore(tempDbPath(), clock: steppingClock([1000, 1727190000123]), location: location);
-    final original = store.append(const NewEvent(kind: 'finish', source: 'tap'));
+    // A kind that joins no race, so no clock offset (#55) comes between the two.
+    final original = store.append(const NewEvent(kind: 'note', source: 'tap'));
     store.setAdmissionId('3f6c1a52-8d0e-4b7a-9c21-5e4f0a9b7d13');
     location.reportFix(const GpsFix(lat: 33.4, lon: -86.8, accuracyM: 4.5, ageMs: 1200));
 

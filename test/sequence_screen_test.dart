@@ -249,6 +249,8 @@ void main() {
         StartKinds.generalRecall: 'manual',
         StartKinds.timeCorrected: 'manual',
         StartKinds.undo: 'tap',
+        // Each gun's clock offset (#55) is the core's own, never the card's.
+        ClockKinds.offset: 'core',
       });
     });
   });

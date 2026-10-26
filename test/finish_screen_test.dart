@@ -45,10 +45,13 @@ void main() {
     expect(finishButton, findsOneWidget);
   }
 
-  // The log less the PRO pick seeded to open the app on its home (#20): what
-  // the finish screen appended.
-  Future<List<EventEnvelope>> events(WidgetTester tester) async =>
-      [for (final e in (await tester.runAsync(core.readAll))!) if (e.ulid != seededRolePick) e];
+  // The log less the PRO pick seeded to open the app on its home (#20), and
+  // less the clock offset the core appends itself before a race's first finish
+  // (#55): what the finish screen appended.
+  Future<List<EventEnvelope>> events(WidgetTester tester) async => [
+        for (final e in (await tester.runAsync(core.readAll))!)
+          if (e.ulid != seededRolePick && e.kind != ClockKinds.offset) e,
+      ];
 
   Future<List<EventEnvelope>> finishes(WidgetTester tester) async =>
       [for (final e in await events(tester)) if (e.kind == FinishKinds.finish) e];

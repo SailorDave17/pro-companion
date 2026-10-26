@@ -218,7 +218,8 @@ void main() {
       async.elapse(const Duration(seconds: 5));
       expect(phone.store.uploadStatus().accepted, 1);
 
-      phone.store.append(const NewEvent(kind: 'finish', source: 'tap'));
+      // A note joins no race, so it goes up alone, with no clock offset (#55) beside it.
+      phone.store.append(const NewEvent(kind: 'note', source: 'tap'));
       final at = clock.now();
       engine.nudge();
       async.elapse(const Duration(seconds: 1));

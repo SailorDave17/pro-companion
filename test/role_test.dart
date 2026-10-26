@@ -145,8 +145,16 @@ void main() {
       await tap(tester, find.widgetWithText(FilledButton, 'FINISH'));
 
       final all = await events(tester);
-      expect([for (final e in all) e.kind],
-          [RoleKinds.assigned, FleetKinds.defined, FleetKinds.selected, FinishKinds.finish, FinishKinds.finish]);
+      // The first finish joined its race with a clock offset the core appended itself (#55),
+      // which carries the role like any other event the phone logs.
+      expect([for (final e in all) e.kind], [
+        RoleKinds.assigned,
+        FleetKinds.defined,
+        FleetKinds.selected,
+        ClockKinds.offset,
+        FinishKinds.finish,
+        FinishKinds.finish,
+      ]);
       expect([for (final e in all) e.role], everyElement(Roles.recorder));
     });
 
@@ -418,6 +426,12 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<void> reportNoFix(String reason) => _inner.reportNoFix(reason);
+
+  @override
+  Future<void> reportGpsTime(GpsTimeSample sample) => _inner.reportGpsTime(sample);
+
+  @override
+  Future<void> reportClockChanged() => _inner.reportClockChanged();
 
   @override
   Future<UploadStatus> uploadStatus() => _inner.uploadStatus();

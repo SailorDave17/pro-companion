@@ -42,8 +42,9 @@ void main() {
       final server = FakeServer();
       final (phone, engine, _) = await admittedPhone(server, alice, dayOne);
       // A whole-number double past 2^63: stored as RFC 8785 prints it, which a decode and
-      // re-encode would not reproduce ("100000000000000000000.0").
-      phone.store.append(const NewEvent(kind: 'finish', source: 'tap', payload: {'z': 1e20, 'a': 0.1, 'm': 12.0}));
+      // re-encode would not reproduce ("100000000000000000000.0"). A note joins no race, so no
+      // clock offset (#55) goes up beside it.
+      phone.store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'z': 1e20, 'a': 0.1, 'm': 12.0}));
       final stored = phone.store.readCanonical().single;
       expect(stored, contains('"payload":{"a":0.1,"m":12,"z":100000000000000000000}'));
 

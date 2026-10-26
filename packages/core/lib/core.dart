@@ -8,13 +8,14 @@ library;
 export 'src/chain.dart'
     show ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
 export 'src/client.dart' show CoreClient;
+export 'src/clock_offsets.dart' show ClockKinds, CrossPhoneElapsed, CrossPhoneFlags, crossPhoneElapsed, offsetFor;
 export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isUlid;
 export 'src/finishes.dart'
     show FinishEntry, FinishEvents, FinishKinds, FinishSources, finishOrder, lastUndoable, lastUndoableFinish;
 export 'src/fleets.dart'
     show Fleet, FleetEvents, FleetKinds, fleetOf, fleetPayloadKey, fleets, lastFleetSwitch, recentFleets, selectedFleet;
 export 'src/kinds.dart' show EventKinds;
-export 'src/location.dart' show GpsReasons;
+export 'src/location.dart' show ClockOffsetReasons, GpsReasons, GpsTimeSample;
 export 'src/mark_finishes.dart'
     show CourseEvents, CourseKinds, lastMarkFleet, lastUndoableMarkFinish, markFinishOrder, shortenedAt;
 export 'src/order.dart' show happened;

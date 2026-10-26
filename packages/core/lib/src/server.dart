@@ -77,8 +77,13 @@ class CoreServer {
         final location = store.location;
         if (location is! LatestFix) throw StateError('this core is not fed positions over the wire');
         final fix = args['fix'];
+        final gpsTime = args['gps_time'];
         if (fix != null) {
           location.reportFix(GpsFix.fromWire(fix)!);
+        } else if (gpsTime != null) {
+          location.reportGpsTime(GpsTimeSample.fromWire(gpsTime as Map));
+        } else if (args['clock_changed'] == true) {
+          store.recordClockChanged();
         } else {
           location.reportNone(args['reason'] as String);
         }

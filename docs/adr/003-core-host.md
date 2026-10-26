@@ -202,8 +202,12 @@ The host is in the app: `android/app/src/main/kotlin/com/procompanion/app/CoreSe
   every event says `no_permission` and still appends, as #31 had it, until the activity goes.
 - **The wake lock is not in this host** (amends "Kill condition"). #127 measures it on this host,
   not the spike, and adds it. The spike requested no location updates. This host's feed asks for a
-  high-accuracy fix every 5 s, and whether that wakes the CPU is part of what #127 now reads. Until
-  #127 lands, a timer in this host stalls with the screen off, as #21 measured on the spike.
+  high-accuracy fix every 5 s, and whether that wakes the CPU is part of what #127 now reads. Since
+  #55 it asks twice: the fused request for the position, and a second, on the GPS provider every
+  5 s, for the satellites' time, each fix a channel message to the host's engine. That the second
+  costs no extra power because GNSS is already on is reasoned, not measured, so #127's readings
+  cover both. Until #127 lands, a timer in this host stalls with the screen off, as #21 measured on
+  the spike.
 - **The location feed (#31) runs in the service**, on the host's engine, so an event appended with
   the UI gone carries a current fix. The activity's start of the service after a permission answer
   restarts the feed.

@@ -114,9 +114,11 @@ void main() {
       expect(picked.role, Roles.recorder, reason: 'the pick carries the role it picks');
       expect([for (final e in later) e.role], everyElement(Roles.recorder));
       expect(store.role, Roles.recorder);
-      expect(rolesOf(store), [null, ...List.filled(7, Roles.recorder)]);
+      // Nine after the pick: the seven, and the clock offsets the first finish and the gun each
+      // joined their race with (#55), which the core writes and stamps like any other.
+      expect(rolesOf(store), [null, ...List.filled(9, Roles.recorder)]);
       expect([for (final t in store.readCanonical()) (jsonDecode(t) as Map)['role']],
-          [null, ...List.filled(7, Roles.recorder)]);
+          [null, ...List.filled(9, Roles.recorder)]);
     });
 
     test('an event that names a role of its own keeps it', () {

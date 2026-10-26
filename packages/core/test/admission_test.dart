@@ -158,8 +158,17 @@ void main() {
       const pre31Gps = '"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},';
       final pre31 = '{"admission_id":null,${pre49For(store.deviceId, e.ulid).substring(1)}';
       expect(pre31, contains(pre31Gps), reason: 'the position to replace is there');
-      expect(store.readCanonical().single,
-          pre31.replaceFirst(pre31Gps, '"gps":{"accuracy_m":5,"age_ms":2000,"lat":33.4012,"lon":-86.8123},"gps_reason":null,'));
+      // Since #55 a finish joining its race on a fresh phone comes after the clock offset it
+      // joined with, so it is the device's second event, chained to that one.
+      final texts = store.readCanonical();
+      expect(texts, hasLength(2));
+      final pre55 = '"prev_hash":"$genesisHash","role":"recorder","seq":1,';
+      expect(pre31, contains(pre55), reason: 'the sequence number and previous hash to replace are there');
+      expect(
+          texts.last,
+          pre31
+              .replaceFirst(pre31Gps, '"gps":{"accuracy_m":5,"age_ms":2000,"lat":33.4012,"lon":-86.8123},"gps_reason":null,')
+              .replaceFirst(pre55, '"prev_hash":"${chainHash(texts.first)}","role":"recorder","seq":2,'));
     });
   });
 

@@ -1,3 +1,4 @@
+import 'clock_offsets.dart';
 import 'finishes.dart';
 import 'fleets.dart';
 import 'mark_finishes.dart';
@@ -20,5 +21,6 @@ abstract final class EventKinds {
     ...RoleKinds.all,
     ...StationKinds.all,
     ...CourseKinds.all,
+    ...ClockKinds.all,
   };
 }

@@ -64,8 +64,9 @@ void main() {
     test('append, read, count and device id round-trip as plain data', () async {
       final id = await core.deviceId();
       expect(isUlid(id), isTrue);
+      // A kind that joins no race, so no clock offset (#55) is appended before it.
       final a = await core.append(const NewEvent(
-        kind: 'finish',
+        kind: 'note',
         source: 'tap',
         payload: {'sail': '42'},
       ));
