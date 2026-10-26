@@ -20,7 +20,7 @@ import 'support/local_stack.dart';
 /// pull, the other direction.
 ///
 /// Spend per run of this file: 2 anonymous sign-ins (the device-handoff case) of the stack's 30 an
-/// hour, and 13 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 17
+/// hour, and 15 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 19
 /// verifications (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than
 /// on what they test. Prove a mutation with --plain-name on one case.
 ///
@@ -372,9 +372,11 @@ void main() {
         RefusedUpload(ulid: clash, reason: 'ulid_conflict', mayBeOnShore: false),
         RefusedUpload(ulid: bad, reason: 'inconsistent_canonical', mayBeOnShore: false),
         RefusedUpload(ulid: lost, reason: 'revoked', mayBeOnShore: true),
-        RefusedUpload(ulid: after, reason: 'revoked', mayBeOnShore: false),
       ]));
-      expect(phone.transport.appendsOf(after), 1);
+      // Since #53 the refusal for revocation is the last send under the admission: the event
+      // logged after it stays on the phone, unsent.
+      expect(phone.transport.appendsOf(after), 0);
+      expect(phone.store.uploadStatus().held, 1);
       final kept = await stack.refusals(day.eventId);
       expect(kept.where((r) => r.startsWith('revoked ')), isNotEmpty, reason: 'the server kept them too (#48)');
     });
@@ -520,6 +522,58 @@ void main() {
       }
       // Accepted today: append_event judges the caller, not the admission in the text. #73 will
       // judge the text, and would refuse these; that conflict is raised on #73.
+    });
+
+    test('#53 criteria 1 to 3: a phone revoked by revoke_device is told once, by name, keeps what it '
+        'logs unsent, and the race day\'s other phone goes on uploading', () async {
+      // A race day of its own, so the revocation's refusal and stubs reach no other case's phones.
+      final race = await stack.raceDay();
+      final revoked = await StackPhone.open(stack);
+      final other = await StackPhone.open(stack);
+      addTearDown(revoked.close);
+      addTearDown(other.close);
+      for (final p in [revoked, other]) {
+        await p.signInNamed();
+        await p.admitTo(race);
+      }
+      // Control: admitted, each uploads, and the pull reads the race day's name while it may,
+      // through real PostgREST and the event table's club policy.
+      for (final p in [revoked, other]) {
+        p.log(1);
+        expect((await p.engine.syncOnce()).accepted, 1);
+      }
+      expect(revoked.store.raceDayName(race.eventId), 'Test day');
+
+      await stack.revoke(revoked.admission!);
+      // Criterion 1: the next append is refused for revocation, and that is the last one sent.
+      final told = revoked.log(3);
+      final run = await revoked.engine.syncOnce();
+      expect([run.refused, run.held, run.remaining], [1, 2, 0], reason: '$run');
+      expect([for (final u in told) revoked.transport.appendsOf(u)], [1, 0, 0]);
+      expect(revoked.store.uploadStatus().refused.single.reason, 'revoked');
+      expect(revoked.store.revocation()?.eventId, race.eventId);
+      expect(revoked.store.revocation()?.eventName, 'Test day', reason: 'named, though the server no longer shows it');
+      expect(run.pull?.state, PullRunState.revoked);
+
+      // Criterion 2: capture goes on, kept on the phone, and nothing more reaches the server.
+      final later = revoked.log(2);
+      await revoked.engine.syncOnce();
+      expect([for (final u in later) revoked.transport.appendsOf(u)], [0, 0]);
+      expect(revoked.store.uploadStatus().held, 4);
+      expect(revoked.storedByUlid().keys, containsAll([...told, ...later]));
+      final kept = await stack.refusals(race.eventId);
+      expect(kept.where((r) => r.startsWith('revoked ')), hasLength(1),
+          reason: 'one refusal on shore, not one for every tap after it (#48 keeps them for good)');
+
+      // Criterion 3: the race day's other phone goes on uploading.
+      final theirs = other.log(3);
+      final otherRun = await other.engine.syncOnce();
+      expect(otherRun.accepted, 3, reason: '$otherRun');
+      for (final u in theirs) {
+        expect(await stack.eventLogCanonical(u), other.storedByUlid()[u]);
+      }
+      expect(other.store.revocation(), isNull);
+      expect(otherRun.pull?.state, PullRunState.done);
     });
 
     test('#64 criteria 1, 2, 4, 7, 8 and 10: another phone\'s events pull down attributed to its '

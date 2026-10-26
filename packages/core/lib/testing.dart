@@ -60,6 +60,10 @@ class FakeCore implements CoreClient {
   /// What [uploadStatus] answers. The fake runs no sync, so a test sets it.
   UploadStatus uploadStatusValue = UploadStatus.empty;
 
+  /// What [revocation] answers (#53), set by a test for the same reason. A
+  /// test may change it while the app runs, as sync would.
+  Revocation? revocationValue;
+
   /// What [pullStatus] answers, set by a test for the same reason.
   PullStatus pullStatusValue = PullStatus.empty;
 
@@ -141,6 +145,13 @@ class FakeCore implements CoreClient {
         final wire = uploadStatusValue.toWire();
         requireWireSafe(wire, 'uploadStatus');
         return UploadStatus.fromWire(wire);
+      });
+
+  @override
+  Future<Revocation?> revocation() => _call(Wire.revocation, () {
+        final wire = revocationValue?.toWire();
+        requireWireSafe(wire, 'revocation');
+        return wire == null ? null : Revocation.fromWire(wire);
       });
 
   @override

@@ -23,6 +23,7 @@ abstract final class Wire {
   static const setAdmissionId = 'setAdmissionId';
   static const reportLocation = 'reportLocation';
   static const uploadStatus = 'uploadStatus';
+  static const revocation = 'revocation';
   static const pullStatus = 'pullStatus';
   static const close = 'close';
 
@@ -30,8 +31,8 @@ abstract final class Wire {
   /// command not listed here is refused (#24 criterion 3). setAdmissionId
   /// replaces the admission the phone holds (#49), and reportLocation the
   /// position it holds in memory (#31), never a stored event, and
-  /// uploadStatus and pullStatus read what sync (#6, #64) keeps beside the
-  /// log.
+  /// uploadStatus, revocation and pullStatus read what sync (#6, #53, #64)
+  /// keeps beside the log.
   static const commands = {
     append,
     readAll,
@@ -42,6 +43,7 @@ abstract final class Wire {
     setAdmissionId,
     reportLocation,
     uploadStatus,
+    revocation,
     pullStatus,
     close,
   };

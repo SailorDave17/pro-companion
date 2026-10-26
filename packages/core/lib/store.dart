@@ -8,4 +8,4 @@ export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isAdmissionId, 
 export 'src/location.dart' show GpsReasons, GpsStamp, LatestFix, LocationProvider;
 export 'src/pulls.dart' show PullCursor, PullRefused, PullRun, PullRunState, PullStatus, RefusalStub;
 export 'src/store.dart' show EventStore;
-export 'src/uploads.dart' show PendingUpload, RefusedUpload, UploadRun, UploadRunState, UploadStatus;
+export 'src/uploads.dart' show PendingUpload, RefusedUpload, Revocation, UploadRun, UploadRunState, UploadStatus;

@@ -110,6 +110,9 @@ class FakeServer extends http.BaseClient {
   final admissions = <String, Map<String, String>>{};
   final revoked = <String>{};
 
+  /// Each race day's name, as the event table holds it (#53).
+  final eventNames = <String, String>{};
+
   /// Magic-link token hashes, to the named volunteer each signs in.
   final magicLinks = <String, String>{};
   final _refresh = <String, String>{};
@@ -236,6 +239,15 @@ class FakeServer extends http.BaseClient {
                 'seq': (jsonDecode(row.canonical) as Map)['seq'],
                 'canonical': row.canonical,
               },
+        ]));
+      case ('GET', '/rest/v1/event'):
+        // The real policy is is_admitted_to_club, so a phone admitted to another race day of the
+        // club reads this one too. The fake has no clubs and answers per race day, which is
+        // narrower: a read it answers, the stack answers too.
+        if (r.caller == null) return _denied('table event');
+        return _json(200, _read(r, [
+          for (final MapEntry(key: id, value: name) in eventNames.entries)
+            if (readable(r.caller, id)) {'id': id, 'name': name},
         ]));
       case ('GET', '/rest/v1/event_refusal'):
         if (r.caller == null) return _denied('table event_refusal');

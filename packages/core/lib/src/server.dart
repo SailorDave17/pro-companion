@@ -85,6 +85,8 @@ class CoreServer {
         return null;
       case Wire.uploadStatus:
         return store.uploadStatus().toWire();
+      case Wire.revocation:
+        return store.revocation()?.toWire();
       case Wire.pullStatus:
         return store.pullStatus().toWire();
       case Wire.close:

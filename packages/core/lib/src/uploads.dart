@@ -23,7 +23,8 @@ class PendingUpload {
 }
 
 /// A refused event: kept on the phone, flagged with the server's reason, and
-/// never sent again (#6 criterion 10).
+/// never sent again (#6 criterion 10). A refusal for revocation also stops
+/// every later send under the same admission (#53): see [UploadStatus.held].
 class RefusedUpload {
   const RefusedUpload({required this.ulid, required this.reason, required this.mayBeOnShore});
 
@@ -128,13 +129,14 @@ class UploadStatus {
     required this.accepted,
     required this.neverAdmitted,
     required this.refused,
+    this.held = 0,
     this.lastRun,
   });
 
   static const empty = UploadStatus(pending: 0, accepted: 0, neverAdmitted: 0, refused: []);
 
   /// Events carrying an admission and not yet answered, including any that
-  /// wait on a session or an admission.
+  /// wait on a session or an admission. Never one that is [held].
   final int pending;
 
   /// Events the server holds, as it answered.
@@ -147,6 +149,13 @@ class UploadStatus {
   /// Events the server refused, oldest first.
   final List<RefusedUpload> refused;
 
+  /// Events written under an admission the server has since revoked (#53).
+  /// They stay on the phone and are never sent: sync stops at the first
+  /// refusal for revocation, which is in [refused]. An event whose earlier
+  /// send may have landed is not held: it goes once more, and its refusal is
+  /// flagged [RefusedUpload.mayBeOnShore].
+  final int held;
+
   /// Sync's latest run, or null before its first.
   final UploadRun? lastRun;
 
@@ -155,6 +164,7 @@ class UploadStatus {
         'accepted': accepted,
         'never_admitted': neverAdmitted,
         'refused': [for (final r in refused) r.toWire()],
+        'held': held,
         'last_run': lastRun?.toWire(),
       };
 
@@ -163,10 +173,49 @@ class UploadStatus {
         accepted: w['accepted'] as int,
         neverAdmitted: w['never_admitted'] as int,
         refused: [for (final r in w['refused'] as List) RefusedUpload.fromWire(r as Map)],
+        held: w['held'] as int,
         lastRun: w['last_run'] == null ? null : UploadRun.fromWire(w['last_run'] as Map),
       );
 
   @override
   String toString() => 'UploadStatus(pending $pending, accepted $accepted, never admitted $neverAdmitted, '
-      'refused ${refused.length}, last run $lastRun)';
+      'refused ${refused.length}, held $held, last run $lastRun)';
+}
+
+/// The admission this phone's taps go under has been revoked (#53): the
+/// server refused one of its events for it, and sync sends nothing more under
+/// it. The UI reads it through [CoreClient.revocation] and tells the
+/// volunteer.
+class Revocation {
+  const Revocation({required this.eventId, required this.at, this.eventName});
+
+  /// The race day the admission was for.
+  final String eventId;
+
+  /// The race day's name, as sync read it while the phone could still read
+  /// it, or null when it never learned it: once revoked, the server shows the
+  /// phone no race day of the club unless it holds another admission there.
+  final String? eventName;
+
+  /// When sync learned it, on the phone's clock (milliseconds since the
+  /// epoch).
+  final int at;
+
+  Map<String, Object?> toWire() => {'event_id': eventId, 'event_name': eventName, 'at': at};
+
+  static Revocation fromWire(Map w) => Revocation(
+        eventId: w['event_id'] as String,
+        eventName: w['event_name'] as String?,
+        at: w['at'] as int,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is Revocation && other.eventId == eventId && other.eventName == eventName && other.at == at;
+
+  @override
+  int get hashCode => Object.hash(eventId, eventName, at);
+
+  @override
+  String toString() => 'Revocation($eventId${eventName == null ? '' : ' "$eventName"'} at $at)';
 }

@@ -12,6 +12,7 @@ import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/revoked.dart';
 import 'support/roles.dart';
 
 /// #30 on the app, driven against the fake core: the mark-boat home's FINISH
@@ -309,6 +310,17 @@ void main() {
           );
           expect(violations, isEmpty, reason: violations.join('\n'));
         });
+        if (scale == 2.0) {
+          testWidgets('the mark-boat home and the screen, $name, at $pct text, under the revoked banner (#53)',
+              (tester) async {
+            final violations = await barCheck(
+              tester,
+              (observer) => app(textScale: scale, on: revoked(build()), observer: observer),
+              actionIds: markBoatRaceTimeActionIds,
+            );
+            expect(violations, isEmpty, reason: violations.join('\n'));
+          });
+        }
       }
     }
   });

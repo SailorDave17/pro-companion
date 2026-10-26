@@ -11,6 +11,7 @@ import 'package:pro_companion_core/testing.dart';
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
 import 'support/network_tripwire.dart';
+import 'support/revoked.dart';
 import 'support/roles.dart';
 import 'support/station_flow.dart';
 
@@ -251,6 +252,17 @@ void main() {
           );
           expect(violations, isEmpty, reason: violations.join('\n'));
         });
+        if (scale == 2.0) {
+          testWidgets('the mark-boat home and the marks, $name, at $pct text, under the revoked banner (#53)',
+              (tester) async {
+            final violations = await barCheck(
+              tester,
+              (observer) => app(textScale: scale, on: revoked(build()), observer: observer),
+              actionIds: actions,
+            );
+            expect(violations, isEmpty, reason: violations.join('\n'));
+          });
+        }
       }
     }
 
@@ -424,6 +436,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<UploadStatus> uploadStatus() => _inner.uploadStatus();
+
+  @override
+  Future<Revocation?> revocation() => _inner.revocation();
 
   @override
   Future<PullStatus> pullStatus() => _inner.pullStatus();

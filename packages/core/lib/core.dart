@@ -41,5 +41,5 @@ export 'src/starts.dart'
         sequenceOf;
 export 'src/stations.dart'
     show StandardMarks, StationEvents, StationKinds, currentStation, currentStationPick, markOf, markPayloadKey;
-export 'src/uploads.dart' show RefusedUpload, UploadRun, UploadRunState, UploadStatus;
+export 'src/uploads.dart' show RefusedUpload, Revocation, UploadRun, UploadRunState, UploadStatus;
 export 'src/wire.dart' show CoreException, isWireSafe;
