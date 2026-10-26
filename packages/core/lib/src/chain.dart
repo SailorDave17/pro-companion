@@ -144,7 +144,7 @@ class ChainVerdict {
 
   const ChainVerdict.gapped() : this._(ChainState.gapped);
 
-  const ChainVerdict.broken({required int atSeq, required String atUlid, int? afterSeq, required String reason})
+  const ChainVerdict.broken({required int atSeq, required String? atUlid, int? afterSeq, required String reason})
       : this._(ChainState.broken, atSeq: atSeq, atUlid: atUlid, afterSeq: afterSeq, reason: reason);
 
   final ChainState state;
@@ -153,6 +153,9 @@ class ChainVerdict {
   /// chain cannot say which side changed, so the event before it
   /// ([afterSeq], when there is one) may be the altered one instead.
   final int? atSeq;
+
+  /// The break point's ULID. Null only when the break is between two
+  /// refusals at one number (#67), neither of which has text to name it by.
   final String? atUlid;
   final int? afterSeq;
   final String? reason;
@@ -174,31 +177,89 @@ class ChainVerdict {
       : state.name;
 }
 
+/// An event the server refused, as the stub a phone may read of it (#60, groom
+/// decision G41): [deviceId]'s event at [seq], [hash] being the SHA-256 of
+/// the text it refused, and [reason] the category it refused it for. The text
+/// itself is never read.
+///
+/// In a chain it stands in for the refused event (#67): the next event's
+/// link is checked against [hash], so a refusal is never read as a gap. It
+/// has no previous hash of its own, so its own link cannot be checked.
+class ChainRefusal {
+  const ChainRefusal({required this.deviceId, required this.seq, required this.hash, required this.reason});
+
+  final String deviceId;
+  final int seq;
+  final String hash;
+  final String reason;
+
+  Map<String, Object?> toWire() => {'device_id': deviceId, 'seq': seq, 'hash': hash, 'reason': reason};
+
+  static ChainRefusal fromWire(Map w) => ChainRefusal(
+        deviceId: w['device_id'] as String,
+        seq: w['seq'] as int,
+        hash: w['hash'] as String,
+        reason: w['reason'] as String,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is ChainRefusal &&
+      other.deviceId == deviceId &&
+      other.seq == seq &&
+      other.hash == hash &&
+      other.reason == reason;
+
+  @override
+  int get hashCode => Object.hash(deviceId, seq, hash, reason);
+
+  @override
+  String toString() => 'ChainRefusal($deviceId seq $seq: $reason)';
+}
+
 class _Link {
-  _Link(this.text) : hash = chainHash(text) {
+  const _Link._(this.hash, this.ulid, this.deviceId, this.seq, this.prevHash, {required this.refused});
+
+  factory _Link(String text) {
     final wire = jsonDecode(text) as Map;
-    ulid = wire['ulid'] as String;
-    deviceId = wire['device_id'] as String;
-    seq = wire['seq'] as int;
-    prevHash = wire['prev_hash'] as String?;
+    return _Link._(chainHash(text), wire['ulid'] as String, wire['device_id'] as String, wire['seq'] as int,
+        wire['prev_hash'] as String?,
+        refused: false);
   }
 
-  final String text;
+  factory _Link.refusal(ChainRefusal r) => _Link._(r.hash, null, r.deviceId, r.seq, null, refused: true);
+
   final String hash;
-  late final String ulid;
-  late final String deviceId;
-  late final int seq;
-  late final String? prevHash;
+  final String? ulid;
+  final String deviceId;
+  final int seq;
+  final String? prevHash;
+
+  /// A refusal stub's stand-in: it has a hash and a number, and nothing else.
+  final bool refused;
 }
 
 /// Verifies one device's chain from the canonical texts of the events held,
-/// in any order. They are read in sequence order, then ULID order, so two
-/// events holding one number are named the same way by every verifier. The
-/// verdict is broken at the first failing event; otherwise gapped when any
-/// number is missing; otherwise intact. docs/event-chain.md states every rule.
-ChainVerdict verifyChain(Iterable<String> canonicalTexts) {
-  final links = [for (final text in canonicalTexts) _Link(text)]
-    ..sort((a, b) => a.seq != b.seq ? a.seq.compareTo(b.seq) : a.ulid.compareTo(b.ulid));
+/// in any order, and the stubs of any of its events the server refused
+/// ([refusals], #67). They are read in sequence order, then ULID order, so two
+/// events holding one number are named the same way by every verifier; at
+/// one number, a refusal is read before an event, so a fork between the two
+/// is named by the event. A refusal whose hash is an event's held at its
+/// number is that event, refused: it is read once. The verdict is broken at
+/// the first failing event; otherwise gapped when any number is missing;
+/// otherwise intact. docs/event-chain.md states every rule.
+ChainVerdict verifyChain(Iterable<String> canonicalTexts, {Iterable<ChainRefusal> refusals = const []}) {
+  final events = [for (final text in canonicalTexts) _Link(text)];
+  final held = {for (final e in events) (e.seq, e.hash)};
+  final stubs = <(int, String), _Link>{
+    for (final r in refusals)
+      if (!held.contains((r.seq, r.hash))) (r.seq, r.hash): _Link.refusal(r),
+  };
+  final links = [...events, ...stubs.values]..sort((a, b) {
+      if (a.seq != b.seq) return a.seq.compareTo(b.seq);
+      if (a.refused != b.refused) return a.refused ? -1 : 1;
+      return a.refused ? a.hash.compareTo(b.hash) : a.ulid!.compareTo(b.ulid!);
+    });
   if (links.map((l) => l.deviceId).toSet().length > 1) {
     throw ArgumentError("verifyChain takes one device's events; use verifyChains for several");
   }
@@ -209,18 +270,29 @@ ChainVerdict verifyChain(Iterable<String> canonicalTexts) {
         ChainVerdict.broken(atSeq: e.seq, atUlid: e.ulid, afterSeq: afterSeq, reason: reason);
 
     final prev = e.prevHash;
-    if (prev == null) return brokenHere('it carries no previous hash');
-    if (e.seq > 1 && prev == genesisHash) {
-      return brokenHere('it claims to start the chain at seq ${e.seq}: the events before it were '
-          'removed and it was re-linked');
+    if (!e.refused) {
+      if (prev == null) return brokenHere('it carries no previous hash');
+      if (e.seq > 1 && prev == genesisHash) {
+        return brokenHere('it claims to start the chain at seq ${e.seq}: the events before it were '
+            'removed and it was re-linked');
+      }
     }
     if (i == 0) {
-      if (e.seq == 1 && prev != genesisHash) return brokenHere('the first event does not start from genesis');
+      if (!e.refused && e.seq == 1 && prev != genesisHash) {
+        return brokenHere('the first event does not start from genesis');
+      }
       if (e.seq > 1) gapped = true;
       continue;
     }
     final before = links[i - 1];
     if (e.seq == before.seq) return brokenHere('two events hold seq ${e.seq}: the chain forks there');
+    // A refusal's own link cannot be checked: it has no previous hash. Only
+    // the number it fills counts, and the event after it is checked against
+    // its hash.
+    if (e.refused) {
+      if (e.seq != before.seq + 1) gapped = true;
+      continue;
+    }
     if (e.seq == before.seq + 1) {
       if (prev != before.hash) {
         return brokenHere("its previous hash is not seq ${before.seq}'s: one of the two was altered",
@@ -237,14 +309,19 @@ ChainVerdict verifyChain(Iterable<String> canonicalTexts) {
   return gapped ? const ChainVerdict.gapped() : const ChainVerdict.intact();
 }
 
-/// [verifyChain] for each device in [canonicalTexts], keyed by device id and
-/// in device-id order.
-Map<String, ChainVerdict> verifyChains(Iterable<String> canonicalTexts) {
+/// [verifyChain] for each device in [canonicalTexts] or [refusals], keyed by
+/// device id and in device-id order.
+Map<String, ChainVerdict> verifyChains(Iterable<String> canonicalTexts, {Iterable<ChainRefusal> refusals = const []}) {
   final byDevice = <String, List<String>>{};
   for (final text in canonicalTexts) {
     final deviceId = (jsonDecode(text) as Map)['device_id'] as String;
     byDevice.putIfAbsent(deviceId, () => []).add(text);
   }
+  final refusedBy = <String, List<ChainRefusal>>{};
+  for (final r in refusals) {
+    refusedBy.putIfAbsent(r.deviceId, () => []).add(r);
+    byDevice.putIfAbsent(r.deviceId, () => []);
+  }
   final ids = byDevice.keys.toList()..sort();
-  return {for (final id in ids) id: verifyChain(byDevice[id]!)};
+  return {for (final id in ids) id: verifyChain(byDevice[id]!, refusals: refusedBy[id] ?? const [])};
 }

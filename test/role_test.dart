@@ -170,7 +170,8 @@ void main() {
 
   group("criterion 3: each role's home offers that role's job and nothing else", () {
     const expected = {
-      Roles.overallPro: {'UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS'},
+      // The committee log (#67) is the PRO's alone (owner decision at its pickup).
+      Roles.overallPro: {'UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS', 'LOG'},
       Roles.recorder: {'UNDO ROLE', 'FLEETS', 'FINISHES'},
       // The mark boat's station (#26) and its finish at a mark (#30); its
       // roundings come with #54.
@@ -441,6 +442,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<PullStatus> pullStatus() => _inner.pullStatus();
+
+  @override
+  Future<ChainStatus> chainStatus() => _inner.chainStatus();
 
   @override
   Future<void> close() => _inner.close();

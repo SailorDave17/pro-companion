@@ -3,7 +3,8 @@
 library;
 
 export 'src/chain.dart'
-    show ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
+    show ChainRefusal, ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
+export 'src/chain_status.dart' show ChainBreak, ChainPoint, ChainStatus, DeviceChain, DeviceChainStates;
 export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isAdmissionId, newUlid;
 export 'src/location.dart' show ClockOffsetStamp, GpsReasons, GpsStamp, LatestFix, LocationProvider;
 export 'src/pulls.dart' show PullCursor, PullRefused, PullRun, PullRunState, PullStatus, RefusalStub;

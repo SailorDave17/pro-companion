@@ -6,7 +6,8 @@
 library;
 
 export 'src/chain.dart'
-    show ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
+    show ChainRefusal, ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
+export 'src/chain_status.dart' show ChainBreak, ChainPoint, ChainStatus, DeviceChain, DeviceChainStates;
 export 'src/client.dart' show CoreClient;
 export 'src/clock_offsets.dart' show ClockKinds, CrossPhoneElapsed, CrossPhoneFlags, crossPhoneElapsed, offsetFor;
 export 'src/envelope.dart' show EventEnvelope, GpsFix, NewEvent, isUlid;

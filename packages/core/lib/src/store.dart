@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'chain.dart';
+import 'chain_status.dart';
 import 'clock_offsets.dart';
 import 'envelope.dart';
 import 'location.dart';
@@ -807,6 +808,76 @@ class EventStore {
     return PullStatus(
       lastPulledAt: at.isEmpty ? null : int.parse(at.first['value'] as String),
       lastRun: run.isEmpty ? null : PullRun.fromWire(jsonDecode(run.first['value'] as String) as Map),
+    );
+  }
+
+  // The committee log view (#67) ------------------------------------------------
+
+  /// What the log view shows: this device's own chain, verified with every
+  /// stub naming it, and each other device's log on each race day it was
+  /// pulled from, verified from that race day's events and stubs alone. A
+  /// race day this phone holds nothing from for a device has its own row
+  /// rather than a hole in another's: a device's stint on a race day this
+  /// phone was not admitted to never reaches it (#64).
+  ChainStatus chainStatus() {
+    ChainRefusal refusalOf(sql.Row r) => ChainRefusal(
+          deviceId: r['device_id'] as String,
+          seq: r['seq'] as int,
+          hash: r['event_hash'] as String,
+          reason: r['reason'] as String,
+        );
+
+    final own = <String, Map>{};
+    for (final r in _db.select('SELECT body FROM events WHERE device_id = ?', [deviceId])) {
+      own[r['body'] as String] = jsonDecode(r['body'] as String) as Map;
+    }
+    final ownVerdict = verifyChain(own.keys, refusals: [
+      for (final r in _db.select('SELECT device_id, seq, event_hash, reason FROM pulled_refusal WHERE device_id = ?',
+          [deviceId]))
+        refusalOf(r),
+    ]);
+
+    // Race day -> device -> what is held from it there.
+    final events = <String, Map<String, List<(String, Map)>>>{};
+    final refusals = <String, Map<String, List<ChainRefusal>>>{};
+    final newest = <String, int>{};
+    for (final r in _db.select(
+        'SELECT p.event_id, e.body, e.device_ts FROM events e JOIN pulled_event p ON p.ulid = e.ulid '
+        'WHERE e.device_id <> ?',
+        [deviceId])) {
+      final day = r['event_id'] as String;
+      final text = r['body'] as String;
+      final wire = jsonDecode(text) as Map;
+      ((events[day] ??= {})[wire['device_id'] as String] ??= []).add((text, wire));
+      final ts = r['device_ts'] as int;
+      if (ts > (newest[day] ?? ts - 1)) newest[day] = ts;
+    }
+    for (final r in _db.select(
+        'SELECT event_id, device_id, seq, event_hash, reason FROM pulled_refusal WHERE device_id <> ?', [deviceId])) {
+      final day = r['event_id'] as String;
+      ((refusals[day] ??= {})[r['device_id'] as String] ??= []).add(refusalOf(r));
+    }
+    final days = {...events.keys, ...refusals.keys}.toList()
+      ..sort((a, b) {
+        // A race day held only as refusals has no time of its own, so it goes last.
+        final byNewest = (newest[b] ?? -1).compareTo(newest[a] ?? -1);
+        return byNewest != 0 ? byNewest : a.compareTo(b);
+      });
+    return ChainStatus(
+      ownBreak: ownVerdict.state == ChainState.broken
+          ? breakOf(ownVerdict, {for (final w in own.values) w['ulid'] as String: w})
+          : null,
+      devices: [
+        for (final day in days)
+          for (final device in ({...?events[day]?.keys, ...?refusals[day]?.keys}.toList()..sort()))
+            classifyDeviceChain(
+              eventId: day,
+              raceDayName: raceDayName(day),
+              deviceId: device,
+              events: events[day]?[device] ?? const [],
+              refusals: refusals[day]?[device] ?? const [],
+            ),
+      ],
     );
   }
 

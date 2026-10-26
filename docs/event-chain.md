@@ -2,7 +2,8 @@
 
 - **Status: #28.** The phone's core writes and verifies it (`packages/core/lib/src/chain.dart`,
   `EventStore.append`). The companion's shore verifier (#62) and burgee reproduce it, and all three
-  are held to the vectors in `fixtures/chain/`.
+  are held to the vectors in `fixtures/chain/`. **Since #67** a verifier also reads refusal stubs,
+  and a phone shows every other phone's chain (`packages/core/lib/src/chain_status.dart`).
 - **Decisions (owner, 2026-09-25):** the canonical form is RFC 8785, and a broken chain names its
   break point, not the altered event.
 
@@ -67,6 +68,54 @@ the first of these that applies:
 follows an event P, it names P as well (`after_seq`). The chain cannot say which of the two
 changed. When one byte of P's payload is altered, P's hash changes and E's link stops holding, so
 the verdict is *broken at E, after P*, and P may be the altered one.
+
+## Refusal stubs in the chain (#67)
+
+An event the server refused is not in the log, so its number would read as a gap. A phone admitted
+to the race day reads a **stub** of it instead (#60, groom decision G41): the device, the number,
+the reason, and the refused event's hash, which is the SHA-256 of the exact text the server
+refused, the same hash the chain takes. A verifier given stubs reads each one in its event's place:
+
+- **A stub fills its number with its hash.** The event after it is checked against that hash, as
+  against any event, so a refusal is never a gap, and a stub whose hash is not the refused event's
+  breaks the chain at the event after it. A stub has no previous hash, so its own link cannot be
+  checked.
+- **A stub whose hash is an event's held at its number is that event**, refused, and is read once.
+  A phone holds its own refused events and pulls their stubs back.
+- **A stub of another text at a held number is a fork**, as two events at one number are: broken
+  at that number, named by the held event. Two stubs of two texts at one number are a fork too,
+  with no text to name it by.
+- At one number a stub is read before an event, so a fork between the two is named by the event.
+
+`verifyChain(texts, refusals: …)` implements this. The shore verifier (#62) reproduces it. The
+vectors carry no stubs yet; #62 adds them with its verifier (owner decision at #67's pickup).
+
+## What a phone shows (#67)
+
+The committee log, from LOG on the PRO's home, shows each other phone's log as **one status**, the
+worst that applies, with the rest as lines under it (owner decision at #67's pickup):
+
+| Status | When | Its lines |
+|---|---|---|
+| **Altered** | the chain is broken | the first bad event and its time, and the event before it |
+| **Catching up** | a number is missing between the lowest and the highest held | how many are missing, and the last event verified unbroken from the lowest |
+| **Refused at N** | a stub is held, and every link holds | the numbers verified |
+| **Verified** | every number from the lowest held to the highest is held, and every link holds | the numbers verified |
+
+Every refusal is listed as its own line, with its reason, whatever the status.
+
+- **Numbers below the lowest held are not missing.** A phone's first events, logged before it was
+  admitted, never reach shore (#64), so a count from 1 would read every phone as catching up for
+  good. Verified means verified from the lowest number held.
+- **Each race day is verified on its own**, from that race day's events and stubs. A device's stint
+  on a race day this phone cannot read never reaches it, and across race days it would be a hole
+  that never fills. The link from one race day's last event to the next one's first is not checked.
+- **Its limit:** a device that leaves a race day and comes back to it later in the same day shows a
+  hole there for the race day in between. It reads as catching up, never as altered.
+- **This phone's own chain** is verified against every stub naming it, and shows only when it is
+  broken: as a banner above the rows, naming its first bad event.
+- Each row names its phone by the role and station its latest event carries, and the end of its
+  device id.
 
 ## What the chain cannot show
 
