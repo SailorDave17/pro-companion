@@ -58,9 +58,13 @@ void main() {
 
   Future<List<EventEnvelope>> events(WidgetTester tester) async => (await tester.runAsync(core.readAll))!;
 
-  /// The label of every button on screen.
+  /// The label of every button on screen but the shore row (#66), which every home has whatever
+  /// the role: it is no role's job, and criterion 3's tests hold it apart.
   Set<String> buttons(WidgetTester tester) => {
-        for (final b in find.byWidgetPredicate((w) => w is ButtonStyleButton).hitTestable().evaluate())
+        for (final b in find
+            .byWidgetPredicate((w) => w is ButtonStyleButton && w.key != const ValueKey('shore-row'))
+            .hitTestable()
+            .evaluate())
           [
             for (final t in find.descendant(of: find.byWidget(b.widget), matching: find.byType(Text)).evaluate())
               (t.widget as Text).data!,
@@ -184,6 +188,7 @@ void main() {
         await openApp(tester, on: withRole(core, role));
         expect(find.text(roleName(role)), findsOneWidget);
         expect(buttons(tester), labels);
+        expect(find.byKey(const ValueKey('shore-row')), findsOneWidget, reason: 'and the shore row (#66)');
       });
     }
 

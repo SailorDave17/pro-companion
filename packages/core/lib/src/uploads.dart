@@ -26,7 +26,7 @@ class PendingUpload {
 /// never sent again (#6 criterion 10). A refusal for revocation also stops
 /// every later send under the same admission (#53): see [UploadStatus.held].
 class RefusedUpload {
-  const RefusedUpload({required this.ulid, required this.reason, required this.mayBeOnShore});
+  const RefusedUpload({required this.ulid, required this.reason, required this.mayBeOnShore, this.kind});
 
   final String ulid;
 
@@ -39,23 +39,33 @@ class RefusedUpload {
   /// decision on #6): a lost response, then a revocation before the retry.
   final bool mayBeOnShore;
 
-  Map<String, Object?> toWire() => {'ulid': ulid, 'reason': reason, 'may_be_on_shore': mayBeOnShore};
+  /// The refused event's kind, read from its stored body, so the UI can list
+  /// refusals by kind (#66). Null when the body names none: a corrupt write
+  /// the server refuses as `inconsistent_canonical`.
+  final String? kind;
+
+  Map<String, Object?> toWire() => {'ulid': ulid, 'reason': reason, 'may_be_on_shore': mayBeOnShore, 'kind': kind};
 
   static RefusedUpload fromWire(Map w) => RefusedUpload(
         ulid: w['ulid'] as String,
         reason: w['reason'] as String,
         mayBeOnShore: w['may_be_on_shore'] as bool,
+        kind: w['kind'] as String?,
       );
 
   @override
   bool operator ==(Object other) =>
-      other is RefusedUpload && other.ulid == ulid && other.reason == reason && other.mayBeOnShore == mayBeOnShore;
+      other is RefusedUpload &&
+      other.ulid == ulid &&
+      other.reason == reason &&
+      other.mayBeOnShore == mayBeOnShore &&
+      other.kind == kind;
 
   @override
-  int get hashCode => Object.hash(ulid, reason, mayBeOnShore);
+  int get hashCode => Object.hash(ulid, reason, mayBeOnShore, kind);
 
   @override
-  String toString() => 'RefusedUpload($ulid $reason${mayBeOnShore ? ', may be on shore' : ''})';
+  String toString() => 'RefusedUpload($ulid ${kind ?? 'no kind'} $reason${mayBeOnShore ? ', may be on shore' : ''})';
 }
 
 /// How sync's latest run ended, kept so the UI can say why events are still
@@ -131,13 +141,28 @@ class UploadStatus {
     required this.refused,
     this.held = 0,
     this.lastRun,
+    this.lastAcceptedAt,
+    this.waitingByKind = const {},
   });
 
   static const empty = UploadStatus(pending: 0, accepted: 0, neverAdmitted: 0, refused: []);
 
+  /// The key [waitingByKind] counts an event under when its stored body names
+  /// no kind.
+  static const noKind = '';
+
   /// Events carrying an admission and not yet answered, including any that
   /// wait on a session or an admission. Never one that is [held].
   final int pending;
+
+  /// The [pending] events counted by kind, so the UI can list what waits
+  /// (#66). Its counts add up to [pending].
+  final Map<String, int> waitingByKind;
+
+  /// When the server last accepted one of this phone's events, on the
+  /// phone's clock (milliseconds since the epoch), or null before the first:
+  /// the last successful upload (owner decision on #66).
+  final int? lastAcceptedAt;
 
   /// Events the server holds, as it answered.
   final int accepted;
@@ -166,6 +191,8 @@ class UploadStatus {
         'refused': [for (final r in refused) r.toWire()],
         'held': held,
         'last_run': lastRun?.toWire(),
+        'last_accepted_at': lastAcceptedAt,
+        'waiting_by_kind': waitingByKind,
       };
 
   static UploadStatus fromWire(Map w) => UploadStatus(
@@ -175,11 +202,16 @@ class UploadStatus {
         refused: [for (final r in w['refused'] as List) RefusedUpload.fromWire(r as Map)],
         held: w['held'] as int,
         lastRun: w['last_run'] == null ? null : UploadRun.fromWire(w['last_run'] as Map),
+        lastAcceptedAt: w['last_accepted_at'] as int?,
+        waitingByKind: {
+          for (final MapEntry(:key, :value) in (w['waiting_by_kind'] as Map).entries) key as String: value as int,
+        },
       );
 
   @override
-  String toString() => 'UploadStatus(pending $pending, accepted $accepted, never admitted $neverAdmitted, '
-      'refused ${refused.length}, held $held, last run $lastRun)';
+  String toString() => 'UploadStatus(pending $pending $waitingByKind, accepted $accepted, '
+      'never admitted $neverAdmitted, refused ${refused.length}, held $held, '
+      'last accepted at $lastAcceptedAt, last run $lastRun)';
 }
 
 /// The admission this phone's taps go under has been revoked (#53): the

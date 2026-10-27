@@ -155,7 +155,7 @@ void main() {
       store.recordRefused(u, 'revoked', mayBeOnShore: true);
       expect(() => store.recordAccepted(u, 'a' * 64), throwsStateError);
       expect(() => store.recordRefused(u, 'ulid_conflict', mayBeOnShore: true), throwsStateError);
-      expect(store.uploadStatus().refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: true)]);
+      expect(store.uploadStatus().refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: true, kind: 'note')]);
     });
 
     test("an outcome is kept only for this device's own events", () {
@@ -203,7 +203,7 @@ void main() {
       expect(status.pending, 1);
       expect(status.accepted, 1);
       expect(status.neverAdmitted, 1);
-      expect(status.refused, [RefusedUpload(ulid: b.ulid, reason: 'inconsistent_canonical', mayBeOnShore: false)]);
+      expect(status.refused, [RefusedUpload(ulid: b.ulid, reason: 'inconsistent_canonical', mayBeOnShore: false, kind: 'note')]);
       expect(status.lastRun, const UploadRun(state: UploadRunState.notAdmitted, at: 9, paused: 1),
           reason: 'the latest run replaces the one before');
       expect(() => store.recordUploadRun(const UploadRun(state: 'asleep', at: 1)), throwsArgumentError);
@@ -223,8 +223,86 @@ void main() {
       addTearDown(core.close);
       final status = await core.uploadStatus();
       expect(status.pending, 1);
-      expect(status.refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: true)]);
+      expect(status.refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: true, kind: 'note')]);
       expect(status.lastRun, const UploadRun(state: UploadRunState.noSession, at: 42));
+      expect(status.waitingByKind, {'note': 1}, reason: '#66: the map crosses too');
+    });
+
+    test('#66: counts what waits by kind, only what will still be sent, adding up to pending', () {
+      final store = openStore(tempDbPath());
+      store.append(const NewEvent(kind: 'role.assigned', source: 'tap', payload: {'role': 'pro'})); // never admitted
+      store.setAdmissionId(admissionA);
+      final held = store.append(note).ulid;
+      store.append(note);
+      store.setAdmissionId(admissionB);
+      final accepted = store.append(note).ulid;
+      store.append(const NewEvent(kind: 'station.selected', source: 'tap', payload: {'mark': 'mark_1'}));
+      store.append(note);
+      final refused = store.append(note).ulid;
+      store.recordAccepted(accepted, 'a' * 64);
+      store.recordRefused(refused, 'ulid_conflict', mayBeOnShore: false);
+      store.recordAdmissionEvent(admissionA, dayOne);
+      store.recordRefused(held, 'revoked', mayBeOnShore: false);
+      store.recordRevoked(admissionA);
+
+      final status = store.uploadStatus();
+      expect([status.pending, status.neverAdmitted, status.held], [2, 1, 1], reason: 'control: the counts as #6 and #53 left them');
+      expect(status.waitingByKind, {'note': 1, 'station.selected': 1});
+      expect(status.waitingByKind.values.fold(0, (a, b) => a + b), status.pending);
+    });
+
+    test('#66 criterion 1: 10 events, 6 of them acknowledged, leave 4 waiting, at the last acceptance', () {
+      var now = 1000;
+      final store = openStore(tempDbPath(), clock: () => now);
+      store.setAdmissionId(admissionA);
+      final ulids = [for (var i = 0; i < 10; i++) store.append(note).ulid];
+      for (final u in ulids.take(6)) {
+        now += 1000;
+        store.recordAccepted(u, 'a' * 64);
+      }
+      final status = store.uploadStatus();
+      expect([status.pending, status.accepted, status.refused.length], [4, 6, 0]);
+      expect(status.waitingByKind, {'note': 4});
+      expect(status.lastAcceptedAt, 7000);
+    });
+
+    test('#66: an event whose stored body names no kind waits, and is refused, under no kind', () {
+      final store = openStore(tempDbPath());
+      store.setAdmissionId(admissionA);
+      store.append(note);
+      // A corrupt write, as sync_test plants one: an admission, but no kind.
+      String plant(int seq) {
+        final ulid = '01J8${'$seq'.padLeft(22, '0')}';
+        store.debugDatabase.execute('INSERT INTO events (ulid, device_id, seq, device_ts, body) VALUES (?, ?, ?, ?, ?)',
+            [ulid, store.deviceId, seq, 1, '{"admission_id":"$admissionA","ulid":"$ulid"}']);
+        return ulid;
+      }
+
+      plant(100);
+      final refused = plant(101);
+      store.recordRefused(refused, 'inconsistent_canonical', mayBeOnShore: false);
+      final status = store.uploadStatus();
+      expect(status.waitingByKind, {'note': 1, UploadStatus.noKind: 1});
+      expect(status.refused, [RefusedUpload(ulid: refused, reason: 'inconsistent_canonical', mayBeOnShore: false)]);
+    });
+
+    test('#66: the last successful upload is the latest accepted answer, never a refusal', () {
+      var now = 1000;
+      final store = openStore(tempDbPath(), clock: () => now);
+      store.setAdmissionId(admissionA);
+      final a = store.append(note).ulid;
+      final b = store.append(note).ulid;
+      final c = store.append(note).ulid;
+      expect(store.uploadStatus().lastAcceptedAt, isNull, reason: 'nothing accepted yet');
+
+      // Accepted out of sequence order, so the latest answer is not the highest seq.
+      now = 5000;
+      store.recordAccepted(b, 'b' * 64);
+      now = 7000;
+      store.recordAccepted(a, 'a' * 64);
+      now = 9000;
+      store.recordRefused(c, 'ulid_conflict', mayBeOnShore: false);
+      expect(store.uploadStatus().lastAcceptedAt, 7000, reason: 'a later refusal is not an upload');
     });
 
     test('the fake core answers what the test set, through the same wire form', () async {
@@ -233,8 +311,10 @@ void main() {
           pending: 3,
           accepted: 2,
           neverAdmitted: 1,
-          refused: [RefusedUpload(ulid: 'U', reason: 'revoked', mayBeOnShore: false)],
+          refused: [RefusedUpload(ulid: 'U', reason: 'revoked', mayBeOnShore: false, kind: 'finish')],
           lastRun: UploadRun(state: UploadRunState.unreachable, at: 7),
+          lastAcceptedAt: 6,
+          waitingByKind: {'finish': 2, 'start': 1},
         );
       final status = await fake.uploadStatus();
       expect(status.toWire(), fake.uploadStatusValue.toWire());

@@ -151,7 +151,7 @@ void main() {
         await engine.syncOnce();
         expect(server.appendsOf(ulids.first), 1, reason: 'counted: sent once, never again');
         final status = phone.store.uploadStatus();
-        expect(status.refused, [RefusedUpload(ulid: ulids.first, reason: reason, mayBeOnShore: false)]);
+        expect(status.refused, [RefusedUpload(ulid: ulids.first, reason: reason, mayBeOnShore: false, kind: 'note')]);
         expect(status.pending, 0);
       });
     }
@@ -229,7 +229,7 @@ void main() {
 
         server.revoked.add(admission);
         await engine.syncOnce();
-        expect(phone.store.uploadStatus().refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: unknown)]);
+        expect(phone.store.uploadStatus().refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: unknown, kind: 'note')]);
       });
     }
 
@@ -257,8 +257,8 @@ void main() {
       await engine.syncOnce();
       await engine.syncOnce();
       expect(phone.store.uploadStatus().refused, [
-        RefusedUpload(ulid: ulids[0], reason: 'admission_mismatch', mayBeOnShore: true),
-        RefusedUpload(ulid: ulids[1], reason: 'admission_mismatch', mayBeOnShore: false),
+        RefusedUpload(ulid: ulids[0], reason: 'admission_mismatch', mayBeOnShore: true, kind: 'note'),
+        RefusedUpload(ulid: ulids[1], reason: 'admission_mismatch', mayBeOnShore: false, kind: 'note'),
       ]);
       expect(server.log.keys, [ulids[0]], reason: 'the flag is right: the first one is on shore');
     });
@@ -288,7 +288,7 @@ void main() {
           url: projectUrl, publishableKey: publishableKey, store: restarted, sessionDir: phone.dir, transport: server);
       addTearDown(again.close);
       await again.syncOnce();
-      expect(restarted.uploadStatus().refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: true)]);
+      expect(restarted.uploadStatus().refused, [RefusedUpload(ulid: u, reason: 'revoked', mayBeOnShore: true, kind: 'note')]);
       // The killed engine stands in for a dead process, so end its run here, inside the test:
       // left to finish during teardown, it wrote to a store being closed under it. That was the
       // likeliest cause of the suite exiting non-zero after all its tests passed (2 of 88 runs).
@@ -320,7 +320,7 @@ void main() {
       }
       expect(server.appends.length, sent, reason: 'stops retrying: nothing more is sent');
       final status = phone.store.uploadStatus();
-      expect(status.refused, [RefusedUpload(ulid: ulids.first, reason: 'revoked', mayBeOnShore: false)]);
+      expect(status.refused, [RefusedUpload(ulid: ulids.first, reason: 'revoked', mayBeOnShore: false, kind: 'note')]);
       expect([status.pending, status.held, status.accepted], [0, 2, 1]);
       expect(server.log.keys, [before]);
     });
@@ -426,8 +426,8 @@ void main() {
       expect(
           phone.store.uploadStatus().refused,
           unorderedEquals([
-            RefusedUpload(ulid: u[0], reason: 'revoked', mayBeOnShore: false),
-            RefusedUpload(ulid: u[1], reason: 'revoked', mayBeOnShore: true),
+            RefusedUpload(ulid: u[0], reason: 'revoked', mayBeOnShore: false, kind: 'note'),
+            RefusedUpload(ulid: u[1], reason: 'revoked', mayBeOnShore: true, kind: 'note'),
           ]));
       expect([for (final x in u) server.appendsOf(x)], [2, 2, 0]);
       expect([run.held, phone.store.uploadStatus().held], [1, 1]);

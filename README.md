@@ -91,6 +91,14 @@ headless core engine; the UI never imports it (`test/import_boundary_test.dart`)
   once while the phone may read it. Once revoked, the server shows the phone no race day of the
   club unless it holds another admission there. A phone revoked before it ever read the name says
   "this race day".
+- **Each phone shows what has reached shore** (#66): a chip in every race-time screen's app bar,
+  and a row at the foot of each role's home, read from `uploadStatus()` and `pullStatus()` every
+  5 s while its screen shows. It gives the count waiting and refused, the times of the last
+  accepted upload and the last full pull, or offline with the age of the last sync when sync's
+  latest run could not reach the server. A tap opens a full screen listing what waits by kind,
+  each refused event with its kind and reason, and what stays on the phone (before admission, or
+  under a revoked admission), which never counts as waiting. It reads only, so no append waits on
+  it.
 - **It keeps trying on its own** while anything is waiting, backing off to 15 s between runs, with
   every request bounded at 10 s, so an upload starts within 30 s of signal returning.
 - **The session lives in one file**, rewritten on every change, in a directory that must not be

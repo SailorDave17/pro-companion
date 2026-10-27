@@ -9,6 +9,7 @@ import '../fleets/fleets_screen.dart';
 import '../log/log_screen.dart';
 import '../results/results_screen.dart';
 import '../sequence/sequence_screen.dart';
+import '../shore/shore_status.dart';
 import '../stations/station_screen.dart';
 import '../ui/bars.dart';
 import '../ui/clock.dart';
@@ -225,6 +226,11 @@ class _RoleHomeState extends State<RoleHome> {
   @override
   Widget build(BuildContext context) {
     final actions = homeActions(widget.role);
+    // What this phone has sent, and what waits (#66): below the role's own
+    // buttons, so none of them moves. Above them it pushed LOG below the fold
+    // at 100% text on the 320 x 640 phone, and RESULTS at 200% (owner's
+    // choice at #66's build).
+    final shore = ShoreIndicator(core: widget.core, clock: widget.clock, wide: true);
     return Scaffold(
       // A home has nothing to type into. Back from FLEETS the keyboard is
       // still up while it lays out, and on a 320 x 640 phone the buttons did
@@ -288,7 +294,7 @@ class _RoleHomeState extends State<RoleHome> {
             if (actions.isEmpty) ...[
               Text('No actions for this role yet.',
                   textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
-              const SizedBox.shrink(),
+              shore,
             ] else
               Column(
                 mainAxisSize: MainAxisSize.min,
@@ -297,6 +303,8 @@ class _RoleHomeState extends State<RoleHome> {
                     if (i > 0) const SizedBox(height: 16),
                     _button(actions[i]),
                   ],
+                  const SizedBox(height: 16),
+                  shore,
                 ],
               ),
           ],
