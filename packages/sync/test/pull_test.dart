@@ -371,8 +371,8 @@ void main() {
       expect(offline.state, UploadRunState.unreachable);
       expect(offline.pull, isNull, reason: 'no pull is tried where the upload found no signal');
       expect(phone.store.pullStatus().lastPulledAt, pulledAt);
-      // Sorted: the two are appended in one millisecond, which reads back in ULID order (#145).
-      expect([for (final e in phone.store.readOwn()) e.seq]..sort(), [1, 2], reason: 'its own log went on');
+      // The two are appended in one millisecond, and since #145 read back in the order logged.
+      expect([for (final e in phone.store.readOwn()) e.seq], [1, 2], reason: 'its own log went on');
 
       server.offline = false;
       final back = await engine.syncOnce();
