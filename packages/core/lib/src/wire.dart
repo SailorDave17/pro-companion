@@ -25,6 +25,7 @@ abstract final class Wire {
   static const uploadStatus = 'uploadStatus';
   static const revocation = 'revocation';
   static const pullStatus = 'pullStatus';
+  static const chainStatus = 'chainStatus';
   static const close = 'close';
 
   /// Every command the core serves. There is no update and no delete, and a
@@ -34,7 +35,8 @@ abstract final class Wire {
   /// stored event (a report that the phone's clock was set appends a new
   /// `clock.changed`, #55), and
   /// uploadStatus, revocation and pullStatus read what sync (#6, #53, #64)
-  /// keeps beside the log.
+  /// keeps beside the log. chainStatus verifies the chains the log holds
+  /// (#67), and writes nothing.
   static const commands = {
     append,
     readAll,
@@ -47,6 +49,7 @@ abstract final class Wire {
     uploadStatus,
     revocation,
     pullStatus,
+    chainStatus,
     close,
   };
 

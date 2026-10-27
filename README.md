@@ -130,6 +130,11 @@ has revoked the phone (#53, above).
   everything, and `readAll()` includes the other phones' events. **Every screen reads
   `readOwn()`**, this phone's events only, so a pull changes no screen (owner decision on #64).
   A story that shows the committee's view reads `readAll()` on purpose.
+- **The committee log shows how each other phone's log reads (#67)**, from LOG on the PRO's home:
+  verified, catching up, refused at N, or altered, per race day it was pulled from, and a banner
+  when this phone's own chain is broken. The core verifies the chains (`CoreClient.chainStatus()`),
+  a refusal stub standing in for the event it refused, so the screen sees neither the text nor the
+  stubs. `docs/event-chain.md`, "What a phone shows", states the rules.
 - **Neither half is in the app yet.** Starting it from the core host, with the project's URL and key, is
   #113's. The host itself is #32's (ADR 003, `lib/core_host.dart`), the foreground service that
   keeps the core running with the app closed. Since #46 a release build may use the network: the main

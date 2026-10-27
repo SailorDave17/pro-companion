@@ -75,7 +75,9 @@ void main() {
       shortPhoneWithKeyboard(tester);
       await tester.pumpWidget(app(withRole(FakeCore())));
       await tester.pumpAndSettle();
-      for (final label in ['UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS']) {
+      // LOG (#67) is the sixth button, and not a race-time one: at 200% text on this phone it is
+      // below the fold, reached by a scroll (the test below), while every button above it fits.
+      for (final label in ['UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS', if (scale == 1.0) 'LOG']) {
         expect(find.text(label).hitTestable(), findsOneWidget, reason: label);
       }
     });
@@ -110,8 +112,8 @@ void main() {
       await tester.tap(find.text('UNDO ROLE'));
       await tester.pumpAndSettle();
       expect(find.text('Not logged. Tap again.'), findsOneWidget);
-      await tester.dragUntilVisible(find.text('RESULTS'), find.byType(Scrollable), const Offset(0, -100));
-      expect(find.text('RESULTS').hitTestable(), findsOneWidget, reason: 'the last button, scrolled to');
+      await tester.dragUntilVisible(find.text('LOG'), find.byType(Scrollable), const Offset(0, -100));
+      expect(find.text('LOG').hitTestable(), findsOneWidget, reason: 'the last button (#67), scrolled to');
     });
   }
 

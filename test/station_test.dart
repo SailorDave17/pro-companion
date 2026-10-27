@@ -450,5 +450,8 @@ class _HeldCore implements CoreClient {
   Future<PullStatus> pullStatus() => _inner.pullStatus();
 
   @override
+  Future<ChainStatus> chainStatus() => _inner.chainStatus();
+
+  @override
   Future<void> close() => _inner.close();
 }

@@ -6,6 +6,7 @@ import '../finish/finish_screen.dart';
 import '../finish/mark_finish_screen.dart';
 import '../finish/volume_key.dart';
 import '../fleets/fleets_screen.dart';
+import '../log/log_screen.dart';
 import '../results/results_screen.dart';
 import '../sequence/sequence_screen.dart';
 import '../stations/station_screen.dart';
@@ -203,6 +204,8 @@ class _RoleHomeState extends State<RoleHome> {
         // Provisional results come after the finishes (#7).
         HomeAction.results =>
           _outlined('RESULTS', () => ResultsScreen(core: widget.core, confirmation: widget.confirmation)),
+        // The other phones' logs, checked after racing or at a protest (#67).
+        HomeAction.log => _outlined('LOG', () => LogScreen(core: widget.core)),
         HomeAction.station => _station(),
         HomeAction.finishAtMark => _finishAtMark(),
       };

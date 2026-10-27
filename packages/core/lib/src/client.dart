@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'chain_status.dart';
 import 'envelope.dart';
 import 'location.dart';
 import 'pulls.dart';
@@ -74,6 +75,12 @@ abstract interface class CoreClient {
   /// a pull last read every race day it may read, and how sync's latest pull
   /// ended.
   Future<PullStatus> pullStatus();
+
+  /// Whether this phone's own chain stands, and how each other committee
+  /// phone's log reads on each race day it was pulled from (#67): verified,
+  /// catching up, refused at N, or altered. Worked out in the core, from the
+  /// stored text and the pulled refusal stubs, each time it is asked.
+  Future<ChainStatus> chainStatus();
 
   /// Closes the store and stops the core.
   Future<void> close();
@@ -167,6 +174,10 @@ class PortCoreClient implements CoreClient {
 
   @override
   Future<PullStatus> pullStatus() async => PullStatus.fromWire(await _call(Wire.pullStatus, const {}) as Map);
+
+  @override
+  Future<ChainStatus> chainStatus() async =>
+      ChainStatus.fromWire(await _call(Wire.chainStatus, const {}) as Map);
 
   @override
   Future<void> close() async {

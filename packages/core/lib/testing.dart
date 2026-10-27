@@ -5,6 +5,7 @@ library;
 
 import 'dart:math';
 
+import 'src/chain_status.dart';
 import 'src/client.dart';
 import 'src/clock_offsets.dart';
 import 'src/envelope.dart';
@@ -67,6 +68,11 @@ class FakeCore implements CoreClient {
 
   /// What [pullStatus] answers, set by a test for the same reason.
   PullStatus pullStatusValue = PullStatus.empty;
+
+  /// What [chainStatus] answers (#67). The fake holds no canonical text and
+  /// no refusal stubs, so it verifies nothing, and a test sets it. A test may
+  /// change it while the app runs, as a pull would.
+  ChainStatus chainStatusValue = ChainStatus.empty;
 
   List<EventEnvelope> _ordered(Iterable<EventEnvelope> events) => [...events]..sort((a, b) {
       final byTs = a.deviceTs.compareTo(b.deviceTs);
@@ -195,6 +201,13 @@ class FakeCore implements CoreClient {
         final wire = pullStatusValue.toWire();
         requireWireSafe(wire, 'pullStatus');
         return PullStatus.fromWire(wire);
+      });
+
+  @override
+  Future<ChainStatus> chainStatus() => _call(Wire.chainStatus, () {
+        final wire = chainStatusValue.toWire();
+        requireWireSafe(wire, 'chainStatus');
+        return ChainStatus.fromWire(wire);
       });
 
   @override

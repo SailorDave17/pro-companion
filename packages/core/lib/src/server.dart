@@ -94,6 +94,8 @@ class CoreServer {
         return store.revocation()?.toWire();
       case Wire.pullStatus:
         return store.pullStatus().toWire();
+      case Wire.chainStatus:
+        return store.chainStatus().toWire();
       case Wire.close:
         store.close();
         return null;
