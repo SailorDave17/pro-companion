@@ -369,9 +369,10 @@ void main() {
       await phone.engine.syncOnce();
 
       expect(phone.store.uploadStatus().refused, unorderedEquals([
-        RefusedUpload(ulid: clash, reason: 'ulid_conflict', mayBeOnShore: false),
+        RefusedUpload(ulid: clash, reason: 'ulid_conflict', mayBeOnShore: false, kind: 'note'),
+        // Its planted body names no kind (#66).
         RefusedUpload(ulid: bad, reason: 'inconsistent_canonical', mayBeOnShore: false),
-        RefusedUpload(ulid: lost, reason: 'revoked', mayBeOnShore: true),
+        RefusedUpload(ulid: lost, reason: 'revoked', mayBeOnShore: true, kind: 'note'),
       ]));
       // Since #53 the refusal for revocation is the last send under the admission: the event
       // logged after it stays on the phone, unsent.

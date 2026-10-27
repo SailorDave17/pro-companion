@@ -97,7 +97,10 @@ void main() {
       await openResults(tester);
       // The revoked banner (#53) is the app shell's, not the screen's: it reads every 5 s whatever
       // is open, so how many of its reads fall in here is a matter of time. Its own tests hold it.
-      expect({...core.calls}..remove('revocation'), {'readOwn': 3, 'deviceId': 1},
+      // The shore chip and row (#66) read the upload and pull statuses on the same terms, and
+      // test/shore_status_test.dart holds them.
+      expect({...core.calls}..remove('revocation')..remove('uploadStatus')..remove('pullStatus'),
+          {'readOwn': 3, 'deviceId': 1},
           reason: "the role from the log (#20), home's count, then the results screen's one read, each of "
               "this phone's own events (#64)");
     });

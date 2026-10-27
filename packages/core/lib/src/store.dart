@@ -622,6 +622,7 @@ class EventStore {
     // One whose earlier send may have landed still goes once, for its flagged
     // refusal, so it waits rather than being held (#53).
     final unanswered = unansweredSends();
+    final waitingByKind = <String, int>{};
     for (final p in pendingUploads()) {
       if (p.admissionId == null) {
         neverAdmitted++;
@@ -629,23 +630,43 @@ class EventStore {
         held++;
       } else {
         pending++;
+        final kind = _kindOf(p.canonical) ?? UploadStatus.noKind;
+        waitingByKind[kind] = (waitingByKind[kind] ?? 0) + 1;
       }
     }
-    final accepted = _db.select("SELECT count(*) AS n FROM upload_outcome WHERE outcome = 'accepted'").first['n'] as int;
+    final accepted = _db.select("SELECT count(*) AS n, max(at) AS last FROM upload_outcome WHERE outcome = 'accepted'").first;
     final refused = [
-      for (final r in _db.select("SELECT ulid, reason, may_be_on_shore FROM upload_outcome "
-          "WHERE outcome = 'refused' ORDER BY at, ulid"))
-        RefusedUpload(ulid: r['ulid'] as String, reason: r['reason'] as String, mayBeOnShore: r['may_be_on_shore'] == 1),
+      for (final r in _db.select('SELECT o.ulid, o.reason, o.may_be_on_shore, e.body FROM upload_outcome o '
+          "LEFT JOIN events e ON e.ulid = o.ulid WHERE o.outcome = 'refused' ORDER BY o.at, o.ulid"))
+        RefusedUpload(
+          ulid: r['ulid'] as String,
+          reason: r['reason'] as String,
+          mayBeOnShore: r['may_be_on_shore'] == 1,
+          kind: r['body'] == null ? null : _kindOf(r['body'] as String),
+        ),
     ];
     final run = _db.select("SELECT value FROM meta WHERE key = 'upload_run'");
     return UploadStatus(
       pending: pending,
-      accepted: accepted,
+      accepted: accepted['n'] as int,
       neverAdmitted: neverAdmitted,
       refused: refused,
       held: held,
       lastRun: run.isEmpty ? null : UploadRun.fromWire(jsonDecode(run.first['value'] as String) as Map),
+      lastAcceptedAt: accepted['last'] as int?,
+      waitingByKind: waitingByKind,
     );
+  }
+
+  /// The kind [body] names, or null when it names none a reader can use: a
+  /// corrupt write, which the server refuses.
+  static String? _kindOf(String body) {
+    try {
+      final kind = (jsonDecode(body) as Map)['kind'];
+      return kind is String ? kind : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   // Sync's pull (#64) -----------------------------------------------------------

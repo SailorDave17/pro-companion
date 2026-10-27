@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
+import '../shore/shore_status.dart';
 import '../ui/bars.dart';
 import '../ui/sunlight.dart';
 
@@ -112,6 +113,7 @@ class _FleetsScreenState extends State<FleetsScreen> {
       appBar: AppBar(
         toolbarHeight: 72,
         leadingWidth: 80,
+        actions: [ShoreIndicator(core: widget.core)],
         leading: Padding(
           padding: const EdgeInsets.only(left: 8),
           child: IconButton(
