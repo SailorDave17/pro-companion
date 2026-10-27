@@ -2,9 +2,10 @@ import 'envelope.dart';
 
 /// The order race-time events happened in: device time, then device, then -
 /// for two events one phone logged in the same millisecond - that phone's
-/// sequence number, which is the order they were tapped. ADR 001's log order
-/// breaks that tie by ULID, whose random tail can invert two taps; a finish
-/// order, a fleet switch or a start must not.
+/// sequence number, which is the order they were tapped. Since #145 the
+/// store reads the log in this order too. Before, it broke that tie by ULID,
+/// whose random tail can invert two taps; a finish order, a fleet switch or
+/// a start must not.
 int happened(EventEnvelope a, EventEnvelope b) {
   final byTs = a.deviceTs.compareTo(b.deviceTs);
   if (byTs != 0) return byTs;

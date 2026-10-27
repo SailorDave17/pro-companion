@@ -10,6 +10,7 @@ import 'src/client.dart';
 import 'src/clock_offsets.dart';
 import 'src/envelope.dart';
 import 'src/location.dart';
+import 'src/order.dart';
 import 'src/pulls.dart';
 import 'src/roles.dart';
 import 'src/stations.dart';
@@ -74,12 +75,9 @@ class FakeCore implements CoreClient {
   /// change it while the app runs, as a pull would.
   ChainStatus chainStatusValue = ChainStatus.empty;
 
-  List<EventEnvelope> _ordered(Iterable<EventEnvelope> events) => [...events]..sort((a, b) {
-      final byTs = a.deviceTs.compareTo(b.deviceTs);
-      if (byTs != 0) return byTs;
-      final byDevice = a.deviceId.compareTo(b.deviceId);
-      return byDevice != 0 ? byDevice : a.ulid.compareTo(b.ulid);
-    });
+  // The store's read order: device time, device, then the device's sequence
+  // number (#145).
+  List<EventEnvelope> _ordered(Iterable<EventEnvelope> events) => [...events]..sort(happened);
 
   @override
   Future<EventEnvelope> append(NewEvent event) => _call(Wire.append, () {
