@@ -174,8 +174,8 @@ void main() {
     });
   });
 
-  group('criterion 3: the union by ULID, ordered by device time, device id, then ULID', () {
-    test('ties on device time break on device id, then ULID, whatever order they were pulled in', () {
+  group("criterion 3: the union by ULID, ordered by device time, device id, then the device's sequence (#145)", () {
+    test("ties on device time break on device id, then the device's sequence, whatever order they were pulled in", () {
       // At ts 5000, device order and ULID order disagree: the lower device holds the higher ULIDs.
       // Pulled in an order that agrees with neither, so only the stated keys can produce the result.
       final lowDevice = id('01J91', 1);

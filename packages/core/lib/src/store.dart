@@ -33,8 +33,11 @@ class EventStore {
       'INSERT INTO events (ulid, device_id, seq, device_ts, body) VALUES (?, ?, ?, ?, ?)',
     );
     _count = _db.prepare('SELECT count(*) AS n FROM events');
-    _all = _db.prepare('SELECT body FROM events ORDER BY device_ts, device_id, ulid');
-    _own = _db.prepare('SELECT body FROM events WHERE device_id = ? ORDER BY device_ts, device_id, ulid');
+    // A tie on device time and device is one phone's events in one
+    // millisecond, read in the order it logged them (#145), as happened()
+    // orders them. A ULID's random tail inverted them one run in a few.
+    _all = _db.prepare('SELECT body FROM events ORDER BY device_ts, device_id, seq');
+    _own = _db.prepare('SELECT body FROM events WHERE device_id = ? ORDER BY device_ts, device_id, seq');
     _canonical = _db.prepare('SELECT body FROM events ORDER BY device_id, seq');
     // The canonical text has no spaces (RFC 8785), so every role and station
     // event's body holds one of these, and LIKE narrows the read to them
@@ -155,7 +158,10 @@ class EventStore {
         body TEXT NOT NULL,
         UNIQUE (device_id, seq)
       ) STRICT''');
-    db.execute('CREATE INDEX IF NOT EXISTS events_order ON events (device_ts, device_id, ulid)');
+    // The read order's index. Its ULID-keyed predecessor is dropped from a log
+    // written before #145: an index holds no event, so nothing is lost.
+    db.execute('DROP INDEX IF EXISTS events_order');
+    db.execute('CREATE INDEX IF NOT EXISTS events_read_order ON events (device_ts, device_id, seq)');
     // UPDATE and DELETE raise, whatever issued them.
     db.execute('''
       CREATE TRIGGER IF NOT EXISTS events_no_update BEFORE UPDATE ON events
@@ -910,8 +916,9 @@ class EventStore {
     return text;
   }
 
-  /// Every event, ordered by device time, then device id, then ULID (ADR
-  /// 001), so every read and every phone agrees on the order.
+  /// Every event, ordered by device time, then device id (ADR 001), then the
+  /// device's sequence number (#145), so every read and every phone agrees on
+  /// the order, and one phone's events in one millisecond keep its order.
   List<EventEnvelope> readAll() => _all
       .select()
       .map((r) => EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map))

@@ -59,7 +59,9 @@ Two tiers, and the first never waits on the second:
 
 **Why this holds together: the log only ever grows.** Every event carries a client-generated ULID,
 a device timestamp and a device id. Merging is a union keyed by ULID; order is device timestamp
-with device id as the tiebreak (the rule pro-companion#6 already specifies). Nothing is edited, so
+with device id as the tiebreak (the rule pro-companion#6 already specifies), and one phone's own
+events in the same millisecond keep the order it logged them, its sequence number (#145, 2026-10-26:
+a ULID's random tail had inverted them). Nothing is edited, so
 nothing conflicts — an undo is a new correction event, per decision 8. The same event uploaded
 twice is harmless.
 

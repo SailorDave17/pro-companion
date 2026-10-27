@@ -58,8 +58,9 @@ void main() {
 
   Finder row(String ulid) => find.byKey(ValueKey('row-$ulid'));
 
-  // Look events up by kind or ULID, never by position: two events in one
-  // millisecond read back in ULID order, whose tail is random.
+  // Look events up by kind or ULID, never by position: the core appends a
+  // clock offset of its own before a race's first finish (#55). (Two events in
+  // one millisecond read back in ULID order until #145; now in logged order.)
   EventEnvelope only(List<EventEnvelope> all, String kind) => all.singleWhere((e) => e.kind == kind);
   EventEnvelope byUlid(List<EventEnvelope> all, String ulid) => all.singleWhere((e) => e.ulid == ulid);
 

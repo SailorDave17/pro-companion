@@ -134,14 +134,14 @@ void main() {
           payloadVersion: 1,
           payload: const {},
         );
-    // Tapped first (seq 1) but with the larger ULID: ADR 001's log order,
-    // which breaks a tie by ULID, would put it second.
+    // Tapped first (seq 1) but with the larger ULID: a log that broke the tie
+    // by ULID, as the store did until #145, put it second.
     final first = finish('01J0000000000000000000000Z', 1);
     final second = finish('01J00000000000000000000001', 2);
     store.insert(first);
     store.insert(second);
-    expect([for (final e in store.readAll()) e.ulid], [second.ulid, first.ulid],
-        reason: 'the log itself orders the tie by ULID');
+    expect([for (final e in store.readAll()) e.ulid], [first.ulid, second.ulid],
+        reason: "since #145 the log itself reads one phone's tie in tap order");
     expect([for (final e in order()) e.ulid], [first.ulid, second.ulid],
         reason: 'the finish order follows the tap order');
     expect(lastUndoable(store.readAll(), fleet: null), second.ulid);
