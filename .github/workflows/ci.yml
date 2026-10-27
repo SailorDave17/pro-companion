@@ -172,7 +172,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: SailorDave17/burgee
-          ssh-key: ${{ secrets.BURGEE_DEPLOY_KEY }}
           persist-credentials: false
           sparse-checkout: /README.md
           sparse-checkout-cone-mode: false
