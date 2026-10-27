@@ -146,3 +146,39 @@ jobs:
             sh integration_test/offline_results.sh emulator-5554
             sh integration_test/core_host.sh emulator-5554
             sh integration_test/volume_key.sh emulator-5554
+
+  # burgee is private (#17). Its default branch is read here with a read-only
+  # deploy key, so the drift check on burgee's vendored copies of fixtures/ (held
+  # H87, ADR 005 point 4) can run from this repo's CI. This repo is public and so
+  # are its logs: the job prints a size and a hash, never burgee's content.
+  # Dependabot pull requests get Dependabot secrets, not Actions secrets, so the
+  # job is skipped there, and a skipped required job reports success.
+  burgee-read:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Without the key, checkout falls back to the workflow token, which cannot
+      # read another private repository, and the error says only "not found".
+      - name: Require the deploy key
+        env:
+          BURGEE_DEPLOY_KEY: ${{ secrets.BURGEE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$BURGEE_DEPLOY_KEY" ]; then
+            echo "::error::The BURGEE_DEPLOY_KEY secret is not set (README, Reading burgee from CI)."
+            exit 1
+          fi
+      # No ref: another repository's checkout reads its default branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: SailorDave17/burgee
+          ssh-key: ${{ secrets.BURGEE_DEPLOY_KEY }}
+          persist-credentials: false
+          sparse-checkout: /README.md
+          sparse-checkout-cone-mode: false
+          path: burgee
+      - name: Read a file from burgee's default branch
+        run: |
+          test -s burgee/README.md
+          echo "burgee $(git -C burgee rev-parse --abbrev-ref HEAD) at $(git -C burgee rev-parse HEAD)"
+          echo "README.md: $(wc -c < burgee/README.md) bytes, sha256 $(sha256sum burgee/README.md | cut -d' ' -f1)"

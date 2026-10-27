@@ -297,3 +297,21 @@ the pilot's sixth milestone.
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses
 any credential-shaped string in the tracked tree.
+
+## Reading burgee from CI
+
+burgee is private, so CI reads it with a read-only deploy key (#17). The private half is the Actions
+secret `BURGEE_DEPLOY_KEY`. The public half is registered on burgee alone, as the deploy key
+"pro-companion CI read (#17)" without write access, and GitHub refuses a push made with it. The
+`burgee-read` job checks out one file from burgee's default branch and prints its size and hash,
+never its content, because this repository's CI logs are public. It is there for the drift check on
+burgee's vendored copies of `fixtures/` (ADR 005, point 4). A Dependabot pull request skips the job,
+since it gets no Actions secrets.
+
+To replace the key:
+
+1. `ssh-keygen -t ed25519 -N "" -f <file outside the repo>`.
+2. `gh repo deploy-key add <file>.pub --repo SailorDave17/burgee --title "pro-companion CI read (#17)"`.
+   Without `--allow-write` it is read-only.
+3. `gh secret set BURGEE_DEPLOY_KEY -R SailorDave17/pro-companion < <file>`, then delete both files.
+4. Delete the old key under burgee's Settings → Deploy keys.
