@@ -24,6 +24,21 @@ export 'src/pulls.dart' show PullRun, PullRunState, PullStatus;
 export 'src/results.dart'
     show BetweenRaces, DuplicateSail, ProvisionalResults, ResultsEvents, ResultsKinds, UnnamedFinish, discardsSet, placeholderId, provisionalResults, raceStarts, racesOf;
 export 'src/roles.dart' show RoleEvents, RoleKinds, Roles, currentRole, currentRolePick;
+export 'src/roundings.dart'
+    show
+        FleetRunningOrder,
+        RoundingEntry,
+        RoundingEvents,
+        RoundingKinds,
+        RunningEntry,
+        knownRoundingSails,
+        lapPayloadKey,
+        lastUndoableRounding,
+        racePayloadKey,
+        roundingsAt,
+        runningOrder,
+        runningOrders,
+        stationedMarks;
 export 'src/scoring.dart'
     show DiscardStep, Discards, Race, RaceScore, ScoreCode, Series, Standing, scoreSeries;
 export 'src/starts.dart'

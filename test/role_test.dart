@@ -174,12 +174,14 @@ void main() {
 
   group("criterion 3: each role's home offers that role's job and nothing else", () {
     const expected = {
-      // The committee log (#67) is the PRO's alone (owner decision at its pickup).
-      Roles.overallPro: {'UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS', 'LOG'},
-      Roles.recorder: {'UNDO ROLE', 'FLEETS', 'FINISHES'},
-      // The mark boat's station (#26) and its finish at a mark (#30); its
-      // roundings come with #54.
-      Roles.markBoat: {'UNDO ROLE', 'STATION', 'UNDO STATION', 'FINISH AT MARK'},
+      // The committee log (#67) is the PRO's alone (owner decision at its
+      // pickup). The running order (#68) is on every home with a job, by the
+      // owner's decision at its pickup; safety has none yet.
+      Roles.overallPro: {'UNDO ROLE', 'FLEETS', 'SEQUENCE', 'FINISHES', 'RESULTS', 'LOG', 'RUNNING ORDER'},
+      Roles.recorder: {'UNDO ROLE', 'FLEETS', 'FINISHES', 'RUNNING ORDER'},
+      // The mark boat's station (#26), its roundings (#54) and its finish at a
+      // mark (#30).
+      Roles.markBoat: {'UNDO ROLE', 'STATION', 'UNDO STATION', 'ROUNDINGS', 'FINISH AT MARK', 'RUNNING ORDER'},
       Roles.safety: {'UNDO ROLE'},
     };
 

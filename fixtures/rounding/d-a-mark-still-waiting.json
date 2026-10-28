@@ -1,0 +1,38 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "d-a-mark-still-waiting",
+  "criterion": "#68 criterion 4",
+  "now": 1792845000000,
+  "events": [
+    {"ulid": "01K04000000000000000000001", "device_id": "01K0PR0PH0NE00000000000000", "seq": 1, "device_ts": 1792843200000, "kind": "start", "payload": {"fleet": null}},
+    {"ulid": "01K04000000000000000000002", "device_id": "01K0MARK1PH0NE000000000001", "seq": 1, "device_ts": 1792842900000, "kind": "station.selected", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K04000000000000000000003", "device_id": "01K0MARK2PH0NE000000000002", "seq": 1, "device_ts": 1792842960000, "kind": "station.selected", "payload": {"mark": "mark_2"}},
+    {"ulid": "01K04000000000000000000004", "device_id": "01K0GATEAPH0NE000000000003", "seq": 1, "device_ts": 1792843020000, "kind": "station.selected", "payload": {"mark": "gate_left"}},
+    {"ulid": "01K04000000000000000000005", "device_id": "01K0GATEAPH0NE000000000003", "seq": 2, "device_ts": 1792843080000, "kind": "station.undo", "corrects_ulid": "01K04000000000000000000004", "payload": {"mark": "gate_left"}},
+    {"ulid": "01K04000000000000000000006", "device_id": "01K0MARK3PH0NE000000000003", "seq": 1, "device_ts": 1792842600000, "kind": "role.assigned", "payload": {"role": "mark_boat"}},
+    {"ulid": "01K04000000000000000000007", "device_id": "01K0MARK3PH0NE000000000003", "seq": 2, "device_ts": 1792842660000, "kind": "station.selected", "payload": {"mark": "mark_3"}},
+    {"ulid": "01K04000000000000000000008", "device_id": "01K0MARK3PH0NE000000000003", "seq": 3, "device_ts": 1792842720000, "kind": "role.undo", "corrects_ulid": "01K04000000000000000000006", "payload": {"mark": "mark_3"}},
+    {"ulid": "01K04000000000000000000009", "device_id": "01K0MARK1PH0NE000000000001", "seq": 2, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": null, "sail": "412", "mark": "mark_1", "race": "01K04000000000000000000001", "lap": 1}},
+    {"ulid": "01K04000000000000000000010", "device_id": "01K0MARK1PH0NE000000000001", "seq": 3, "device_ts": 1792843805000, "kind": "rounding", "payload": {"fleet": null, "sail": "887", "mark": "mark_1", "race": "01K04000000000000000000001", "lap": 1}}
+  ],
+  "expected": [
+    {
+      "fleet": null,
+      "race": "01K04000000000000000000001",
+      "order": [
+        {"sail": "412", "roundings": 1, "mark": "mark_1"},
+        {"sail": "887", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 0,
+      "waiting": ["mark_2"],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "The race is the gun, event 1. The order is 412 (12:10:00) then 887 (12:10:05), both at mark_1.",
+    "Stations: the mark_1 phone is at mark_1 and the mark_2 phone at mark_2. Neither holds a role pick in this log, so its latest station pick not undone stands.",
+    "The gate phone picked gate_left (event 4) and undid it (event 5): no station.",
+    "The mark_3 phone's role pick (event 6) is in the log, so its station holds only under that pick, and event 8 undoes the pick: no station.",
+    "Stationed marks: mark_1 and mark_2. mark_1 has roundings in the race and mark_2 has none, so mark_2 is waiting."
+  ]
+}

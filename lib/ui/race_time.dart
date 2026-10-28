@@ -33,16 +33,29 @@ class RaceTimeAction extends StatelessWidget {
 /// the bar.
 const raceTimeActionIds = {...proRaceTimeActionIds, ...markBoatRaceTimeActionIds};
 
-/// The mark boat's: a station pick, and its undo on the home (#26); and on
-/// the finish-at-mark screen (#30), making the mark a fleet's finish, a
-/// finish there, its UNDO LAST, and a finish's sail number.
+/// The mark boat's: a station pick, and its undo on the home (#26); on the
+/// rounding screen (#54), a known boat, an unidentified one, a boat typed in,
+/// UNDO LAST, a rounding's sail number and the fleet shown; and on the
+/// finish-at-mark screen (#30), making the mark a fleet's finish, a finish
+/// there, its UNDO LAST, and a finish's sail number.
 const markBoatRaceTimeActionIds = {
   'station',
   'station-undo',
+  ...roundingActionIds,
   'finish-here',
   'mark-finish',
   'mark-undo-last',
   'mark-sail',
+};
+
+/// The rounding screen's (#54), part of the mark boat's.
+const roundingActionIds = {
+  'rounding-boat',
+  'rounding-unknown',
+  'rounding-type',
+  'rounding-undo-last',
+  'rounding-sail',
+  'rounding-fleet',
 };
 
 /// The race-time actions that sit on a role's home itself, not on a screen

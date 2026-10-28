@@ -146,12 +146,13 @@ void main() {
     test('in the payload and in the canonical text as stored, whatever its kind', () {
       final store = openStore(tempDbPath());
       store.append(RoleEvents.assign(Roles.markBoat));
-      final before = store.append(const NewEvent(kind: 'rounding', source: 'tap', payload: {'sail': '11'}));
+      final before = store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'sail': '11'}));
       final picked = store.append(StationEvents.select(StandardMarks.windward));
       final later = [
-        // A rounding (#54) does not exist yet; any kind carries the station,
-        // its own and #30's shortened course included.
-        store.append(const NewEvent(kind: 'rounding', source: 'tap', payload: {'sail': '22'})),
+        // Any kind carries the station, #30's shortened course included. A
+        // rounding (#54) does too: roundings_test.dart holds it, since the core
+        // stamps a rounding's race and lap as well.
+        store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'sail': '22'})),
         store.append(CourseEvents.shortened(fleet: null)),
         store.append(FinishEvents.finish(fleet: null)),
         store.append(const NewEvent(kind: 'note', source: 'manual')),
@@ -171,11 +172,11 @@ void main() {
       final store = openStore(tempDbPath());
       store.append(RoleEvents.assign(Roles.markBoat));
       store.append(StationEvents.select(StandardMarks.mark1));
-      expect(markOf(store.append(const NewEvent(kind: 'rounding', source: 'tap', payload: {'mark': 'offset'}))),
+      expect(markOf(store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'mark': 'offset'}))),
           'offset');
       final atNone = store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'mark': null}));
       expect(atNone.payload, {'mark': null});
-      expect(markOf(store.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.mark1);
+      expect(markOf(store.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.mark1);
     });
 
     test('a new pick moves it, and an undo carries the station it undoes and returns to the one before', () {
@@ -183,12 +184,12 @@ void main() {
       store.append(RoleEvents.assign(Roles.markBoat));
       store.append(StationEvents.select(StandardMarks.mark1));
       final second = store.append(StationEvents.select(StandardMarks.mark2));
-      expect(markOf(store.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.mark2);
+      expect(markOf(store.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.mark2);
 
       final undone = store.append(StationEvents.undo(second.ulid));
       expect(markOf(undone), StandardMarks.mark2, reason: 'the undo was logged at the station it undoes');
       expect(store.station, StandardMarks.mark1);
-      expect(markOf(store.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.mark1);
+      expect(markOf(store.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.mark1);
     });
 
     test('a role pick ends it: the events after a new pick carry no mark', () {
@@ -199,7 +200,7 @@ void main() {
       expect(store.station, isNull);
       expect(store.append(const NewEvent(kind: 'note', source: 'tap')).payload, isEmpty);
       store.append(RoleEvents.assign(Roles.markBoat));
-      expect(store.append(const NewEvent(kind: 'rounding', source: 'tap')).payload, isEmpty);
+      expect(store.append(const NewEvent(kind: 'note', source: 'tap')).payload, isEmpty);
     });
 
     test('a restart keeps the station, read back from the log, and keeps an undo too', () {
@@ -212,13 +213,13 @@ void main() {
 
       final again = EventStore.open(path);
       expect(again.station, StandardMarks.gateRight);
-      expect(markOf(again.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.gateRight);
+      expect(markOf(again.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.gateRight);
       again.append(StationEvents.undo(moved.ulid));
       again.close();
 
       final third = openStore(path);
       expect(third.station, StandardMarks.gateLeft);
-      expect(markOf(third.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.gateLeft);
+      expect(markOf(third.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.gateLeft);
     });
 
     test('a payload that only mentions a station kind is not read as a pick on restart', () {
@@ -242,7 +243,7 @@ void main() {
       store.append(RoleEvents.assign(Roles.markBoat));
       store.append(StationEvents.select(StandardMarks.leeward));
       store.insert(theirs);
-      expect(markOf(store.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.leeward);
+      expect(markOf(store.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.leeward);
       store.close();
       expect(openStore(path).station, StandardMarks.leeward, reason: 'nor on restart');
     });
@@ -251,7 +252,7 @@ void main() {
       final store = openStore(tempDbPath());
       store.append(RoleEvents.assign(Roles.markBoat));
       final picked = store.append(StationEvents.select(StandardMarks.mark3));
-      store.append(const NewEvent(kind: 'rounding', source: 'tap'));
+      store.append(const NewEvent(kind: 'note', source: 'tap'));
       store.append(StationEvents.undo(picked.ulid));
       expect(verifyChain(store.readCanonical()), const ChainVerdict.intact());
     });
@@ -261,7 +262,7 @@ void main() {
       addTearDown(core.close);
       await core.append(RoleEvents.assign(Roles.markBoat));
       await core.append(StationEvents.select(StandardMarks.offset));
-      final e = await core.append(const NewEvent(kind: 'rounding', source: 'tap'));
+      final e = await core.append(const NewEvent(kind: 'note', source: 'tap'));
       expect(markOf(e), StandardMarks.offset);
       expect((await core.readAll()).last.toWire()['payload'], {'mark': StandardMarks.offset});
     });
@@ -270,18 +271,18 @@ void main() {
         'core writes', () async {
       final fake = FakeCore();
       await fake.append(RoleEvents.assign(Roles.markBoat));
-      expect((await fake.append(const NewEvent(kind: 'rounding', source: 'tap'))).payload, isEmpty);
+      expect((await fake.append(const NewEvent(kind: 'note', source: 'tap'))).payload, isEmpty);
       final picked = await fake.append(StationEvents.select(StandardMarks.mark4));
-      expect(markOf(await fake.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.mark4);
-      expect(markOf(await fake.append(const NewEvent(kind: 'rounding', source: 'tap', payload: {'mark': 'offset'}))),
+      expect(markOf(await fake.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.mark4);
+      expect(markOf(await fake.append(const NewEvent(kind: 'note', source: 'tap', payload: {'mark': 'offset'}))),
           'offset');
       await fake.append(StationEvents.undo(picked.ulid));
-      expect((await fake.append(const NewEvent(kind: 'rounding', source: 'tap'))).payload, isEmpty);
+      expect((await fake.append(const NewEvent(kind: 'note', source: 'tap'))).payload, isEmpty);
 
       const fakeDevice = '01J0000000FAKEDEVICE00000A';
       final seeded = FakeCore()
         ..seed([markBoat(deviceId: fakeDevice), station(StandardMarks.leeward, deviceId: fakeDevice)]);
-      expect(markOf(await seeded.append(const NewEvent(kind: 'rounding', source: 'tap'))), StandardMarks.leeward);
+      expect(markOf(await seeded.append(const NewEvent(kind: 'note', source: 'tap'))), StandardMarks.leeward);
     });
   });
 }

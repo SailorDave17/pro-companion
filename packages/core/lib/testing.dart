@@ -13,6 +13,7 @@ import 'src/location.dart';
 import 'src/order.dart';
 import 'src/pulls.dart';
 import 'src/roles.dart';
+import 'src/roundings.dart';
 import 'src/stations.dart';
 import 'src/uploads.dart';
 import 'src/wire.dart';
@@ -84,6 +85,9 @@ class FakeCore implements CoreClient {
         requireWireSafe(event.toWire(), 'event');
         validateNewEvent(event);
         final now = _clock();
+        // And a rounding's race and lap (#54), as the real core stamps them.
+        event = stampRounding(_events, event,
+            deviceId: deviceIdValue, station: currentStation(_events, deviceIdValue), now: now);
         final where = location.current();
         // As the real core does (#55): an event that joins a race the phone
         // has no clock offset for yet has one appended just before it, at

@@ -1,0 +1,40 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "c-corrections-and-undo",
+  "criterion": "#68 criterion 3",
+  "now": 1792845000000,
+  "events": [
+    {"ulid": "01K03000000000000000000001", "device_id": "01K0PR0PH0NE00000000000000", "seq": 1, "device_ts": 1792843200000, "kind": "start", "payload": {"fleet": null}},
+    {"ulid": "01K03000000000000000000002", "device_id": "01K0MARK1PH0NE000000000001", "seq": 1, "device_ts": 1792842900000, "kind": "station.selected", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K03000000000000000000003", "device_id": "01K0MARK1PH0NE000000000001", "seq": 2, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": null, "sail": "878", "mark": "mark_1", "race": "01K03000000000000000000001", "lap": 1}},
+    {"ulid": "01K03000000000000000000004", "device_id": "01K0MARK1PH0NE000000000001", "seq": 3, "device_ts": 1792843804000, "kind": "rounding", "payload": {"fleet": null, "sail": null, "mark": "mark_1", "race": "01K03000000000000000000001", "lap": null}},
+    {"ulid": "01K03000000000000000000005", "device_id": "01K0MARK1PH0NE000000000001", "seq": 4, "device_ts": 1792843808000, "kind": "rounding", "payload": {"fleet": null, "sail": "412", "mark": "mark_1", "race": "01K03000000000000000000001", "lap": 1}},
+    {"ulid": "01K03000000000000000000006", "device_id": "01K0MARK1PH0NE000000000001", "seq": 5, "device_ts": 1792843812000, "kind": "rounding", "payload": {"fleet": null, "sail": "5", "mark": "mark_1", "race": "01K03000000000000000000001", "lap": 1}},
+    {"ulid": "01K03000000000000000000007", "device_id": "01K0MARK1PH0NE000000000001", "seq": 6, "device_ts": 1792843815000, "kind": "rounding.undo", "corrects_ulid": "01K03000000000000000000006", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K03000000000000000000008", "device_id": "01K0MARK1PH0NE000000000001", "seq": 7, "device_ts": 1792843820000, "kind": "rounding", "payload": {"fleet": null, "sail": null, "mark": "mark_1", "race": "01K03000000000000000000001", "lap": null}},
+    {"ulid": "01K03000000000000000000009", "device_id": "01K0MARK1PH0NE000000000001", "seq": 8, "device_ts": 1792843830000, "kind": "rounding.sail", "corrects_ulid": "01K03000000000000000000003", "payload": {"sail": "887", "mark": "mark_1"}},
+    {"ulid": "01K03000000000000000000010", "device_id": "01K0MARK1PH0NE000000000001", "seq": 9, "device_ts": 1792843840000, "kind": "rounding.sail", "corrects_ulid": "01K03000000000000000000004", "payload": {"sail": "1033", "mark": "mark_1"}}
+  ],
+  "expected": [
+    {
+      "fleet": null,
+      "race": "01K03000000000000000000001",
+      "order": [
+        {"sail": "887", "roundings": 1, "mark": "mark_1"},
+        {"sail": "1033", "roundings": 1, "mark": "mark_1"},
+        {"sail": "412", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 1,
+      "waiting": [],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "The race is the gun, event 1. Every rounding names it.",
+    "Event 3 was tapped as 878; event 9 names it 887, so it counts for 887 and 878 has no rounding.",
+    "Event 4 was tapped with no sail number; event 10 names it 1033.",
+    "Event 6 (sail 5) is undone by event 7, so it counts for nothing.",
+    "Event 8 is never named, so it counts for no boat: unnamed is 1.",
+    "Each boat has 1 rounding, all on one phone, so by its clock: 887 (event 3, 12:10:00), 1033 (event 4, 12:10:04), 412 (event 5, 12:10:08). The corrections' own times do not move a boat."
+  ]
+}

@@ -76,3 +76,57 @@ pickup, 2026-10-14.
   is set.
 - **Not yet:** a second shortened course for the same fleet at the same mark later in the day logs
   nothing new, because the first is still in force. The phone has no race boundary to end it.
+
+## Roundings (#54)
+
+The mark boat taps each boat as she rounds its station. Owner's choices at pickup, 2026-10-27.
+
+- **The mark-boat home's ROUNDINGS** opens the rounding screen. Like FINISH AT MARK, it is off until
+  the phone has a station.
+- **A rounding is a `rounding` event** naming `payload.fleet` (null on a single-fleet day) and
+  `payload.sail`, null for a boat the operator could not identify. The core stamps the station as
+  `payload.mark`, and two more keys:
+  - `payload.race`: the gun the fleet's race began with, as the phone knows the guns, or null when it
+    knows none. The same rule as a clock offset's race (ADR 001, "Two clocks").
+  - `payload.lap`: one more than this phone's roundings of that boat, at this mark, for this fleet,
+    in that race, not undone. So the count runs from the gun, else from the start of the day. **Until
+    a mark-boat phone learns the guns (#113), a second race on the same day counts on from the
+    first.** An unidentified boat's lap is null.
+- **A sail number named later, or corrected, is a `rounding.sail`** naming the rounding in
+  `corrects_ulid`, with `payload.sail`; the latest wins, and the rounding itself is never edited.
+  **UNDO LAST is a `rounding.undo`** naming the rounding, with no confirm.
+- **The boats offered are this phone's own**: every sail number each fleet logged on this phone
+  today, in roundings and finishes at a mark, in the order each last rounded. On a day of several
+  fleets each fleet is a section of the grid, and a tap logs the boat with her own fleet, so a known
+  boat is ROUNDINGS, then her number: 2 taps from the home, whichever fleet the row shows. The row
+  picks the fleet for the list, UNKNOWN and NEW BOAT. The grid is frozen while the screen is open,
+  and a boat typed with NEW BOAT joins the end of her fleet's section.
+- **The fleets are the PRO's.** The rounding screen reads the day's fleet definitions from every
+  phone, pulled down by sync, beside its own events (owner decision on #54's review, 2026-10-27). A
+  mark-boat phone names none of its own, so without them a day of several fleets would log every
+  rounding with no fleet. Until sync runs in the app (#113), it sees only fleets it named itself.
+- **A log that cannot be read** shows that and RETRY, and nothing to log into: an empty grid would
+  read as no boats yet.
+- A rounding brings its race's clock offset just before it, as a finish does (#55), so a gate's two
+  phones can be compared.
+
+## The running order (#68)
+
+RUNNING ORDER, on the PRO's, the recorder's and the mark boat's homes (owner decision at pickup),
+lists each fleet's boats as far round as every phone's roundings say, re-read every 5 s. It reads
+all the phones' events on purpose, as the committee log does. The rule is `runningOrders` in
+`packages/core/lib/src/roundings.dart`, and `fixtures/rounding/` holds its vectors and states it in
+full; pro-companion is canonical for them and burgee vendors them.
+
+- **The log has no course**, so a boat's roundings in the race are how far round she is: more is
+  ahead. Boats level on that are in the order they rounded their latest mark.
+- **On one phone, boats level are in the order it logged them**, so a clock set on that phone
+  changes nothing. **Across phones** (a gate's two mark boats), each rounding is read in satellite
+  time through its phone's clock offset. Where either has none measured, the order is on the phones'
+  own clocks and the screen says so, below the order.
+- **A mark a phone is stationed at today, with no rounding of the fleet in the race, is named as
+  waiting**, above the order it qualifies, so the order is never read as current at a mark it has
+  not heard from. Yesterday's station is no mark today.
+- Roundings that name no fleet on a day that defines fleets (a mark-boat phone before sync brings it
+  the PRO's fleets) show as their own order, "No fleet named", last, and only while it holds a
+  rounding in its race.

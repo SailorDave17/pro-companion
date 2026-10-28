@@ -17,6 +17,9 @@
 - Amended 2026-10-26 by pro-companion #55 (groom decision G10): as a phone joins a race, the core
   appends a `clock.offset` event recording its clock against satellite time, and a `clock.changed`
   event when the phone's clock is set. The envelope is unchanged. See "Two clocks" below.
+- Amended 2026-10-27 by pro-companion #54 and #68: a phone's first rounding in a race joins it too,
+  so the running order can put two phones' roundings at a gate side by side in satellite time. The
+  envelope is unchanged. See "Two clocks" below.
 
 ## Context
 
@@ -111,7 +114,10 @@ link is work on both sides:
   signal boat's gun from the two device timestamps alone. Each phone therefore records its clock's
   **offset from satellite time** (satellite minus device) in a `clock.offset` event, which the core
   appends itself just before the phone's gun, and before its first finish, at the line or at a mark,
-  in each race. That race is the fleet's latest gun the phone knows of, its own or pulled from
+  in each race. *Amended 2026-10-27 (#54, #68):* and before its first rounding, since the running
+  order puts two phones' roundings at a gate side by side, in satellite time where both phones have
+  an offset measured, and flagged as on their own clocks where either has none. Roundings on one
+  phone are put in the order that phone logged them, so a clock set on it changes nothing there. That race is the fleet's latest gun the phone knows of, its own or pulled from
   another phone, when that gun went that day; with none known, it is the fleet's race of the day
   (owner decision on #55). The satellite time comes only from a GPS-provider fix, the one provider
   whose time Android guarantees is the constellation's. The event carries the offset, its

@@ -1,0 +1,36 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "f-a-gate-in-satellite-time",
+  "criterion": "#68 criterion 1",
+  "now": 1792845000000,
+  "events": [
+    {"ulid": "01K06000000000000000000001", "device_id": "01K0PR0PH0NE00000000000000", "seq": 1, "device_ts": 1792843200000, "kind": "start", "payload": {"fleet": null}},
+    {"ulid": "01K06000000000000000000002", "device_id": "01K0GATEAPH0NE000000000003", "seq": 1, "device_ts": 1792843020000, "kind": "station.selected", "payload": {"mark": "gate_left"}},
+    {"ulid": "01K06000000000000000000003", "device_id": "01K0GATEBPH0NE000000000004", "seq": 1, "device_ts": 1792843050000, "kind": "station.selected", "payload": {"mark": "gate_right"}},
+    {"ulid": "01K06000000000000000000004", "device_id": "01K0GATEAPH0NE000000000003", "seq": 2, "device_ts": 1792843800000, "kind": "clock.offset", "payload": {"fleet": null, "race": "01K06000000000000000000001", "offset_ms": 3000, "uncertainty_ms": null, "age_ms": 1000, "reason": null, "mark": "gate_left"}},
+    {"ulid": "01K06000000000000000000005", "device_id": "01K0GATEAPH0NE000000000003", "seq": 3, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": null, "sail": "887", "mark": "gate_left", "race": "01K06000000000000000000001", "lap": 1}},
+    {"ulid": "01K06000000000000000000006", "device_id": "01K0GATEBPH0NE000000000004", "seq": 2, "device_ts": 1792843802000, "kind": "clock.offset", "payload": {"fleet": null, "race": "01K06000000000000000000001", "offset_ms": -2000, "uncertainty_ms": null, "age_ms": 1000, "reason": null, "mark": "gate_right"}},
+    {"ulid": "01K06000000000000000000007", "device_id": "01K0GATEBPH0NE000000000004", "seq": 3, "device_ts": 1792843802000, "kind": "rounding", "payload": {"fleet": null, "sail": "412", "mark": "gate_right", "race": "01K06000000000000000000001", "lap": 1}}
+  ],
+  "expected": [
+    {
+      "fleet": null,
+      "race": "01K06000000000000000000001",
+      "order": [
+        {"sail": "412", "roundings": 1, "mark": "gate_right"},
+        {"sail": "887", "roundings": 1, "mark": "gate_left"}
+      ],
+      "unnamed": 0,
+      "waiting": [],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "887 rounded gate_left at 12:10:00.000 on its phone's clock, and 412 gate_right at 12:10:02.000 on another phone's: on the raw clocks 887 is first.",
+    "They are level on 1 rounding and their roundings are on two phones, so each is moved to satellite time by its phone's clock offset before it.",
+    "887: offset event 4, offset_ms 3000, so 12:10:00.000 + 3.000 s = 12:10:03.000.",
+    "412: offset event 6, offset_ms -2000, so 12:10:02.000 - 2.000 s = 12:10:00.000.",
+    "In satellite time 412 rounded 3 s before 887: 412, then 887. Both offsets were measured, so clocks_unmatched is false.",
+    "Both stationed marks have roundings, so nothing is waiting."
+  ]
+}
