@@ -26,6 +26,7 @@ abstract final class Wire {
   static const revocation = 'revocation';
   static const pullStatus = 'pullStatus';
   static const chainStatus = 'chainStatus';
+  static const raceTimes = 'raceTimes';
   static const close = 'close';
 
   /// Every command the core serves. There is no update and no delete, and a
@@ -36,7 +37,8 @@ abstract final class Wire {
   /// `clock.changed`, #55), and
   /// uploadStatus, revocation and pullStatus read what sync (#6, #53, #64)
   /// keeps beside the log. chainStatus verifies the chains the log holds
-  /// (#67), and writes nothing.
+  /// (#67), and raceTimes times every phone's finishes from their guns (#69);
+  /// both write nothing.
   static const commands = {
     append,
     readAll,
@@ -50,6 +52,7 @@ abstract final class Wire {
     revocation,
     pullStatus,
     chainStatus,
+    raceTimes,
     close,
   };
 

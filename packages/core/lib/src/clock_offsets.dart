@@ -231,7 +231,7 @@ class CrossPhoneElapsed {
 /// readings. Otherwise each reading is first moved to satellite time by its
 /// own phone's offset in force ([offsetFor]); a phone with none recorded, or
 /// one that could not be measured, flags the result instead (criterion 5).
-/// #69 reads this per fleet race.
+/// `fleetRaceTimes` reads it per fleet race (#69).
 CrossPhoneElapsed crossPhoneElapsed(Iterable<EventEnvelope> events,
     {required EventEnvelope gun, required EventEnvelope finish}) {
   final gunAt = gunTime(events, gun);

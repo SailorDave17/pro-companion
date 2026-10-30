@@ -66,14 +66,31 @@ pickup, 2026-10-14.
 - **Which fleets finish here belongs to the phone**, as its station does. It is this phone's
   `course.shortened` events at this mark that are not undone. Another phone's, arriving by sync,
   never switches it.
-- **Elapsed time is pending reconciliation.** It needs the gun, which another phone logs, and a
-  clock reference across phones (G10), so the phone shows the time of day only. Cross-phone elapsed
-  time is its own story (#69). The clock reference exists since #55: a `clock.offset` event, the
-  phone's clock against satellite time, which the core appends itself just before the phone's first
-  finish here in each race whose gun it knows of, or once per fleet per day while it knows none
-  (ADR 001, "Two clocks"). Today a mark phone knows no gun: its home fires none and sync is not
-  started in the app (#113), so it is once per fleet per day, with another after the phone's clock
-  is set.
+- **The screen shows the time of day, and elapsed time as "pending reconciliation".** Elapsed time
+  needs the gun, which another phone logs, and a clock reference across phones (G10). The clock
+  reference exists since #55: a `clock.offset` event, the phone's clock against satellite time,
+  which the core appends itself just before the phone's first finish here in each race whose gun it
+  knows of, or once per fleet per day while it knows none (ADR 001, "Two clocks"). Today a mark
+  phone knows no gun: its home fires none and sync is not started in the app (#113), so it is once
+  per fleet per day, with another after the phone's clock is set.
+- **The core times a finish here across phones since #69**, for scoring and export to read; nothing
+  reads it yet. `CoreClient.raceTimes()` gives every fleet race the phone holds. A finish at the
+  line or at a mark, taken on another phone than the gun's, is timed from the race's gun through
+  both phones' offsets. One taken on the gun's own phone is timed on that phone's clock, unless the
+  clock was set between the two.
+  - A race is flagged `unreconciled` where any finish could not be timed: across two phones, one
+    with no offset or none measured; or no gun held (`no_gun`, owner decision at #69's pickup).
+  - It is flagged `two_finish_sources` where more than one phone took its finishes. Every phone's
+    are kept, and none is matched to another's (scope constraint 11).
+  - A finish's race is the latest of the fleet's guns that day that it came after. That is read in
+    satellite time where both phones have an offset measured, and on the raw clocks otherwise. A
+    later gun the raw clocks put after the finish cannot be ruled out by them, so its flags pass to
+    the finish, which is then not timed (#69's review).
+  - **Provisional results split races by another rule until #160.** `racesOf` (#7) reads the raw
+    clocks only and has no local-date rule, so a finish logged on a later date than the fleet's last
+    gun is in that gun's race there, and in its own date's race of the day here.
+  - A finish's sail number is its latest by device time, as everywhere a finish is named, so one
+    corrected after the phone's clock was set back reads the older name until #161.
 - **Not yet:** a second shortened course for the same fleet at the same mark later in the day logs
   nothing new, because the first is still in force. The phone has no race boundary to end it.
 

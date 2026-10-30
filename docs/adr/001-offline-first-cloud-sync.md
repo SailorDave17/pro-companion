@@ -20,6 +20,9 @@
 - Amended 2026-10-27 by pro-companion #54 and #68: a phone's first rounding in a race joins it too,
   so the running order can put two phones' roundings at a gate side by side in satellite time. The
   envelope is unchanged. See "Two clocks" below.
+- Amended 2026-10-29 by pro-companion #69: the core times each finish from its race's gun on
+  another phone, per fleet race, for scoring and export, and flags a race it could not time or that
+  two phones took finishes for. Nothing is stored. See "Two clocks" below.
 
 ## Context
 
@@ -129,6 +132,13 @@ link is work on both sides:
   joined again once the phone has satellite time. Device timestamps still stay verbatim: an elapsed
   time across two phones, or across a clock set on one, reads each reading through its own phone's
   latest offset, and is flagged, never computed from the raw clocks, when either has none.
+  *Amended 2026-10-29 (#69):* the core reads that per fleet race for scoring and export
+  (`CoreClient.raceTimes()`), worked out each time it is asked and never stored. A finish's race is
+  the latest of the fleet's guns that day that it came after, compared in satellite time where both
+  phones have an offset measured and on the raw clocks otherwise. A race is flagged unreconciled
+  where any finish could not be timed, including when no gun is held, and as having two finish
+  sources where two phones took finishes. Both phones' finishes are kept, and neither is matched to
+  the other.
 - **Located and attributed** — each event carries GPS position where available, the device id,
   the person and (amended 2026-09-26, #49) the admission it was written under, so it answers *who,
   when, where* without anyone's memory. *Amended 2026-10-14 (#31):* the core stamps the position,

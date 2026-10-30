@@ -4,6 +4,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'envelope.dart';
 import 'location.dart';
+import 'race_times.dart';
 import 'store.dart';
 import 'wire.dart';
 
@@ -96,6 +97,8 @@ class CoreServer {
         return store.pullStatus().toWire();
       case Wire.chainStatus:
         return store.chainStatus().toWire();
+      case Wire.raceTimes:
+        return [for (final r in raceTimesOf(store.readAll())) r.toWire()];
       case Wire.close:
         store.close();
         return null;

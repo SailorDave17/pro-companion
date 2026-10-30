@@ -459,5 +459,8 @@ class _HeldCore implements CoreClient {
   Future<ChainStatus> chainStatus() => _inner.chainStatus();
 
   @override
+  Future<List<FleetRaceTimes>> raceTimes() => _inner.raceTimes();
+
+  @override
   Future<void> close() => _inner.close();
 }

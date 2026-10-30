@@ -143,6 +143,11 @@ has revoked the phone (#53, above).
   when this phone's own chain is broken. The core verifies the chains (`CoreClient.chainStatus()`),
   a refusal stub standing in for the event it refused, so the screen sees neither the text nor the
   stubs. `docs/event-chain.md`, "What a phone shows", states the rules.
+- **Finishes are timed across phones (#69)**: `CoreClient.raceTimes()` gives each fleet race the
+  phone holds. A finish taken on another phone than the gun's is timed from the gun through both
+  phones' clock offsets (#55), and one on the gun's own phone on that phone's clock. The race is
+  flagged `unreconciled` or `two_finish_sources`. It is there for scoring and export to read;
+  nothing reads it yet, and no screen shows it. `docs/marks.md` states the rules.
 - **Neither half is in the app yet.** Starting it from the core host, with the project's URL and key, is
   #113's. The host itself is #32's (ADR 003, `lib/core_host.dart`), the foreground service that
   keeps the core running with the app closed. Since #46 a release build may use the network: the main

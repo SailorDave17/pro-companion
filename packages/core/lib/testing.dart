@@ -12,6 +12,7 @@ import 'src/envelope.dart';
 import 'src/location.dart';
 import 'src/order.dart';
 import 'src/pulls.dart';
+import 'src/race_times.dart';
 import 'src/roles.dart';
 import 'src/roundings.dart';
 import 'src/stations.dart';
@@ -210,6 +211,16 @@ class FakeCore implements CoreClient {
         final wire = chainStatusValue.toWire();
         requireWireSafe(wire, 'chainStatus');
         return ChainStatus.fromWire(wire);
+      });
+
+  @override
+  Future<List<FleetRaceTimes>> raceTimes() => _call(Wire.raceTimes, () {
+        // Worked out from the fake's events, as the real core works it out
+        // from the log (#69), and through the wire form, so an answer the
+        // real core could not send fails here too.
+        final wire = [for (final r in raceTimesOf(_ordered(_events))) r.toWire()];
+        requireWireSafe(wire, 'raceTimes');
+        return [for (final w in wire) FleetRaceTimes.fromWire(w)];
       });
 
   @override

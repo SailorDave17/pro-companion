@@ -27,7 +27,8 @@ abstract final class FinishKinds {
   /// A boat finished at a mark on a shortened course (#30). Its own kind, so
   /// the line's order and results never count it; `payload.mark` is the
   /// phone's station. A sail number and an undo name it as they name a line
-  /// finish. Its elapsed time is left to a later reconciliation.
+  /// finish. Its elapsed time, from a gun another phone fired, is
+  /// `fleetRaceTimes`' (#69).
   static const atMark = 'finish.at_mark';
 
   static const all = {finish, missed, sail, undo, atMark};
