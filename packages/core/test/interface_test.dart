@@ -105,6 +105,7 @@ void main() {
       expect(core.setAdmissionId('3f6c1a52-8d0e-4b7a-9c21-5e4f0a9b7d13'), isA<Future<void>>());
       expect(core.readAll(), isA<Future<List<EventEnvelope>>>());
       expect(core.uploadStatus(), isA<Future<UploadStatus>>());
+      expect(core.raceTimes(), isA<Future<List<FleetRaceTimes>>>());
       expect(core.append(const NewEvent(kind: 'k', source: 's')), isA<Future<EventEnvelope>>());
     });
   });

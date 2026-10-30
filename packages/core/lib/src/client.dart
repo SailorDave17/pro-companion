@@ -5,6 +5,7 @@ import 'chain_status.dart';
 import 'envelope.dart';
 import 'location.dart';
 import 'pulls.dart';
+import 'race_times.dart';
 import 'uploads.dart';
 import 'wire.dart';
 
@@ -81,6 +82,14 @@ abstract interface class CoreClient {
   /// catching up, refused at N, or altered. Worked out in the core, from the
   /// stored text and the pulled refusal stubs, each time it is asked.
   Future<ChainStatus> chainStatus();
+
+  /// Every fleet race's finishes, at the line and at marks, from every phone
+  /// this one holds, each timed from its race's gun through both phones'
+  /// clock offsets, and each race flagged where a time could not be worked
+  /// out or where two phones took finishes (#69). Worked out in the core each
+  /// time it is asked, so scoring and export read the flags rather than work
+  /// them out again.
+  Future<List<FleetRaceTimes>> raceTimes();
 
   /// Closes the store and stops the core.
   Future<void> close();
@@ -178,6 +187,11 @@ class PortCoreClient implements CoreClient {
   @override
   Future<ChainStatus> chainStatus() async =>
       ChainStatus.fromWire(await _call(Wire.chainStatus, const {}) as Map);
+
+  @override
+  Future<List<FleetRaceTimes>> raceTimes() async => [
+        for (final w in await _call(Wire.raceTimes, const {}) as List) FleetRaceTimes.fromWire(w as Map),
+      ];
 
   @override
   Future<void> close() async {
