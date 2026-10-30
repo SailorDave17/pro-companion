@@ -10,6 +10,7 @@ import 'envelope.dart';
 import 'location.dart';
 import 'pulls.dart';
 import 'roles.dart';
+import 'roundings.dart';
 import 'starts.dart';
 import 'stations.dart';
 import 'uploads.dart';
@@ -46,10 +47,10 @@ class EventStore {
         [deviceId, '%"kind":"role.%', '%"kind":"station.%'])) {
       _noteStateEvent(EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map));
     }
-    // Every phone's guns, and this phone's clock offsets and changes, the same
-    // way.
-    for (final r in _db.select('SELECT body FROM events WHERE body LIKE ? OR body LIKE ?',
-        ['%"kind":"start%', '%"kind":"clock.%'])) {
+    // Every phone's guns, and this phone's clock offsets and changes and its
+    // roundings (#54), the same way.
+    for (final r in _db.select('SELECT body FROM events WHERE body LIKE ? OR body LIKE ? OR body LIKE ?',
+        ['%"kind":"start%', '%"kind":"clock.%', '%"kind":"rounding%'])) {
       _noteRaceEvent(EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map));
     }
   }
@@ -134,16 +135,20 @@ class EventStore {
     }
   }
 
-  /// What [raceToJoin] reads (#55): every phone's starts, recalls and their
-  /// undos, pulled ones included, since a finish joins the race of a gun
-  /// another phone fired; and this phone's own clock offsets and clock
-  /// changes. Read from the log when it opens and kept as events arrive.
+  /// What [raceToJoin] and [stampRounding] read (#55, #54): every phone's
+  /// starts, recalls, time corrections and their undos, pulled ones included,
+  /// since a finish or a rounding joins the race of a gun another phone fired;
+  /// and this phone's own clock offsets and clock changes, and its own
+  /// roundings, their sail numbers and undos, which a rounding's lap counts.
+  /// Read from the log when it opens and kept as events arrive.
   final _raceEvents = <EventEnvelope>[];
 
   void _noteRaceEvent(EventEnvelope e) {
     if (StartKinds.sequence.contains(e.kind) ||
         e.kind == StartKinds.undo ||
-        (ClockKinds.all.contains(e.kind) && e.deviceId == deviceId)) {
+        e.kind == StartKinds.timeCorrected ||
+        (ClockKinds.all.contains(e.kind) && e.deviceId == deviceId) ||
+        (RoundingKinds.all.contains(e.kind) && e.deviceId == deviceId)) {
       _raceEvents.add(e);
     }
   }
@@ -343,6 +348,8 @@ class EventStore {
   EventEnvelope append(NewEvent event) {
     validateNewEvent(event);
     final now = _clock();
+    // A rounding's race and lap (#54), from the guns and roundings held now.
+    event = stampRounding(_raceEvents, event, deviceId: deviceId, station: station, now: now);
     final where = location.current();
     final stamp = location.clockOffset(now);
     final join = raceToJoin(_raceEvents, event, deviceId: deviceId, now: now, measuredNow: stamp.offsetMs != null);

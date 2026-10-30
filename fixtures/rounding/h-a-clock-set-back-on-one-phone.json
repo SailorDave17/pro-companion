@@ -1,0 +1,37 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "h-a-clock-set-back-on-one-phone",
+  "criterion": "#68 criterion 1",
+  "now": 1792845000000,
+  "events": [
+    {"ulid": "01K0800000000000000000000C", "device_id": "01K0PR0PH0NE00000000000000", "seq": 1, "device_ts": 1792843200000, "kind": "start", "payload": {"fleet": null}},
+    {"ulid": "01K0800000000000000000000A", "device_id": "01K0MARK2PH0NE000000000002", "seq": 1, "device_ts": 1792753200000, "kind": "station.selected", "payload": {"mark": "mark_2"}},
+    {"ulid": "01K0800000000000000000000B", "device_id": "01K0MARK1PH0NE000000000001", "seq": 1, "device_ts": 1792842900000, "kind": "station.selected", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K0800000000000000000000G", "device_id": "01K0MARK1PH0NE000000000001", "seq": 2, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": null, "sail": "412", "mark": "mark_1", "race": "01K0800000000000000000000C", "lap": 1}},
+    {"ulid": "01K0800000000000000000000D", "device_id": "01K0MARK1PH0NE000000000001", "seq": 3, "device_ts": 1792843710000, "kind": "clock.changed", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K0800000000000000000000E", "device_id": "01K0MARK1PH0NE000000000001", "seq": 4, "device_ts": 1792843720000, "kind": "rounding", "payload": {"fleet": null, "sail": "887", "mark": "mark_1", "race": "01K0800000000000000000000C", "lap": 1}},
+    {"ulid": "01K0800000000000000000000F", "device_id": "01K0MARK1PH0NE000000000001", "seq": 5, "device_ts": 1792843730000, "kind": "rounding", "payload": {"fleet": null, "sail": "5", "mark": "mark_1", "race": "01K0800000000000000000000C", "lap": 1}}
+  ],
+  "expected": [
+    {
+      "fleet": null,
+      "race": "01K0800000000000000000000C",
+      "order": [
+        {"sail": "412", "roundings": 1, "mark": "mark_1"},
+        {"sail": "887", "roundings": 1, "mark": "mark_1"},
+        {"sail": "5", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 0,
+      "waiting": [],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "The race is the gun, event 1. Every rounding names it.",
+    "The mark_1 phone tapped 412 (seq 2) at 12:10:00 on its clock, then its clock was set back (event 5, clock.changed, seq 3), then it tapped 887 (seq 4) at 12:08:40 and 5 (seq 5) at 12:08:50.",
+    "All three are level on 1 rounding and on one phone, so they are in the order that phone logged them, by seq: 412, 887, 5. By device time it would read 887, 5, 412, which is the order the clock set made up.",
+    "The ULIDs follow device time, as a phone mints them from its clock: 887's (…E) and 5's (…F) sort before 412's (…G). So a ULID order gives the wrong answer too, and only seq gives the right one.",
+    "One phone, so its clock needs no offset and clocks_unmatched is false.",
+    "The mark_2 phone's only station pick was made at 2026-10-23T11:00Z, the day before now in every time zone, so it is not stationed today and mark_2 is not waiting. mark_1 has roundings, so nothing is waiting."
+  ]
+}

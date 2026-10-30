@@ -1,0 +1,53 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "e-fleets-and-race-boundaries",
+  "criterion": "#68 criterion 1",
+  "now": 1792845000000,
+  "events": [
+    {"ulid": "01K05000000000000000000001", "device_id": "01K0PR0PH0NE00000000000000", "seq": 1, "device_ts": 1792840800000, "kind": "fleet.defined", "payload": {"name": "Lasers", "class": null}},
+    {"ulid": "01K05000000000000000000002", "device_id": "01K0PR0PH0NE00000000000000", "seq": 2, "device_ts": 1792840801000, "kind": "fleet.defined", "payload": {"name": "420s", "class": null}},
+    {"ulid": "01K05000000000000000000003", "device_id": "01K0PR0PH0NE00000000000000", "seq": 3, "device_ts": 1792841400000, "kind": "start", "payload": {"fleet": "01K05000000000000000000001"}},
+    {"ulid": "01K05000000000000000000004", "device_id": "01K0PR0PH0NE00000000000000", "seq": 4, "device_ts": 1792843200000, "kind": "start", "payload": {"fleet": "01K05000000000000000000001"}},
+    {"ulid": "01K05000000000000000000005", "device_id": "01K0PR0PH0NE00000000000000", "seq": 5, "device_ts": 1792843500000, "kind": "start", "payload": {"fleet": "01K05000000000000000000002"}},
+    {"ulid": "01K05000000000000000000006", "device_id": "01K0MARK1PH0NE000000000001", "seq": 1, "device_ts": 1792841100000, "kind": "station.selected", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K05000000000000000000007", "device_id": "01K0MARK1PH0NE000000000001", "seq": 2, "device_ts": 1792842000000, "kind": "rounding", "payload": {"fleet": "01K05000000000000000000001", "sail": "887", "mark": "mark_1", "race": "01K05000000000000000000003", "lap": 1}},
+    {"ulid": "01K05000000000000000000008", "device_id": "01K0MARK1PH0NE000000000001", "seq": 3, "device_ts": 1792843140000, "kind": "rounding", "payload": {"fleet": "01K05000000000000000000001", "sail": "1033", "mark": "mark_1", "race": null, "lap": 1}},
+    {"ulid": "01K05000000000000000000009", "device_id": "01K0MARK1PH0NE000000000001", "seq": 4, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": "01K05000000000000000000001", "sail": "412", "mark": "mark_1", "race": "01K05000000000000000000004", "lap": 1}},
+    {"ulid": "01K05000000000000000000010", "device_id": "01K0MARK1PH0NE000000000001", "seq": 5, "device_ts": 1792843805000, "kind": "rounding", "payload": {"fleet": "01K05000000000000000000001", "sail": "5", "mark": "mark_1", "race": null, "lap": 1}},
+    {"ulid": "01K05000000000000000000011", "device_id": "01K0MARK1PH0NE000000000001", "seq": 6, "device_ts": 1792843810000, "kind": "rounding", "payload": {"fleet": "01K05000000000000000000001", "sail": "887", "mark": "mark_1", "race": "01K05000000000000000000004", "lap": 1}},
+    {"ulid": "01K05000000000000000000012", "device_id": "01K0MARK1PH0NE000000000001", "seq": 7, "device_ts": 1792844100000, "kind": "rounding", "payload": {"fleet": "01K05000000000000000000002", "sail": "77", "mark": "mark_1", "race": null, "lap": 1}}
+  ],
+  "expected": [
+    {
+      "fleet": "01K05000000000000000000001",
+      "race": "01K05000000000000000000004",
+      "order": [
+        {"sail": "412", "roundings": 1, "mark": "mark_1"},
+        {"sail": "5", "roundings": 1, "mark": "mark_1"},
+        {"sail": "887", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 0,
+      "waiting": [],
+      "clocks_unmatched": false
+    },
+    {
+      "fleet": "01K05000000000000000000002",
+      "race": "01K05000000000000000000005",
+      "order": [
+        {"sail": "77", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 0,
+      "waiting": [],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "Two fleets, in the order defined: Lasers (event 1), then 420s (event 2).",
+    "Lasers' latest gun is event 4 at 12:00:00 (event 3, at 11:30, is the race before). 420s' is event 5 at 12:05:00.",
+    "Lasers: event 7 names the 11:30 race, so it is out. Event 8 names no race and was tapped at 11:59:00, before the 12:00:00 gun, so it is out.",
+    "Lasers: event 9 names the race. Event 10 names none and was tapped at 12:10:05, after the gun, so it is in. Event 11 names the race.",
+    "Lasers: 412 (12:10:00), 5 (12:10:05), 887 (12:10:10), each with 1 rounding, on one phone.",
+    "420s: event 12 names no race and was tapped at 12:15:00, after its 12:05:00 gun: 77, 1 rounding.",
+    "Both fleets have roundings at the one stationed mark, mark_1, so neither is waiting for it. No rounding names no fleet, so there is no third order."
+  ]
+}

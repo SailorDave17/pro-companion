@@ -4,3 +4,5 @@
 fixtures/scoring/** text eol=lf
 # The chain vectors (#28) are vendored by burgee under the same checksums.
 fixtures/chain/** text eol=lf
+# And the running-order vectors (#68).
+fixtures/rounding/** text eol=lf

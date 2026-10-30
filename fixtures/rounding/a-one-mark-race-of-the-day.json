@@ -1,0 +1,35 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "a-one-mark-race-of-the-day",
+  "criterion": "#68 criterion 1",
+  "now": 1792845000000,
+  "events": [
+    {"ulid": "01K01000000000000000000001", "device_id": "01K0MARK1PH0NE000000000001", "seq": 1, "device_ts": 1792757100000, "kind": "rounding", "payload": {"fleet": null, "sail": "5", "mark": "mark_1", "race": null, "lap": 1}},
+    {"ulid": "01K01000000000000000000002", "device_id": "01K0MARK1PH0NE000000000001", "seq": 2, "device_ts": 1792842900000, "kind": "station.selected", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K01000000000000000000003", "device_id": "01K0MARK1PH0NE000000000001", "seq": 3, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": null, "sail": "412", "mark": "mark_1", "race": null, "lap": 1}},
+    {"ulid": "01K01000000000000000000004", "device_id": "01K0MARK1PH0NE000000000001", "seq": 4, "device_ts": 1792843805000, "kind": "rounding", "payload": {"fleet": null, "sail": "887", "mark": "mark_1", "race": null, "lap": 1}},
+    {"ulid": "01K01000000000000000000005", "device_id": "01K0MARK1PH0NE000000000001", "seq": 5, "device_ts": 1792843809000, "kind": "rounding", "payload": {"fleet": null, "sail": "1033", "mark": "mark_1", "race": null, "lap": 1}}
+  ],
+  "expected": [
+    {
+      "fleet": null,
+      "race": null,
+      "order": [
+        {"sail": "412", "roundings": 1, "mark": "mark_1"},
+        {"sail": "887", "roundings": 1, "mark": "mark_1"},
+        {"sail": "1033", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 0,
+      "waiting": [],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "No fleet.defined, so one order, for the single fleet (null).",
+    "No start event, so the race is the race of the day, 2026-10-24 local, and the race is null.",
+    "Event 1 (sail 5) was tapped at 2026-10-23T12:05Z, the day before now (2026-10-24T12:30Z) in every time zone: not in the race.",
+    "Events 3, 4, 5 are stamped with no race and fall on now's date: in the race. Each boat has 1 rounding.",
+    "All level on 1, all on one phone, so by that phone's clock: 412 at 12:10:00, 887 at 12:10:05, 1033 at 12:10:09.",
+    "The one stationed mark, mark_1, has roundings, so nothing is waiting."
+  ]
+}

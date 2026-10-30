@@ -8,6 +8,8 @@ import '../finish/volume_key.dart';
 import '../fleets/fleets_screen.dart';
 import '../log/log_screen.dart';
 import '../results/results_screen.dart';
+import '../rounding/rounding_screen.dart';
+import '../running_order/running_order_screen.dart';
 import '../sequence/sequence_screen.dart';
 import '../shore/shore_status.dart';
 import '../stations/station_screen.dart';
@@ -169,6 +171,29 @@ class _RoleHomeState extends State<RoleHome> {
     );
   }
 
+  /// ROUNDINGS (#54): the rounding screen for the station in force. Off until
+  /// the phone has one, since that station is the mark the boats round.
+  Widget _roundings() {
+    final pick = _stationPick;
+    final mark = pick == null ? null : markOf(pick);
+    return SizedBox(
+      width: double.infinity,
+      height: 96,
+      child: ElevatedButton(
+        key: const ValueKey('roundings'),
+        onPressed: mark == null
+            ? null
+            : () => _open(() => RoundingScreen(
+                  core: widget.core,
+                  confirmation: widget.confirmation,
+                  mark: mark,
+                  clock: widget.clock,
+                )),
+        child: const FitLabel('ROUNDINGS'),
+      ),
+    );
+  }
+
   /// FINISH AT MARK (#30): the finish-at-mark screen for the station in
   /// force. Off until the phone has one, since that station is the mark the
   /// finishes are taken at.
@@ -208,7 +233,11 @@ class _RoleHomeState extends State<RoleHome> {
         // The other phones' logs, checked after racing or at a protest (#67).
         HomeAction.log => _outlined('LOG', () => LogScreen(core: widget.core)),
         HomeAction.station => _station(),
+        HomeAction.roundings => _roundings(),
         HomeAction.finishAtMark => _finishAtMark(),
+        // Every phone's roundings, followed live (#68).
+        HomeAction.runningOrder =>
+          _outlined('RUNNING ORDER', () => RunningOrderScreen(core: widget.core, clock: widget.clock)),
       };
 
   Widget _big(String label, Widget Function() screen) => SizedBox(
@@ -220,7 +249,8 @@ class _RoleHomeState extends State<RoleHome> {
   Widget _outlined(String label, Widget Function() screen) => SizedBox(
         width: double.infinity,
         height: Bars.minTargetDp + 8,
-        child: OutlinedButton(onPressed: () => _open(screen), child: Text(label)),
+        // Shrunk to fit, never wrapped: RUNNING ORDER at 200% on a 320 dp phone.
+        child: OutlinedButton(onPressed: () => _open(screen), child: FitLabel(label)),
       );
 
   @override

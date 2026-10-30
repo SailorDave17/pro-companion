@@ -4,6 +4,7 @@ import 'fleets.dart';
 import 'mark_finishes.dart';
 import 'results.dart';
 import 'roles.dart';
+import 'roundings.dart';
 import 'starts.dart';
 import 'stations.dart';
 
@@ -22,5 +23,6 @@ abstract final class EventKinds {
     ...StationKinds.all,
     ...CourseKinds.all,
     ...ClockKinds.all,
+    ...RoundingKinds.all,
   };
 }

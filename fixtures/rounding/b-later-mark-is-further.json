@@ -1,0 +1,39 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "b-later-mark-is-further",
+  "criterion": "#68 criterion 2",
+  "now": 1792845000000,
+  "events": [
+    {"ulid": "01K02000000000000000000001", "device_id": "01K0PR0PH0NE00000000000000", "seq": 1, "device_ts": 1792843200000, "kind": "start", "payload": {"fleet": null}},
+    {"ulid": "01K02000000000000000000002", "device_id": "01K0MARK1PH0NE000000000001", "seq": 1, "device_ts": 1792842900000, "kind": "station.selected", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K02000000000000000000003", "device_id": "01K0MARK2PH0NE000000000002", "seq": 1, "device_ts": 1792842960000, "kind": "station.selected", "payload": {"mark": "mark_2"}},
+    {"ulid": "01K02000000000000000000004", "device_id": "01K0MARK1PH0NE000000000001", "seq": 2, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": null, "sail": "412", "mark": "mark_1", "race": "01K02000000000000000000001", "lap": 1}},
+    {"ulid": "01K02000000000000000000005", "device_id": "01K0MARK1PH0NE000000000001", "seq": 3, "device_ts": 1792843805000, "kind": "rounding", "payload": {"fleet": null, "sail": "887", "mark": "mark_1", "race": "01K02000000000000000000001", "lap": 1}},
+    {"ulid": "01K02000000000000000000006", "device_id": "01K0MARK1PH0NE000000000001", "seq": 4, "device_ts": 1792843809000, "kind": "rounding", "payload": {"fleet": null, "sail": "1033", "mark": "mark_1", "race": "01K02000000000000000000001", "lap": 1}},
+    {"ulid": "01K02000000000000000000007", "device_id": "01K0MARK1PH0NE000000000001", "seq": 5, "device_ts": 1792843820000, "kind": "rounding", "payload": {"fleet": null, "sail": "5", "mark": "mark_1", "race": "01K02000000000000000000001", "lap": 1}},
+    {"ulid": "01K02000000000000000000008", "device_id": "01K0MARK2PH0NE000000000002", "seq": 2, "device_ts": 1792844280000, "kind": "rounding", "payload": {"fleet": null, "sail": "887", "mark": "mark_2", "race": "01K02000000000000000000001", "lap": 1}},
+    {"ulid": "01K02000000000000000000009", "device_id": "01K0MARK2PH0NE000000000002", "seq": 3, "device_ts": 1792844283000, "kind": "rounding", "payload": {"fleet": null, "sail": "412", "mark": "mark_2", "race": "01K02000000000000000000001", "lap": 1}}
+  ],
+  "expected": [
+    {
+      "fleet": null,
+      "race": "01K02000000000000000000001",
+      "order": [
+        {"sail": "887", "roundings": 2, "mark": "mark_2"},
+        {"sail": "412", "roundings": 2, "mark": "mark_2"},
+        {"sail": "1033", "roundings": 1, "mark": "mark_1"},
+        {"sail": "5", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 0,
+      "waiting": [],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "One gun, event 1, at 12:00:00 on now's date: the race is 01K02000000000000000000001.",
+    "Every rounding names that race. Rounding counts: 412 has 2 (mark_1, mark_2), 887 has 2 (mark_1, mark_2), 1033 has 1, 5 has 1.",
+    "Level on 2: both latest roundings are on the mark_2 phone, so by its clock: 887 at 12:18:00, then 412 at 12:18:03. 412 rounded mark_1 first, but the further mark decides.",
+    "Level on 1: both on the mark_1 phone: 1033 at 12:10:09, then 5 at 12:10:20.",
+    "Order: 887, 412, 1033, 5. Both stationed marks have roundings, so nothing is waiting."
+  ]
+}

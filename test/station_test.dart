@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart';
 import 'package:pro_companion/stations/station_screen.dart';
+import 'package:pro_companion/ui/race_time.dart';
 import 'package:pro_companion_core/core.dart';
 import 'package:pro_companion_core/testing.dart';
 
@@ -238,6 +239,9 @@ void main() {
     // exist before any boat finishes; test/mark_finish_test.dart checks it
     // with finishes.
     const beforeAnyFinish = {'station', 'station-undo', 'finish-here', 'mark-finish', 'mark-undo-last'};
+    // ROUNDINGS (#54) is off without a station too. With one, its actions are
+    // held to the bar by test/rounding_screen_test.dart.
+    const heldElsewhere = {...onHomeRaceTimeActionIds, ...roundingActionIds};
     for (final scale in [1.0, 2.0]) {
       final pct = '${(scale * 100).round()}%';
       for (final (name, build, actions) in [
@@ -249,6 +253,7 @@ void main() {
             tester,
             (observer) => app(textScale: scale, on: build(), observer: observer),
             actionIds: actions,
+            heldElsewhere: heldElsewhere,
           );
           expect(violations, isEmpty, reason: violations.join('\n'));
         });
@@ -259,6 +264,7 @@ void main() {
               tester,
               (observer) => app(textScale: scale, on: revoked(build()), observer: observer),
               actionIds: actions,
+              heldElsewhere: heldElsewhere,
             );
             expect(violations, isEmpty, reason: violations.join('\n'));
           });

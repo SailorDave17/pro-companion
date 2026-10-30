@@ -8,8 +8,10 @@ import 'package:pro_companion_core/core.dart';
 /// on-device one (integration_test/offline_results_flow.dart), so both prove
 /// one flow.
 ///
-/// Between the two it appends a rounding straight to [core], as #54 will: the
-/// station it carries is criterion 4's, on whichever core this runs against.
+/// Between the two it appends a rounding straight to [core], as #54's screen
+/// does: the station it carries is criterion 4's, on whichever core this runs
+/// against. Its race's clock offset comes just before it (#55, joined by a
+/// rounding since #54).
 ///
 /// Expects [core] to hold nothing yet, so the app opens on the role picker.
 /// Leaves the mark boat's home open with no station.
@@ -27,15 +29,16 @@ Future<void> markBoatStationFlow(WidgetTester tester, CoreClient core) async {
   await tap(find.byKey(const ValueKey('station-${StandardMarks.gateLeft}')));
   expect(status(), 'Station: Gate left');
 
-  final rounding = (await tester.runAsync(() => core.append(const NewEvent(kind: 'rounding', source: 'tap'))))!;
+  final rounding = (await tester.runAsync(() => core.append(RoundingEvents.rounding(fleet: null, sail: '887'))))!;
   expect(markOf(rounding), StandardMarks.gateLeft, reason: 'criterion 4: a later event carries the station');
 
   await tap(find.byKey(const ValueKey('undo-station')));
   expect(status(), 'No station yet');
 
   final all = (await tester.runAsync(core.readAll))!;
-  expect([for (final e in all) e.kind], [RoleKinds.assigned, StationKinds.selected, 'rounding', StationKinds.undo]);
+  expect([for (final e in all) e.kind],
+      [RoleKinds.assigned, StationKinds.selected, ClockKinds.offset, RoundingKinds.rounding, StationKinds.undo]);
   expect(all[1].payload, {'mark': StandardMarks.gateLeft});
-  expect(all[3].correctsUlid, all[1].ulid);
+  expect(all[4].correctsUlid, all[1].ulid);
   expect(await tester.runAsync(core.admissionId), isNull, reason: 'never admitted to any server');
 }

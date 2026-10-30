@@ -299,6 +299,11 @@ void main() {
       return d.core;
     }
 
+    // The rounding screen (#54) is two taps from the same home. Its actions
+    // are held to the bar by test/rounding_screen_test.dart, whose fixtures
+    // have boats to tap; these have none.
+    final actions = markBoatRaceTimeActionIds.difference(roundingActionIds);
+    const heldElsewhere = {...onHomeRaceTimeActionIds, ...roundingActionIds};
     for (final scale in [1.0, 2.0]) {
       final pct = '${(scale * 100).round()}%';
       for (final (name, build) in [('with fleets and a full list', withFleets), ('on a single-fleet day', singleFleet)]) {
@@ -306,7 +311,8 @@ void main() {
           final violations = await barCheck(
             tester,
             (observer) => app(textScale: scale, on: build(), observer: observer),
-            actionIds: markBoatRaceTimeActionIds,
+            actionIds: actions,
+            heldElsewhere: heldElsewhere,
           );
           expect(violations, isEmpty, reason: violations.join('\n'));
         });
@@ -316,7 +322,8 @@ void main() {
             final violations = await barCheck(
               tester,
               (observer) => app(textScale: scale, on: revoked(build()), observer: observer),
-              actionIds: markBoatRaceTimeActionIds,
+              actionIds: actions,
+              heldElsewhere: heldElsewhere,
             );
             expect(violations, isEmpty, reason: violations.join('\n'));
           });

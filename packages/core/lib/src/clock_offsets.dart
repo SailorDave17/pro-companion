@@ -4,6 +4,7 @@ import 'envelope.dart';
 import 'finishes.dart';
 import 'fleets.dart';
 import 'location.dart';
+import 'roundings.dart';
 import 'starts.dart';
 
 /// Each phone's clock against satellite time, recorded per race (#55, groom
@@ -77,19 +78,41 @@ class RaceJoin {
 }
 
 /// The events a phone joins a race with: its gun, and its finishes at the line
-/// or at a mark. Those are the two ends of an elapsed time.
-const _joining = {StartKinds.start, FinishKinds.finish, FinishKinds.atMark};
+/// or at a mark. Those are the two ends of an elapsed time. And its roundings
+/// (#54), since the running order (#68) puts two phones' roundings at a gate
+/// side by side.
+const _joining = {StartKinds.start, FinishKinds.finish, FinishKinds.atMark, RoundingKinds.rounding};
+
+/// True when [a] and [b], milliseconds since the epoch, fall on the same local
+/// date on this phone.
+bool sameLocalDay(int a, int b) {
+  final x = DateTime.fromMillisecondsSinceEpoch(a);
+  final y = DateTime.fromMillisecondsSinceEpoch(b);
+  return x.year == y.year && x.month == y.month && x.day == y.day;
+}
+
+/// The gun [fleet]'s race began with, as [events] tell it at [now]: the
+/// fleet's latest gun not recalled, its own phone's or pulled from another
+/// (#64), when that gun went on the local date of [now]. Null when there is no
+/// such gun, which is the fleet's race of the day. The rule [raceToJoin]
+/// states; a rounding is stamped with it (#54), and the running order (#68)
+/// reads it.
+String? raceGun(Iterable<EventEnvelope> events, String? fleet, {required int now}) {
+  final anchor = elapsedAnchor(events, fleet);
+  return anchor != null && sameLocalDay(anchor.deviceTs, now) ? anchor.ulid : null;
+}
 
 /// The race [event] joins when it is appended as [deviceId]'s next event at
 /// [now], or null when it joins none or one that phone already has an offset
 /// for (owner decision on #55, 2026-10-26):
 ///
 /// - a gun always joins its fleet's race, which it begins;
-/// - a finish, at the line or at a mark, joins its fleet's race when the phone
-///   has no offset for that race yet. The race is the fleet's latest gun not
-///   recalled that the phone knows of, its own or pulled from another phone
-///   (#64), when that gun went on the phone's local date of [now]. With no
-///   such gun known, it is that fleet's race of the day on this phone.
+/// - a finish, at the line or at a mark, or a rounding (#54), joins its fleet's
+///   race when the phone has no offset for that race yet. The race is the
+///   fleet's latest gun not recalled that the phone knows of, its own or
+///   pulled from another phone (#64), when that gun went on the phone's local
+///   date of [now] ([raceGun]). With no such gun known, it is that fleet's
+///   race of the day on this phone.
 ///
 /// Only an offset recorded since the phone's last `clock.changed` counts, so
 /// a set clock makes the next finish join again. And a race joined only by
@@ -104,14 +127,9 @@ RaceJoin? raceToJoin(Iterable<EventEnvelope> events, NewEvent event,
   final fleet = event.payload[fleetPayloadKey] as String?;
   if (event.kind == StartKinds.start) return RaceJoin.atOwnGun(fleet: fleet);
 
-  final today = DateTime.fromMillisecondsSinceEpoch(now);
-  bool sameDay(EventEnvelope e) {
-    final t = DateTime.fromMillisecondsSinceEpoch(e.deviceTs);
-    return t.year == today.year && t.month == today.month && t.day == today.day;
-  }
+  bool sameDay(EventEnvelope e) => sameLocalDay(e.deviceTs, now);
 
-  final anchor = elapsedAnchor(events, fleet);
-  final race = anchor != null && sameDay(anchor) ? anchor.ulid : null;
+  final race = raceGun(events, fleet, now: now);
   final own = [for (final e in events) if (e.deviceId == deviceId && ClockKinds.all.contains(e.kind)) e];
   final lastChange = [for (final e in own) if (e.kind == ClockKinds.changed) e.seq].fold(0, max);
   final joins = [
