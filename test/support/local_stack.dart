@@ -47,8 +47,23 @@ class Phone {
   /// The named volunteer's address, for a phone signed in by magic link; null on device handoff.
   final String? email;
 
-  /// The admission id admit_device answered with, when the phone was admitted.
+  /// The admission id admit_device answered with, when the phone was admitted (its latest).
   String? admissionId;
+
+  /// The role of that admission.
+  String? role;
+
+  /// The phone's latest admission and role on each event it was admitted to, by event id.
+  final Map<String, ({String admission, String role})> admissions = {};
+
+  /// A valid event from this phone's own device (or [deviceId]), naming the admission and role it
+  /// holds on [eventId], or its latest when none is given, as the core stamps them since #49 and
+  /// #73's append_event checks.
+  String event(String ulid, {String? eventId, String deviceId = '01J8Z0D0000000000000000001', int seq = 1}) {
+    final held = eventId == null ? null : admissions[eventId];
+    return sampleEvent(ulid, deviceId: deviceId, seq: seq,
+        admissionId: held?.admission ?? admissionId, role: held?.role ?? role);
+  }
 
   /// The claims the token carries (its `role` is `authenticated`, never `service_role`).
   Map<String, Object?> get claims {
@@ -141,14 +156,18 @@ class LocalStack {
   }
 
   /// The account [phone] signed in to, signed in again on another phone: a new session for the same
-  /// Auth user, as a volunteer's spare gets. Spends a verification.
+  /// Auth user, as a volunteer's spare gets. Spends a verification. The account's admissions are
+  /// the spare's too, so it writes under them (#73).
   Future<Phone> signInAgain(Phone phone) async {
     final (status, body) = await _send('POST', '/auth/v1/verify',
         body: {'type': 'magiclink', 'token_hash': await magicLink(phone.email!)});
     if (status != 200) throw StateError('magic-link verify answered $status: $body');
     final session = body! as Map;
     return Phone._(this, session['access_token'] as String, (session['user'] as Map)['id'] as String,
-        email: phone.email);
+        email: phone.email)
+      ..admissionId = phone.admissionId
+      ..role = phone.role
+      ..admissions.addAll(phone.admissions);
   }
 
   /// A named volunteer's magic link, for a phone that verifies it itself (#6's sync engine): the
@@ -182,7 +201,10 @@ class LocalStack {
       {String? raceArea, String? person}) async {
     final (status, body) = await tryAdmit(phone, day, role, raceArea: raceArea, person: person);
     if (status != 200) throw StateError('admit_device answered $status: $body');
-    return phone..admissionId = body! as String;
+    phone.admissions[day.eventId] = (admission: body! as String, role: role);
+    return phone
+      ..admissionId = body as String
+      ..role = role;
   }
 
   /// [phone] presenting the code for [role] (and [raceArea]'s code for a bound role) to [day], and
@@ -388,8 +410,13 @@ String randomUuid() {
 
 /// A complete, valid event's canonical text (RFC 8785 key order), so a write of it can be refused
 /// only by the path it takes. [deviceId] and [seq] let each phone write its own device's events.
-String sampleEvent(String ulid, {String deviceId = '01J8Z0D0000000000000000001', int seq = 1}) =>
-    '{"corrects_ulid":null,"device_id":"$deviceId",'
+/// [admissionId] and [role] are what #73's append_event holds the text to; a phone's own go through
+/// [Phone.event]. Null for a row seeded as the table owner, which no check reads.
+String sampleEvent(String ulid,
+        {String deviceId = '01J8Z0D0000000000000000001', int seq = 1, String? admissionId, String? role}) =>
+    '{"admission_id":${_jsonString(admissionId)},"corrects_ulid":null,"device_id":"$deviceId",'
     '"device_ts":${1727190001000 + seq},"gps":null,"kind":"note","payload":{"text":"local-stack test"},'
-    '"payload_version":1,"person":null,"prev_hash":null,"role":null,"seq":$seq,"source":"tap",'
+    '"payload_version":1,"person":null,"prev_hash":null,"role":${_jsonString(role)},"seq":$seq,"source":"tap",'
     '"ulid":"$ulid"}';
+
+String _jsonString(String? s) => s == null ? 'null' : '"$s"';

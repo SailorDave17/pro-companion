@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:pro_companion_core/core.dart' show EventKinds;
+import 'package:pro_companion_core/core.dart' show EventKinds, RoleEvents;
 import 'package:pro_companion_core/store.dart' hide newUlid;
 import 'package:pro_companion_sync/sync.dart';
 import 'package:supabase/supabase.dart' show PostgrestException;
@@ -43,6 +43,11 @@ void main() {
       scorer = await StackPhone.open(stack, pullPageSize: 2);
       await scorer.signInNamed();
       await scorer.admitTo(day);
+      // A real pick, as a phone makes (#20): the core stamps its role on every later append, the
+      // clock.offset it writes before a finish included, which #73 holds to the admission's role.
+      // After the admission, so it uploads as one more accepted event rather than staying on the
+      // phone as never admitted, which pendingUploads() would list.
+      scorer.store.append(RoleEvents.assign('scorer'));
     });
 
     tearDownAll(() async => scorer.close());
@@ -76,7 +81,7 @@ void main() {
       // re-serialised would become a ulid_conflict here rather than a duplicate.
       final ulids = [
         ...scorer.log(2),
-        scorer.store.append(const NewEvent(kind: 'finish', source: 'tap', payload: {'big': 1e20})).ulid,
+        scorer.store.append(const NewEvent(kind: 'finish', source: 'tap', role: 'scorer', payload: {'big': 1e20})).ulid,
         ...scorer.log(3),
       ];
       // Each fault on a different event's first send. A fault ends its run, so faults keyed by
@@ -140,7 +145,7 @@ void main() {
       final ulids = <String, String>{
         for (final k in kinds)
           k: scorer.store
-              .append(NewEvent(kind: k, source: 'tap', payloadVersion: k == 'test.synthetic' ? 99 : 1, payload: {'probe': k}))
+              .append(NewEvent(kind: k, source: 'tap', role: 'scorer', payloadVersion: k == 'test.synthetic' ? 99 : 1, payload: {'probe': k}))
               .ulid,
       };
       expect(kinds.length, greaterThanOrEqualTo(14));
@@ -157,7 +162,7 @@ void main() {
 
     test('criterion 7: keys out of order and decimals arrive as the phone\'s bytes, and the hash '
         'recomputes on shore to the phone\'s value', () async {
-      final u = scorer.store.append(const NewEvent(kind: 'finish', source: 'tap', payload: {
+      final u = scorer.store.append(const NewEvent(kind: 'finish', source: 'tap', role: 'scorer', payload: {
         'z': 1e20,
         'm': 12.0,
         'a': 0.1,
@@ -339,7 +344,7 @@ void main() {
         phone.store.deviceId,
         1000000,
         DateTime.now().millisecondsSinceEpoch,
-        '{"admission_id":"$admission","device_id":"${phone.store.deviceId}","seq":"three","ulid":"$bad"}',
+        '{"admission_id":"$admission","device_id":"${phone.store.deviceId}","role":"scorer","seq":"three","ulid":"$bad"}',
       ]);
       // An event whose ULID the log already holds with other bytes.
       final clash = phone.log(1).single;
@@ -415,7 +420,7 @@ void main() {
       phone.expireKeptSession();
 
       // The core restarts with no signal.
-      phone = await StackPhone.reopen(stack, dir, store: phone.store, offline: true);
+      phone = await StackPhone.reopen(stack, dir, store: phone.store, offline: true, role: phone.role);
       addTearDown(phone.close);
       phone.engine.start();
       await Future<void>.delayed(const Duration(seconds: 16)); // past gotrue's own retry window
@@ -447,7 +452,7 @@ void main() {
       phone.transport.close();
       final kept = phone.expireKeptSession();
 
-      phone = await StackPhone.reopen(stack, dir, store: phone.store);
+      phone = await StackPhone.reopen(stack, dir, store: phone.store, role: phone.role);
       addTearDown(phone.close);
       final answers = <String>[];
       phone.transport.hooks.add((r) async {
@@ -521,8 +526,9 @@ void main() {
         expect(text, phone.storedByUlid()[u]);
         expect((jsonDecode(text!) as Map)['admission_id'], oldAdmission);
       }
-      // Accepted today: append_event judges the caller, not the admission in the text. #73 will
-      // judge the text, and would refuse these; that conflict is raised on #73.
+      // Accepted by #73's device-handoff link (owner decision at its pickup, 2026-10-31): the old
+      // admission is another user's, but it is on this race day in the slot the new user holds, so
+      // the server reads the link as the code. admission_check_test.sql holds the rule's edges.
     });
 
     test('#53 criteria 1 to 3: a phone revoked by revoke_device is told once, by name, keeps what it '
@@ -729,9 +735,10 @@ class StackPhone {
     return reopen(stack, dir, store: store, pullPageSize: pullPageSize);
   }
 
-  /// A new engine on an existing phone's log and session, as the core restarting would make.
+  /// A new engine on an existing phone's log and session, as the core restarting would make. On a
+  /// real phone the role pick that stamps [role] is in the store itself; here it is handed over.
   static Future<StackPhone> reopen(LocalStack stack, String dir,
-      {required EventStore store, bool offline = false, int pullPageSize = 500}) async {
+      {required EventStore store, bool offline = false, int pullPageSize = 500, String? role}) async {
     final transport = StackTransport()..offline = offline;
     final engine = SyncEngine.open(
       url: stack.api.toString(),
@@ -742,7 +749,7 @@ class StackPhone {
       pullPageSize: pullPageSize,
       log: printOnFailure,
     );
-    return StackPhone._(stack, dir, store, transport, engine);
+    return StackPhone._(stack, dir, store, transport, engine)..role = role;
   }
 
   final LocalStack _stack;
@@ -752,6 +759,10 @@ class StackPhone {
   final SyncEngine engine;
   String? email;
   String? admission;
+
+  /// The role of the latest admission, stamped on what the phone logs as a pick would (#20), since
+  /// #73's append_event refuses a role that is not the admission's.
+  String? role;
 
   /// Signs in by magic link as [asEmail], or as a new named volunteer.
   Future<String> signInNamed([String? asEmail]) async {
@@ -763,12 +774,13 @@ class StackPhone {
   Future<String> admitTo(owner.Provisioned day, {String role = 'scorer'}) async {
     admission = await engine.admit(day.eventId, day.codes[role]!);
     store.setAdmissionId(admission!);
+    this.role = role;
     return admission!;
   }
 
   List<String> log(int n) => [
         for (var i = 0; i < n; i++)
-          store.append(NewEvent(kind: 'note', source: 'tap', payload: {'text': 'Mark 2 hold $i'})).ulid,
+          store.append(NewEvent(kind: 'note', source: 'tap', role: role, payload: {'text': 'Mark 2 hold $i'})).ulid,
       ];
 
   /// Every event this phone wrote, as stored, by ULID.

@@ -16,9 +16,11 @@ select plan(59);
 -- clubs:   …c01 Hoover, …c02 Other
 -- events:  …e01 Hoover's club night, …e03 Hoover's second day, …e02 the other club's regatta
 -- codes:   e01, e03 and e02 each have an event-wide scorer code, so no race area is needed
--- devices: …aa01 admitted to e01; …aa02 admitted to the other club's e02 only; …aa03 admitted to
---          e01 and revoked; …aa04 admitted to e03 only, in e01's club; …aa05 signed in, never
---          admitted
+-- devices: …aa01 admitted to e01 as …ad01; …aa02 admitted to the other club's e02 only, as …ad02;
+--          …aa03 admitted to e01 as …ad03 and revoked; …aa04 admitted to e03 only, in e01's club,
+--          as …ad04; …aa05 signed in, never admitted. Since #73 every text an admitted phone sends
+--          names its admission and role, which append_event now checks (admission_check_test.sql);
+--          the rows are inserted with fixed ids so the texts and their hashes can stay literal.
 -- log:     01J8…0481 is the one event stored; 01J8…0482 to 01J8…0489 are each refused or failed
 
 -- 1–5. Criterion 1: append_event is the only client path into the log.
@@ -74,44 +76,37 @@ select public.create_event('00000000-0000-0000-0000-000000000c01', 'Second day',
                            '00000000-0000-0000-0000-000000000e03');
 select public.create_event('00000000-0000-0000-0000-000000000c02', 'Their regatta', date '2026-09-27',
                            '00000000-0000-0000-0000-000000000e02');
-select public.issue_admission_code('00000000-0000-0000-0000-000000000e01', 'scorer', 'gull-1234');
-select public.issue_admission_code('00000000-0000-0000-0000-000000000e03', 'scorer', 'wren-2468');
-select public.issue_admission_code('00000000-0000-0000-0000-000000000e02', 'scorer', 'tern-5678');
+-- Admissions with fixed ids, as the table owner: each phone an event-wide scorer, so no race area is
+-- needed. admit_device is admission_code_test.sql's and re_admission_test.sql's subject, not this
+-- file's.
+insert into public.committee_device (id, event_id, club_id, auth_uid, role) values
+  ('00000000-0000-0000-0000-00000000ad01', '00000000-0000-0000-0000-000000000e01',
+   '00000000-0000-0000-0000-000000000c01', '00000000-0000-0000-0000-00000000aa01', 'scorer'),
+  ('00000000-0000-0000-0000-00000000ad02', '00000000-0000-0000-0000-000000000e02',
+   '00000000-0000-0000-0000-000000000c02', '00000000-0000-0000-0000-00000000aa02', 'scorer'),
+  ('00000000-0000-0000-0000-00000000ad03', '00000000-0000-0000-0000-000000000e01',
+   '00000000-0000-0000-0000-000000000c01', '00000000-0000-0000-0000-00000000aa03', 'scorer'),
+  ('00000000-0000-0000-0000-00000000ad04', '00000000-0000-0000-0000-000000000e03',
+   '00000000-0000-0000-0000-000000000c01', '00000000-0000-0000-0000-00000000aa04', 'scorer');
+select public.revoke_device('00000000-0000-0000-0000-00000000ad03');
 
--- Canonical texts, keys in RFC 8785 order. The phones read them, so they are granted to
--- authenticated; each call's whole answer is checked, so a refusal by this table would show.
+-- Canonical texts, keys in RFC 8785 order, each naming its phone's admission and role (#73). The
+-- phones read them, so they are granted to authenticated; each call's whole answer is checked, so a
+-- refusal by this table would show.
 create temp table fx (name text primary key, canonical text not null);
 insert into fx values
-  ('ok', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"finish","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12345"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
-  ('ok-altered', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"finish","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12346"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
-  ('revoked', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000003","device_ts":1727190002000,"gps":null,"kind":"note","payload":{"text":"Mark 2 — hold"},"payload_version":1,"person":null,"prev_hash":"93322f023cbc83656fe652883020940402d8508b2e6fcaa0835251db33f56e95","role":"scorer","seq":4,"source":"tap","ulid":"01J80000000000000000000482"}'),
-  ('other-day', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000004","device_ts":1727190003000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000483"}'),
-  ('no-kind', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"payload":{},"payload_version":1,"person":null,"prev_hash":"30c56583a183d822b6d45e7f971e5af35da4bcb63bdafc7ed8fce69202087aa9","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000484"}'),
-  ('seq-not-integer', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"30c56583a183d822b6d45e7f971e5af35da4bcb63bdafc7ed8fce69202087aa9","role":"scorer","seq":"three","source":"tap","ulid":"01J80000000000000000000485"}'),
-  ('nul', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{"text":"a\u0000b"},"payload_version":1,"person":null,"prev_hash":"30c56583a183d822b6d45e7f971e5af35da4bcb63bdafc7ed8fce69202087aa9","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000486"}'),
+  ('ok', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"finish","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12345"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
+  ('ok-altered', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"finish","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12346"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
+  ('revoked', '{"admission_id":"00000000-0000-0000-0000-00000000ad03","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000003","device_ts":1727190002000,"gps":null,"kind":"note","payload":{"text":"Mark 2 — hold"},"payload_version":1,"person":null,"prev_hash":"93322f023cbc83656fe652883020940402d8508b2e6fcaa0835251db33f56e95","role":"scorer","seq":4,"source":"tap","ulid":"01J80000000000000000000482"}'),
+  ('other-day', '{"admission_id":"00000000-0000-0000-0000-00000000ad04","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000004","device_ts":1727190003000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000483"}'),
+  ('no-kind', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"payload":{},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000484"}'),
+  ('seq-not-integer', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":"three","source":"tap","ulid":"01J80000000000000000000485"}'),
+  ('nul', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{"text":"a\u0000b"},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000486"}'),
   ('not-json', 'not json'),
   ('array', '["01J80000000000000000000481"]'),
   ('stranger', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000002","device_ts":1727190005000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000487"}'),
-  ('transient', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190006000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"30c56583a183d822b6d45e7f971e5af35da4bcb63bdafc7ed8fce69202087aa9","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000489"}');
+  ('transient', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190006000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000489"}');
 grant select on fx to authenticated;
-
--- Admit the phones.
-set local role authenticated;
-select set_config('request.jwt.claims',
-  '{"sub":"00000000-0000-0000-0000-00000000aa01","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e01', 'gull-1234');
-select set_config('request.jwt.claims',
-  '{"sub":"00000000-0000-0000-0000-00000000aa02","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e02', 'tern-5678');
-select set_config('request.jwt.claims',
-  '{"sub":"00000000-0000-0000-0000-00000000aa03","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e01', 'gull-1234');
-select set_config('request.jwt.claims',
-  '{"sub":"00000000-0000-0000-0000-00000000aa04","role":"authenticated","is_anonymous":true}', true);
-select public.admit_device('00000000-0000-0000-0000-000000000e03', 'wren-2468');
-reset role;
-select public.revoke_device((select id from public.committee_device
-                             where auth_uid = '00000000-0000-0000-0000-00000000aa03'));
 
 -- 11–15. Criteria 1 and 5: an admitted phone's event is stored exactly as #40 defines it, and a
 -- re-send is a no-op, not a refusal.
@@ -120,7 +115,7 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa01","role":"authenticated","is_anonymous":true}', true);
 select is(public.append_event('00000000-0000-0000-0000-000000000e01', (select canonical from fx where name = 'ok')),
           '{"outcome": "accepted", "duplicate": false,
-            "hash": "30c56583a183d822b6d45e7f971e5af35da4bcb63bdafc7ed8fce69202087aa9"}'::jsonb,
+            "hash": "f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181"}'::jsonb,
           'an admitted phone''s event is accepted, with the hash of its bytes');
 select is(current_setting('response.status', true), null,
           'and answered with no error status');
@@ -132,7 +127,7 @@ select ok((select l.canonical = f.canonical and l.event_id = '00000000-0000-0000
 set local role authenticated;
 select is(public.append_event('00000000-0000-0000-0000-000000000e01', (select canonical from fx where name = 'ok')),
           '{"outcome": "accepted", "duplicate": true,
-            "hash": "30c56583a183d822b6d45e7f971e5af35da4bcb63bdafc7ed8fce69202087aa9"}'::jsonb,
+            "hash": "f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181"}'::jsonb,
           'a re-send of a stored event is accepted as a duplicate');
 reset role;
 select is((select count(*) from public.event_log where ulid = '01J80000000000000000000481')
@@ -149,7 +144,7 @@ select set_config('request.jwt.claims',
 select is(public.append_event('00000000-0000-0000-0000-000000000e01', (select canonical from fx where name = 'revoked')),
           '{"outcome": "refused", "reason": "revoked", "code": "append_event_refused",
             "message": "append_event refused the event: revoked", "details": "revoked",
-            "hash": "1a8074be5e2719b0bf9f488536b45261a4b16b7252f8cea1d438b2f84701d212"}'::jsonb,
+            "hash": "d94f7a8346f8f81c8013f7176590080ebdd9cbbc9001e20081df67eb9283b904"}'::jsonb,
           'a revoked phone''s event is refused as revoked, with the reason in details');
 select is(current_setting('response.status', true), '422', 'and answered with status 422');
 reset role;
@@ -159,7 +154,7 @@ select is((select jsonb_build_object('event_id', r.event_id, 'bytes', r.canonica
            from public.event_refusal r, fx f
            where r.reason = 'revoked' and f.name = 'revoked'),
           '{"event_id": "00000000-0000-0000-0000-000000000e01", "bytes": true,
-            "event_hash": "1a8074be5e2719b0bf9f488536b45261a4b16b7252f8cea1d438b2f84701d212",
+            "event_hash": "d94f7a8346f8f81c8013f7176590080ebdd9cbbc9001e20081df67eb9283b904",
             "device_id": "01J8Z0D0000000000000000003", "seq": 4, "reason": "revoked",
             "auth_uid": "00000000-0000-0000-0000-00000000aa03", "now": true}'::jsonb,
           'the record keeps the bytes as sent, their hash over UTF-8, device, sequence, reason, caller and time');
@@ -205,18 +200,20 @@ select is((select jsonb_object_agg(f.name, jsonb_build_array(r.device_id, r.seq,
           'each is kept as sent, with its device and sequence where the text yields them');
 
 -- 27–29. Owner decision on #48: a different text under a stored ULID is refused as ulid_conflict
--- and kept, including the same text sent for another race day.
+-- and kept. The same text sent for another race day, by that day's phone, names an admission that
+-- is not the sender's there, so since #73 it is refused as admission_mismatch before the ULID is
+-- ever compared (admission_check_test.sql holds that rule), and kept under the day it was sent for.
 set local role authenticated;
 select is(public.append_event('00000000-0000-0000-0000-000000000e01', (select canonical from fx where name = 'ok-altered'))
             ->> 'reason', 'ulid_conflict', 'an altered event under a stored ULID is refused as ulid_conflict');
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa04","role":"authenticated","is_anonymous":true}', true);
 select is(public.append_event('00000000-0000-0000-0000-000000000e03', (select canonical from fx where name = 'ok'))
-            ->> 'reason', 'ulid_conflict', 'a stored event sent for another race day is refused as ulid_conflict');
+            ->> 'reason', 'admission_mismatch', 'a stored event sent for another race day by its phone is refused on its admission first');
 reset role;
-select is(array(select r.event_id::text || ' ' || f.name from public.event_refusal r join fx f on f.canonical = r.canonical
-                where r.reason = 'ulid_conflict' order by f.name),
-          array['00000000-0000-0000-0000-000000000e03 ok', '00000000-0000-0000-0000-000000000e01 ok-altered'],
+select is(array(select r.event_id::text || ' ' || f.name || ' ' || r.reason from public.event_refusal r join fx f on f.canonical = r.canonical
+                where r.reason in ('ulid_conflict', 'admission_mismatch') order by f.name),
+          array['00000000-0000-0000-0000-000000000e03 ok admission_mismatch', '00000000-0000-0000-0000-000000000e01 ok-altered ulid_conflict'],
           'both are kept, each under the race day it was sent for');
 
 -- 30. Criterion 2: nothing refused changed the log.
@@ -255,7 +252,7 @@ select is(public.append_event('00000000-0000-0000-0000-000000000e01', (select ca
             ->> 'reason', 'revoked', 'a refused event re-sent is refused again');
 reset role;
 select is((select count(*) from public.event_refusal
-           where event_hash = '1a8074be5e2719b0bf9f488536b45261a4b16b7252f8cea1d438b2f84701d212'), 1::bigint,
+           where event_hash = 'd94f7a8346f8f81c8013f7176590080ebdd9cbbc9001e20081df67eb9283b904'), 1::bigint,
           'and leaves exactly one refusal record');
 
 -- 38–40. Criterion 6: a failure append_event did not judge is raised as it is, so the phone retries
@@ -310,7 +307,7 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 select is((select count(*) from public.event_refusal
            where event_id in ('00000000-0000-0000-0000-000000000e01', '00000000-0000-0000-0000-000000000e03')),
           9::bigint,
-          'service_role reads every refusal kept above: 1 revoked, 1 not admitted, 5 inconsistent, 2 conflicts');
+          'service_role reads every refusal kept above: 1 revoked, 1 not admitted, 5 inconsistent, 1 conflict, 1 admission mismatch');
 select throws_ok($$insert into public.event_refusal (event_id, canonical, event_hash, reason, auth_uid)
                    values ('00000000-0000-0000-0000-000000000e01', 'x', 'x', 'revoked', '00000000-0000-0000-0000-00000000aa01')$$,
                  '42501', null, 'service_role cannot insert a refusal');

@@ -25,14 +25,15 @@ select is(array(select attname::text || ' ' || format_type(atttypid, atttypmod) 
                 order by attnum),
           array['ulid text', 'event_id uuid', 'device_ts bigint', 'device_id text', 'seq bigint', 'person text',
                 'role text', 'gps jsonb', 'source text', 'kind text', 'payload_version integer', 'payload jsonb',
-                'corrects_ulid text', 'prev_hash text', 'canonical text', 'received_at timestamp with time zone'],
-          'the ADR 001 envelope as columns, the canonical text as text, and a receipt time');
+                'corrects_ulid text', 'prev_hash text', 'canonical text', 'received_at timestamp with time zone',
+                'admission_id uuid'],
+          'the ADR 001 envelope as columns, the canonical text as text, a receipt time, and since #73 the admission');
 select col_is_pk('public', 'event_log', 'ulid', 'the ULID is the primary key');
 select is(array(select attname::text from pg_attribute
                 where attrelid = 'public.event_log'::regclass and attgenerated = 's' order by attnum),
           array['ulid', 'device_ts', 'device_id', 'seq', 'person', 'role', 'gps', 'source', 'kind',
-                'payload_version', 'payload', 'corrects_ulid', 'prev_hash'],
-          'every envelope column is generated from the canonical text');
+                'payload_version', 'payload', 'corrects_ulid', 'prev_hash', 'admission_id'],
+          'every envelope column is generated from the canonical text, the admission (#73) included');
 select ok((select relrowsecurity from pg_class where oid = 'public.event_log'::regclass), 'event_log has RLS enabled');
 select fk_ok('public', 'event_log', 'event_id', 'public', 'event', 'id', 'every row names the race day whose log it is');
 

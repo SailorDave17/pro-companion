@@ -86,7 +86,7 @@ void main() {
       final sent = {
         for (final phone in phones)
           phone: [
-            for (var seq = 1; seq <= 5; seq++) sampleEvent(newUlid(), deviceId: devices[phone]!, seq: seq),
+            for (var seq = 1; seq <= 5; seq++) phone.event(newUlid(), deviceId: devices[phone]!, seq: seq),
           ],
       };
       final answers = await Future.wait([
@@ -110,8 +110,8 @@ void main() {
         [handoffAlpha.userId, false],
         [replacement.userId, false],
       ]);
-      final replacementEvent = sampleEvent(newUlid(), deviceId: newUlid());
-      final originalEvent = sampleEvent(newUlid(), deviceId: devices[handoffAlpha]!, seq: 6);
+      final replacementEvent = replacement.event(newUlid(), deviceId: newUlid());
+      final originalEvent = handoffAlpha.event(newUlid(), deviceId: devices[handoffAlpha]!, seq: 6);
       for (final (phone, canonical) in [(replacement, replacementEvent), (handoffAlpha, originalEvent)]) {
         final (code, body) = await append(phone, day.eventId, canonical);
         expect(code, 200, reason: '$body');
@@ -153,7 +153,7 @@ void main() {
       final named = await stack.admit(await stack.namedPhone(), day, 'recorder', raceArea: 'Alpha');
       expect(await stack.tryAdmit(early, day, 'scorer'), (200, early.admissionId),
           reason: 'the phone admitted at both gets its own admission back');
-      final (earlyCode, earlyBody) = await append(early, day.eventId, sampleEvent(newUlid(), deviceId: newUlid()));
+      final (earlyCode, earlyBody) = await append(early, day.eventId, early.event(newUlid(), deviceId: newUlid()));
       expect((earlyCode, (earlyBody! as Map)['outcome']), (200, 'accepted'));
 
       expect(await signInMode('device_handoff'), contains('sign-in     device_handoff (was named_volunteers)'));
@@ -161,7 +161,7 @@ void main() {
           reason: 'the phone refused a moment ago is admitted now, with nothing changed on it');
       final volunteer = await stack.namedPhone();
       expect(await stack.tryAdmit(volunteer, day, 'safety'), excluded('device_handoff', 'named_volunteers'));
-      final (namedCode, namedBody) = await append(named, day.eventId, sampleEvent(newUlid(), deviceId: newUlid()));
+      final (namedCode, namedBody) = await append(named, day.eventId, named.event(newUlid(), deviceId: newUlid()));
       expect((namedCode, (namedBody! as Map)['outcome']), (200, 'accepted'),
           reason: 'the named volunteer admitted at named_volunteers still appends');
 
