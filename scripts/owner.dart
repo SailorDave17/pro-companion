@@ -1,11 +1,14 @@
 // The owner's tooling for the pilot. A club admin acts through the owner's service_role scripts
 // (groom decision G27), so this is where clubs, events, race areas and admission codes come from.
-// #63 adds its first subcommand, #65 its codes and #5 the sign-in mode; revoke (#72) extends it.
+// #63 adds its first subcommand, #65 its codes, #5 the sign-in mode and #72 revoke.
 //
 //   dart run scripts/owner.dart provision --club <name> --event <name> --date <yyyy-mm-dd>
 //       --race-area <name> [--race-area <name> ...] [--project <ref>]
 //   dart run scripts/owner.dart sign-in-mode --club <name>
 //       --mode device_handoff|named_volunteers|both [--project <ref>]
+//   dart run scripts/owner.dart revoke --club <name> --event <name> --date <yyyy-mm-dd>
+//       [--device <id>] [--project <ref>]
+//   dart run scripts/owner.dart revoke --event-id <id> [--device <id>] [--project <ref>]
 //
 // provision reuses the club of exactly that name, or provisions one when there is none. It then
 // creates the event and its race areas, and prints every id and the event's admission codes: one
@@ -17,6 +20,17 @@
 // an anonymous sign-in, named_volunteers a named account signed in by magic link, and both either.
 // A club starts at both. The switch applies to phones admitted after it; a phone already admitted
 // is unaffected, and nothing is reinstalled.
+//
+// revoke takes a sign-in off an event. With no --device it lists the event's admissions and changes
+// nothing. Each line starts with the id of the sign-in holding the admission: the Auth user the
+// phone signed in as, which a role change keeps (#70). With --device it marks that sign-in's active
+// admissions revoked through revoke_device, so its next write to the event is refused. A revocation
+// is never lifted.
+//
+// The id is a sign-in, not a handset. A named volunteer's id is their account, so a revoke takes
+// every phone signed in to it off the event, and a device-handoff phone that lost its session signs
+// in as a new id, so one phone can hold two. The event is named as provision names it, or by the id
+// provision printed, which is the way to tell apart two events sharing a club, name and date.
 //
 // With no --project it targets the local stack, taking the stack's URL and secret key from
 // `supabase status`. It reaches a live project only when --project names it, and then reads that
@@ -43,7 +57,10 @@ const codeAlphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const usage = 'usage: dart run scripts/owner.dart provision --club <name> --event <name> '
     '--date <yyyy-mm-dd> --race-area <name> [--race-area <name> ...] [--project <ref>]\n'
     '       dart run scripts/owner.dart sign-in-mode --club <name> '
-    '--mode device_handoff|named_volunteers|both [--project <ref>]';
+    '--mode device_handoff|named_volunteers|both [--project <ref>]\n'
+    '       dart run scripts/owner.dart revoke --club <name> --event <name> '
+    '--date <yyyy-mm-dd> [--device <id>] [--project <ref>]\n'
+    '       dart run scripts/owner.dart revoke --event-id <id> [--device <id>] [--project <ref>]';
 
 /// How a club's phones may sign in (groom decision G39), spelled as the server stores them.
 const signInModes = ['device_handoff', 'named_volunteers', 'both'];
@@ -159,6 +176,70 @@ SignInModeArgs parseSignInMode(List<String> args) {
   return SignInModeArgs(club: club, mode: mode, project: project);
 }
 
+class RevokeArgs {
+  RevokeArgs({this.club, this.event, this.date, this.eventId, this.device, this.project});
+
+  final String? club;
+  final String? event;
+  final String? date;
+  final String? eventId;
+  final String? device;
+  final String? project;
+}
+
+/// The arguments after `revoke`. The event is named by --club, --event and --date together, or by
+/// --event-id alone. Every flag takes a value. A flag given twice is refused: with two phones lost,
+/// keeping only the last --device would leave the first one writing behind an exit 0.
+RevokeArgs parseRevoke(List<String> args) {
+  String? club, event, date, eventId, device, project;
+  final seen = <String>{};
+  for (var i = 0; i < args.length; i += 2) {
+    final flag = args[i];
+    if (i + 1 >= args.length) throw UsageError('$flag needs a value');
+    if (!seen.add(flag)) {
+      throw UsageError('$flag is given twice: revoke acts on one event and one sign-in, so run it '
+          'once for each');
+    }
+    final value = args[i + 1].trim();
+    switch (flag) {
+      case '--club':
+        club = value;
+      case '--event':
+        event = value;
+      case '--date':
+        date = value;
+      case '--event-id':
+        eventId = value;
+      case '--device':
+        device = value;
+      case '--project':
+        project = value;
+      default:
+        throw UsageError('unknown flag $flag');
+    }
+  }
+  if (eventId != null) {
+    if (club != null || event != null || date != null) {
+      throw UsageError('--event-id stands alone: name the event by it, or by --club, --event and --date');
+    }
+    if (!isUuid(eventId)) throw UsageError('--event-id takes the event id provision printed');
+  } else {
+    if (club == null || club.isEmpty) throw UsageError('--club is required');
+    if (event == null || event.isEmpty) throw UsageError('--event is required');
+    if (date == null || !isCalendarDate(date)) throw UsageError('--date must be a real yyyy-mm-dd date');
+  }
+  if (device != null && !isUuid(device)) {
+    throw UsageError('--device takes the id the event\'s list prints at the start of the phone\'s line');
+  }
+  requireProjectRef(project);
+  return RevokeArgs(
+      club: club, event: event, date: date, eventId: eventId, device: device, project: project);
+}
+
+/// True for an id in the form the server prints one.
+bool isUuid(String value) =>
+    RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').hasMatch(value);
+
 /// True for a yyyy-mm-dd that names a day on the calendar. DateTime.parse would roll 2026-02-30
 /// over to 2 March.
 bool isCalendarDate(String value) {
@@ -200,6 +281,43 @@ class Target {
 }
 
 typedef StatusReader = Future<Map<String, String>> Function();
+
+/// An event, as revoke prints it.
+typedef RaceDay = ({String id, String name, String date});
+
+/// One row of an event's admissions. [device] is the sign-in holding it: the Auth user the phone
+/// signed in as, which a role change keeps (#70) where the row's own [id] does not.
+class Admission {
+  Admission.fromRow(Map<Object?, Object?> row)
+      : id = row['id'] as String,
+        device = row['auth_uid'] as String,
+        role = row['role'] as String,
+        raceArea = (row['course'] as Map?)?['name'] as String?,
+        person = row['person'] as String?,
+        admittedAt = row['admitted_at'] as String,
+        superseded = row['superseded_by'] != null,
+        revoked = row['revoked_at'] != null;
+
+  final String id;
+  final String device;
+  final String role;
+  final String? raceArea;
+  final String? person;
+  final String admittedAt;
+  final bool superseded;
+  final bool revoked;
+
+  bool get isActive => !superseded && !revoked;
+
+  String get state =>
+      isActive ? 'active' : [if (superseded) 'superseded', if (revoked) 'revoked'].join(', ');
+
+  /// The printed line: the sign-in, then the admission's role, race area, person, time and state.
+  /// [person] is free text a phone supplies, so a control character in it prints as a ?, and it
+  /// cannot break the line or move the cursor over the list the owner chooses from.
+  String get line => 'admission   $device  $role  ${raceArea ?? 'whole event'}  '
+      '${person?.replaceAll(RegExp(r'[\x00-\x1f\x7f-\x9f]'), '?') ?? 'no person'}  $admittedAt  $state';
+}
 
 /// The local stack unless [project] names a live one. A secret key in the shell or in .env.local
 /// never sends a run live on its own.
@@ -288,6 +406,30 @@ class ServiceApi {
         await _send('GET', '/rest/v1/club', query: {'select': 'sign_in_mode', 'id': 'eq.$id'}) as List;
     return (rows.single as Map)['sign_in_mode'] as String;
   }
+
+  /// The events the PostgREST [filter] matches, oldest first.
+  Future<List<RaceDay>> events(Map<String, String> filter) async {
+    final rows = await _send('GET', '/rest/v1/event',
+        query: {'select': 'id,name,race_day', ...filter, 'order': 'created_at,id'}) as List;
+    return [
+      for (final row in rows.cast<Map<Object?, Object?>>())
+        (id: row['id'] as String, name: row['name'] as String, date: row['race_day'] as String),
+    ];
+  }
+
+  /// Every admission to the event [eventId], whatever its state, in the order made.
+  Future<List<Admission>> admissionsTo(String eventId) async {
+    final rows = await _send('GET', '/rest/v1/committee_device', query: {
+      'select': 'id,auth_uid,role,person,admitted_at,superseded_by,revoked_at,course(name)',
+      'event_id': 'eq.$eventId',
+      'order': 'admitted_at,id',
+    }) as List;
+    return [for (final row in rows.cast<Map<Object?, Object?>>()) Admission.fromRow(row)];
+  }
+
+  /// Marks one admission revoked. revoke_device returns nothing, so this cannot go through [rpc].
+  Future<void> revokeAdmission(String id) =>
+      _send('POST', '/rest/v1/rpc/revoke_device', body: {'p_device': id});
 }
 
 /// What [provision] made. [codes] is keyed by role, and for a bound role by role and race area
@@ -366,15 +508,10 @@ const _modeAdmits = {
 /// The mode printed is the one read back from the server after the switch, never the one asked for.
 Future<String> setSignInMode(ServiceApi api, SignInModeArgs args, StringSink out) async {
   out.writeln('target      ${api.target.label}');
-  final ids = await api.clubIdsNamed(args.club);
-  if (ids.length != 1) {
-    throw StateError(ids.isEmpty
-        ? 'no club is named "${args.club}"; nothing was changed'
-        : '${ids.length} clubs are named "${args.club}"; nothing was changed');
-  }
-  final before = await api.rpc('set_sign_in_mode', {'p_club': ids.single, 'p_mode': args.mode});
-  out.writeln('club        ${ids.single}  ${args.club}');
-  final now = await api.signInModeOf(ids.single);
+  final clubId = await _clubNamed(api, args.club);
+  final before = await api.rpc('set_sign_in_mode', {'p_club': clubId, 'p_mode': args.mode});
+  out.writeln('club        $clubId  ${args.club}');
+  final now = await api.signInModeOf(clubId);
   if (now != args.mode) {
     throw StateError('the club reads $now after the switch to ${args.mode} (it was $before)');
   }
@@ -382,6 +519,89 @@ Future<String> setSignInMode(ServiceApi api, SignInModeArgs args, StringSink out
   out.writeln('Phones admitted from now on sign in ${_modeAdmits[now]}. A phone already admitted '
       'is unaffected.');
   return before;
+}
+
+/// The id of the one club named exactly [name]. No such club, or more than one, is a [StateError].
+Future<String> _clubNamed(ServiceApi api, String name) async {
+  final ids = await api.clubIdsNamed(name);
+  if (ids.length != 1) {
+    throw StateError(ids.isEmpty
+        ? 'no club is named "$name"; nothing was changed'
+        : '${ids.length} clubs are named "$name"; nothing was changed');
+  }
+  return ids.single;
+}
+
+/// The one event [args] names. Nothing stops two events sharing a club, name and date, so a match
+/// of several is refused with their ids, which --event-id can then tell apart.
+Future<RaceDay> _eventNamed(ServiceApi api, RevokeArgs args) async {
+  if (args.eventId case final id?) {
+    final found = await api.events({'id': 'eq.$id'});
+    if (found.isEmpty) throw StateError('no event has the id $id; nothing was changed');
+    return found.single;
+  }
+  final clubId = await _clubNamed(api, args.club!);
+  final found = await api.events({
+    'club_id': 'eq.$clubId',
+    'name': 'eq.${args.event}',
+    'race_day': 'eq.${args.date}',
+  });
+  final named = '"${args.event}" on ${args.date} at "${args.club}"';
+  if (found.isEmpty) throw StateError('no event is named $named; nothing was changed');
+  if (found.length > 1) {
+    throw StateError('${found.length} events are named $named; nothing was changed. '
+        'Name one with --event-id: ${found.map((event) => event.id).join(', ')}');
+  }
+  return found.single;
+}
+
+/// With no device, lists the event's admissions and changes nothing. With one, marks every active
+/// admission of that sign-in in the event revoked, and reads them back: one still active fails the
+/// run, and running it again is safe. A sign-in with none active is reported as no change, and an
+/// id with no admission here is a [StateError] that changes nothing. It keys on the sign-in and not
+/// the role, since a replacement phone can hold the same role's code (#5 criterion 7).
+Future<void> revoke(ServiceApi api, RevokeArgs args, StringSink out) async {
+  out.writeln('target      ${api.target.label}');
+  final event = await _eventNamed(api, args);
+  out.writeln('event       ${event.id}  ${event.name} on ${event.date}');
+  final admissions = await api.admissionsTo(event.id);
+
+  final device = args.device;
+  if (device == null) {
+    admissions.map((admission) => admission.line).forEach(out.writeln);
+    out.writeln(admissions.isEmpty
+        ? 'No phone has been admitted to this event.'
+        : 'To revoke a sign-in, run this again with --device and the id its line starts with. A '
+            'phone that changed role has one line for each admission under one id, and a phone '
+            'that lost its session has signed in again under a new id.');
+    return;
+  }
+
+  final held = admissions.where((admission) => admission.device == device).toList();
+  if (held.isEmpty) {
+    throw StateError('no admission to this event belongs to the id $device; nothing was changed');
+  }
+  final active = held.where((admission) => admission.isActive).toList();
+  if (active.isEmpty) {
+    out.writeln('no change   $device was already revoked from this event');
+    return;
+  }
+
+  for (final admission in active) {
+    await api.revokeAdmission(admission.id);
+  }
+  final after = (await api.admissionsTo(event.id)).where((admission) => admission.device == device);
+  if (after.any((admission) => admission.isActive)) {
+    throw StateError('$device still holds an active admission to this event: it was admitted '
+        'again as this ran. Run revoke again.');
+  }
+  after.map((admission) => admission.line).forEach(out.writeln);
+  out.writeln('This sign-in\'s next write to the event is refused, and so is any code it presents. '
+      'What it already wrote stays in the log. A revocation is never lifted.');
+  out.writeln('The id is a sign-in, not a handset. A named volunteer\'s id is their account, on '
+      'every phone signed in to it: they rejoin this event only under another account, or by '
+      'device handoff if the club allows it. A new sign-in with the role\'s code is a new '
+      'admission.');
 }
 
 /// A parsed subcommand: the project it targets, if any, and what it does there.
@@ -396,6 +616,9 @@ Command parseCommand(List<String> args) {
     case 'sign-in-mode':
       final parsed = parseSignInMode(args.sublist(1));
       return (project: parsed.project, act: (api, out) => setSignInMode(api, parsed, out));
+    case 'revoke':
+      final parsed = parseRevoke(args.sublist(1));
+      return (project: parsed.project, act: (api, out) => revoke(api, parsed, out));
     default:
       throw UsageError('');
   }
@@ -404,14 +627,16 @@ Command parseCommand(List<String> args) {
 Future<int> run(
   List<String> args, {
   StringSink? out,
+  StringSink? err,
   Map<String, String>? environment,
   StatusReader? localStatus,
 }) async {
+  final errors = err ?? stderr;
   final Command command;
   try {
     command = parseCommand(args);
   } on UsageError catch (e) {
-    stderr.writeln(e.message.isEmpty ? usage : '$e\n$usage');
+    errors.writeln(e.message.isEmpty ? usage : '$e\n$usage');
     return 64;
   }
   final envFile = File('.env.local').existsSync()
@@ -425,10 +650,14 @@ Future<int> run(
     await command.act(ServiceApi(target), out ?? stdout);
     return 0;
   } on StateError catch (e) {
-    stderr.writeln(e.message);
+    errors.writeln(e.message);
     return 1;
   } on ServiceError catch (e) {
-    stderr.writeln(e);
+    errors.writeln(e);
+    return 1;
+  } on IOException catch (e) {
+    errors.writeln('the connection to the project failed, so the last change may or may not have '
+        'landed: $e\nCheck before running this again. Running revoke again is safe.');
     return 1;
   }
 }

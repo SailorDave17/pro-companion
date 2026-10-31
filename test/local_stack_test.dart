@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/local_stack.dart';
@@ -122,7 +120,7 @@ void main() {
       Future<(String, String, Duration)> overlap(String uid, String code) async {
         expect(await stack.admitInSession(uid, day.eventId, scorer), matches(uuid));
         final held = stack.admitInSession(uid, day.eventId, pro, hold: const Duration(seconds: 4));
-        await stack.untilHeld();
+        await stack.untilHeld(uid);
         final clock = Stopwatch()..start();
         final second = await stack.admitInSession(uid, day.eventId, code);
         clock.stop();
@@ -156,14 +154,3 @@ void main() {
 
 /// A lowercase hyphenated UUID, as admit_device answers.
 final uuid = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
-
-/// A random v4 UUID, for a phone's Auth user id in a database session that spends no sign-in.
-String randomUuid() {
-  final r = Random.secure();
-  final b = List<int>.generate(16, (_) => r.nextInt(256));
-  b[6] = (b[6] & 0x0f) | 0x40;
-  b[8] = (b[8] & 0x3f) | 0x80;
-  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
-  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
-      '${h.substring(16, 20)}-${h.substring(20)}';
-}

@@ -20,7 +20,7 @@ import 'support/local_stack.dart';
 /// pull, the other direction.
 ///
 /// Spend per run of this file: 2 anonymous sign-ins (the device-handoff case) of the stack's 30 an
-/// hour, and 15 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 19
+/// hour, and 15 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 22
 /// verifications (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than
 /// on what they test. Prove a mutation with --plain-name on one case.
 ///
