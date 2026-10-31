@@ -102,13 +102,15 @@ class LocalStack {
   }
 
   /// A club, an event on it and its race areas, with every admission code, provisioned by the
-  /// owner's tooling. [club] names the club, so a test can hand the name to another subcommand.
-  Future<owner.Provisioned> raceDay({List<String> raceAreas = const ['Alpha'], String? club}) =>
+  /// owner's tooling. [club] names the club, so a test can hand the name to another subcommand, and
+  /// [event] names the event, so a club's second race day can be told from its first.
+  Future<owner.Provisioned> raceDay(
+          {List<String> raceAreas = const ['Alpha'], String? club, String event = 'Test day'}) =>
       owner.provision(
           _owner,
           owner.ProvisionArgs(
             club: club ?? 'Local-stack test ${DateTime.now().microsecondsSinceEpoch}',
-            event: 'Test day',
+            event: event,
             date: '2026-09-27',
             raceAreas: raceAreas,
           ),
@@ -136,6 +138,17 @@ class LocalStack {
     final session = body! as Map;
     return Phone._(this, session['access_token'] as String, (session['user'] as Map)['id'] as String,
         email: email);
+  }
+
+  /// The account [phone] signed in to, signed in again on another phone: a new session for the same
+  /// Auth user, as a volunteer's spare gets. Spends a verification.
+  Future<Phone> signInAgain(Phone phone) async {
+    final (status, body) = await _send('POST', '/auth/v1/verify',
+        body: {'type': 'magiclink', 'token_hash': await magicLink(phone.email!)});
+    if (status != 200) throw StateError('magic-link verify answered $status: $body');
+    final session = body! as Map;
+    return Phone._(this, session['access_token'] as String, (session['user'] as Map)['id'] as String,
+        email: phone.email);
   }
 
   /// A named volunteer's magic link, for a phone that verifies it itself (#6's sync engine): the
@@ -238,12 +251,13 @@ class LocalStack {
 
   /// Every admission to [eventId] in the order made, read as the table owner, with the Auth user
   /// behind each: `id`, `auth_uid`, `role`, `race_area` (its name, null when event-wide), `person`,
-  /// `revoked`, and the user's `is_anonymous` and `email`. No client role can read auth_uid or the
-  /// users.
+  /// `revoked`, `revoked_at`, `superseded_by`, `admitted_at`, and the user's `is_anonymous` and
+  /// `email`. No client role can read auth_uid or the users.
   Future<List<Map<String, Object?>>> admissions(String eventId) async {
     final out = await _psql('select coalesce(json_agg(a order by a.admitted_at, a.id), \'[]\') from ('
         'select d.id, d.auth_uid, d.role, c.name as race_area, d.person, '
-        'd.revoked_at is not null as revoked, u.is_anonymous, u.email, d.admitted_at '
+        'd.revoked_at is not null as revoked, d.revoked_at, d.superseded_by, '
+        'u.is_anonymous, u.email, d.admitted_at '
         'from public.committee_device d '
         'left join public.course c on c.id = d.course_id '
         'left join auth.users u on u.id = d.auth_uid '
@@ -273,7 +287,7 @@ class LocalStack {
       '-c', 'set local role authenticated',
       '-c', "select set_config('request.jwt.claims', '$claims', true) is null",
       '-c', "select 'admitted ' || public.admit_device('$eventId', '$code')",
-      '-c', 'select pg_sleep(${hold.inMilliseconds / 1000})',
+      '-c', "select '$uid', pg_sleep(${hold.inMilliseconds / 1000})",
       '-c', 'commit',
     ]);
     if (result.exitCode != 0) return 'refused: ${(result.stderr as String).trim()}';
@@ -283,13 +297,14 @@ class LocalStack {
     return line.isEmpty ? 'no answer: ${result.stdout}' : line.substring('admitted '.length).trim();
   }
 
-  /// Waits until a session started by [admitInSession] with a hold is sleeping: its admission is
-  /// made and its locks are held, so a call started now overlaps it.
-  Future<void> untilHeld({Duration timeout = const Duration(seconds: 20)}) async {
+  /// Waits until the session [admitInSession] started for the phone [uid] with a hold is sleeping:
+  /// its admission is made and its locks are held, so a call started now overlaps it. It names the
+  /// phone because test files run at once, and another file's held session must not count.
+  Future<void> untilHeld(String uid, {Duration timeout = const Duration(seconds: 20)}) async {
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
       final out = await _psql("select count(*) from pg_stat_activity where pid <> pg_backend_pid() "
-          "and state = 'active' and query like 'select pg_sleep(%';");
+          "and state = 'active' and query like 'select ''$uid'', pg_sleep(%';");
       if (out != '0') return;
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
@@ -360,6 +375,16 @@ final _random = Random.secure();
 
 /// A ULID-shaped id. The event log keys on it, and a stack kept between runs must not see one twice.
 String newUlid() => '01J8${List.generate(22, (_) => owner.codeAlphabet[_random.nextInt(32)]).join()}';
+
+/// A random v4 UUID, for a phone's Auth user id in a database session that spends no sign-in.
+String randomUuid() {
+  final b = List<int>.generate(16, (_) => _random.nextInt(256));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-'
+      '${h.substring(16, 20)}-${h.substring(20)}';
+}
 
 /// A complete, valid event's canonical text (RFC 8785 key order), so a write of it can be refused
 /// only by the path it takes. [deviceId] and [seq] let each phone write its own device's events.
