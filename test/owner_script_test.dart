@@ -64,6 +64,58 @@ void main() {
       });
     });
 
+    test('#72: revoke names its event as provision does, or by id, and a device is optional', () {
+      final byName = owner.parseRevoke(
+          ['--club', 'Hoover Sailing Club', '--event', 'Club night', '--date', '2026-09-27']);
+      expect(byName.club, 'Hoover Sailing Club');
+      expect(byName.event, 'Club night');
+      expect(byName.date, '2026-09-27');
+      expect(byName.eventId, isNull);
+      expect(byName.device, isNull);
+      expect(byName.project, isNull);
+
+      const event = '0f1e2d3c-4b5a-4678-9abc-def012345678';
+      const device = '12345678-9abc-4def-8123-456789abcdef';
+      final byId = owner.parseRevoke(['--event-id', event, '--device', device]);
+      expect(byId.eventId, event);
+      expect(byId.device, device);
+      expect(byId.club, isNull);
+
+      // Through parseCommand, which is where --project picks the target. Not through run, which
+      // would read .env.local and could reach the live project.
+      const ref = 'pxywvqhdywgrysmwvbxy';
+      expect(owner.parseCommand(['revoke', '--event-id', event, '--project', ref]).project, ref);
+    });
+
+    test('#72: revoke refuses before any call an event or a device it could not name', () {
+      const id = '0f1e2d3c-4b5a-4678-9abc-def012345678';
+      const other = '12345678-9abc-4def-8123-456789abcdef';
+      final byName = ['--club', 'C', '--event', 'E', '--date', '2026-09-27'];
+      final refused = {
+        'nothing to name the event': <String>[],
+        'no club': ['--event', 'E', '--date', '2026-09-27'],
+        'no event': ['--club', 'C', '--date', '2026-09-27'],
+        'no date': ['--club', 'C', '--event', 'E'],
+        'a date that is not on the calendar': ['--club', 'C', '--event', 'E', '--date', '2026-02-30'],
+        'an event id beside a club': ['--event-id', id, '--club', 'C'],
+        'an event id beside an event name': ['--event-id', id, '--event', 'E'],
+        'an event id beside a date': ['--event-id', id, '--date', '2026-09-27'],
+        'an event id that is not an id': ['--event-id', 'Club night'],
+        'a device that is not an id': [...byName, '--device', 'recorder'],
+        'a device id one character short': [...byName, '--device', id.substring(1)],
+        'a device id with a prefix': [...byName, '--device', 'x$id'],
+        'a device given twice': [...byName, '--device', id, '--device', other],
+        'an event id given twice': ['--event-id', id, '--event-id', other],
+        'a club given twice': [...byName, '--club', 'D'],
+        'an unknown flag': [...byName, '--role', 'recorder'],
+        'a flag with no value': [...byName, '--device'],
+        'a project that is not a ref': [...byName, '--project', 'Hoover'],
+      };
+      refused.forEach((reason, args) {
+        expect(() => owner.parseRevoke(args), throwsA(isA<owner.UsageError>()), reason: reason);
+      });
+    });
+
     test('a missing or unknown subcommand is a usage error, exit 64, and nothing is called', () async {
       var asked = 0;
       Future<Map<String, String>> status() async {
@@ -74,7 +126,35 @@ void main() {
       expect(await owner.run([], localStatus: status), 64);
       expect(await owner.run(['nonsense', '--club', 'C'], localStatus: status), 64);
       expect(await owner.run(['sign-in-mode', '--club', 'C', '--mode', 'anyone'], localStatus: status), 64);
+      final err = StringBuffer();
+      expect(await owner.run(['revoke', '--club', 'C', '--event', 'E'], err: err, localStatus: status), 64);
+      expect('$err', contains('--date must be a real yyyy-mm-dd date'),
+          reason: 'revoke is dispatched: only its parser says this');
       expect(asked, 0, reason: 'a usage error never reaches a target');
+    });
+
+    test('#72: a line of the list prints a control character in person as a ?, so a phone cannot '
+        'break the line or move the cursor over the list', () {
+      final line = owner.Admission.fromRow({
+        'id': 'row',
+        'auth_uid': 'sign-in',
+        'role': 'scorer',
+        'person': 'Jo\nadmission   forged\r\x1b[2K\x9b1A',
+        'admitted_at': '2026-09-27T09:00:00+00:00',
+      }).line;
+      expect(line, 'admission   sign-in  scorer  whole event  Jo?admission   forged??[2K?1A  '
+          '2026-09-27T09:00:00+00:00  active');
+    });
+
+    test('#72: a connection that fails says the change may have landed, and exits 1', () async {
+      final err = StringBuffer();
+      final code = await owner.run(['revoke', '--event-id', '0f1e2d3c-4b5a-4678-9abc-def012345678'],
+          out: StringBuffer(),
+          err: err,
+          localStatus: () async => const {'API_URL': 'http://127.0.0.1:1', 'SECRET_KEY': 'no-key'});
+      expect(code, 1);
+      expect('$err', contains('may or may not have landed'));
+      expect('$err', contains('Running revoke again is safe'));
     });
   });
 

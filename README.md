@@ -158,8 +158,9 @@ has revoked the phone (#53, above).
 
 Some Dart tests talk to the local stack through its API, as a phone or as the owner's tooling:
 `test/local_stack_test.dart`, `test/append_event_test.dart`, `test/sign_in_path_test.dart`,
-`test/sync_test.dart`, and the local-stack group in `test/owner_script_test.dart`. They skip unless `PRO_COMPANION_LOCAL_STACK=1`,
-so with the stack started:
+`test/sync_test.dart`, `test/owner_revoke_test.dart`, and the local-stack group in
+`test/owner_script_test.dart`. They skip unless `PRO_COMPANION_LOCAL_STACK=1`, so with the stack
+started:
 
 ```
 PRO_COMPANION_LOCAL_STACK=1 flutter test
@@ -193,9 +194,9 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
     throttles cause on some days. Any other failure fails at once, a migration that fails to apply
     among them.
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
-  device-handoff phone is one. A full run signs in 18 of them, so a second full run within the hour
+  device-handoff phone is one. A full run signs in 19 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 19,
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 22,
   15 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 
 ### Applying a migration to the live project
@@ -294,10 +295,52 @@ dart run scripts/owner.dart sign-in-mode --club "Hoover Sailing Club" --mode nam
 - **The script prints the mode it reads back** after the switch, not the one it asked for, and fails
   when they differ. It finds its target and key as `provision` does.
 
-Not built yet: the phone's sign-in screens (the code entry is #71, the magic link #104), revoking a
-phone (#72), the server's check of the admission each event carries (#73), starting sync in the app
-(#113), and magic-link mail and its redirect on the live project, which are held for
-the pilot's sixth milestone.
+### Revoking a phone
+
+When a committee phone is lost, the owner takes it off the event (#72). Run with no `--device`,
+`revoke` lists the event's admissions and changes nothing:
+
+```
+dart run scripts/owner.dart revoke --club "Hoover Sailing Club" --event "Club night" --date 2026-09-27
+```
+
+Each line gives the id of the sign-in holding the admission, the Auth user the phone signed in as,
+then the admission's role, race area, person, admitted time and state: `active`, `superseded`,
+`revoked`, or `superseded, revoked`. Run it again with that id to revoke the sign-in:
+
+```
+dart run scripts/owner.dart revoke --club "Hoover Sailing Club" --event "Club night" --date 2026-09-27 \
+    --device <id>
+```
+
+- **The id is a sign-in, not a handset.**
+  - A phone that changed role has one line for each admission, all under one id.
+  - A device-handoff phone that lost its session has signed in again as a new id, so one phone can
+    hold two. Revoke each.
+  - **A named volunteer's id is their account**, on every phone signed in to it. Revoking it takes
+    all of those phones off the event, a replacement included.
+- **It keys on the sign-in, not the role.** Every active admission that sign-in holds in the event
+  is marked through `revoke_device`. Another sign-in holding the same role's code is untouched, and
+  so are this sign-in's admissions to other events.
+- **Its next write to the event is refused**, and so is any code it presents. What it already wrote
+  stays in the log. A revocation is never lifted, so a named volunteer rejoins the event only under
+  another account, or by device handoff if the club allows it. A new sign-in with the role's code
+  is a new admission: revoking a sign-in does not retire the code.
+- **Revoking twice is safe.** The second run reports no change and exits 0. An id with no admission
+  to this event exits 1 and changes nothing. If the connection fails, the script says the change
+  may or may not have landed, and running it again is safe.
+- **It names one event and one sign-in a run.** A flag given twice is refused, so with two phones
+  lost, run it once for each.
+- **The script reads the admissions back.** A role change it sees there fails the run, so run it
+  again. One landing just after the read-back can leave an `active` line behind an exit 0. The
+  server still refuses that sign-in, and another revoke clears the line.
+- **Two events can share a club, name and date**, since `provision` run twice makes them. The script
+  then refuses and prints their ids, and `--event-id <id>` names one in place of the three flags.
+  It finds its target and key as `provision` does.
+
+Not built yet: the phone's sign-in screens (the code entry is #71, the magic link #104), the server's
+check of the admission each event carries (#73), starting sync in the app (#113), and magic-link mail
+and its redirect on the live project, which are held for the pilot's sixth milestone.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses
