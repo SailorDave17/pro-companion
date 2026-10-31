@@ -79,23 +79,33 @@ select public.issue_admission_code('00000000-0000-0000-0000-000000000e01', 'reco
 select public.issue_admission_code('00000000-0000-0000-0000-000000000e01', 'mark_boat',   'MARK-BRAV', '00000000-0000-0000-0000-00000000ca02');
 select public.issue_admission_code('00000000-0000-0000-0000-000000000e02', 'scorer',      'SCOR-E02A');
 
--- One valid event per append below, keys in RFC 8785 order, each from its phone's own device.
-create temp table fx (name text primary key, canonical text not null);
-insert into fx (name, canonical)
-select name, format('{"corrects_ulid":null,"device_id":"%s","device_ts":%s,"gps":null,"kind":"note",'
-                    '"payload":{},"payload_version":1,"person":null,"prev_hash":null,"role":null,'
-                    '"seq":%s,"source":"tap","ulid":"%s"}', device, 1727190000000 + seq, seq, ulid)
-from (values
-  ('b501-1',     '01J8Z0D0000000000000000501', 1, '01J80000000000000000000511'),
-  ('b501-club-b', '01J8Z0D0000000000000000501', 2, '01J80000000000000000000512'),
-  ('b502-1',     '01J8Z0D0000000000000000502', 1, '01J80000000000000000000521'),
-  ('b506-1',     '01J8Z0D0000000000000000506', 1, '01J80000000000000000000561'),
-  ('b508-1',     '01J8Z0D0000000000000000508', 1, '01J80000000000000000000581'),
-  ('b508-2',     '01J8Z0D0000000000000000508', 2, '01J80000000000000000000582'),
-  ('b512-1',     '01J8Z0D0000000000000000512', 1, '01J80000000000000000000591'),
-  ('b520-1',     '01J8Z0D0000000000000000520', 1, '01J80000000000000000000620'),
-  ('b520-club-a', '01J8Z0D0000000000000000520', 2, '01J80000000000000000000621')
-) v(name, device, seq, ulid);
+-- One valid event per append below, keys in RFC 8785 order, each from its phone's own device and,
+-- since #73, naming the admission and role the calling phone holds on the row's event when the text
+-- is read (null where it holds none, as on the cross-club appends, which are refused before the
+-- text is judged). fx is a view so each text is built at the call, after the phone is admitted.
+create temp table fx_rows (name text primary key, event uuid not null, device text not null, seq int not null, ulid text not null);
+insert into fx_rows values
+  ('b501-1',      '00000000-0000-0000-0000-000000000e01', '01J8Z0D0000000000000000501', 1, '01J80000000000000000000511'),
+  ('b501-club-b', '00000000-0000-0000-0000-000000000e02', '01J8Z0D0000000000000000501', 2, '01J80000000000000000000512'),
+  ('b502-1',      '00000000-0000-0000-0000-000000000e01', '01J8Z0D0000000000000000502', 1, '01J80000000000000000000521'),
+  ('b506-1',      '00000000-0000-0000-0000-000000000e01', '01J8Z0D0000000000000000506', 1, '01J80000000000000000000561'),
+  ('b508-1',      '00000000-0000-0000-0000-000000000e01', '01J8Z0D0000000000000000508', 1, '01J80000000000000000000581'),
+  ('b508-2',      '00000000-0000-0000-0000-000000000e01', '01J8Z0D0000000000000000508', 2, '01J80000000000000000000582'),
+  ('b512-1',      '00000000-0000-0000-0000-000000000e01', '01J8Z0D0000000000000000512', 1, '01J80000000000000000000591'),
+  ('b520-1',      '00000000-0000-0000-0000-000000000e02', '01J8Z0D0000000000000000520', 1, '01J80000000000000000000620'),
+  ('b520-club-a', '00000000-0000-0000-0000-000000000e01', '01J8Z0D0000000000000000520', 2, '01J80000000000000000000621');
+-- The view runs as its owner, the table owner, so it reads committee_device whole and picks the
+-- calling phone's active admission on the row's event by auth.uid().
+create temp view fx as
+  select r.name,
+         format('{"admission_id":%s,"corrects_ulid":null,"device_id":"%s","device_ts":%s,"gps":null,"kind":"note",'
+                '"payload":{},"payload_version":1,"person":null,"prev_hash":null,"role":%s,'
+                '"seq":%s,"source":"tap","ulid":"%s"}',
+                coalesce(to_json(a.id::text)::text, 'null'), r.device, 1727190000000 + r.seq,
+                coalesce(to_json(a.role)::text, 'null'), r.seq, r.ulid) as canonical
+  from fx_rows r
+  left join public.committee_device a
+    on a.event_id = r.event and a.auth_uid = auth.uid() and a.superseded_by is null;
 grant select on fx to authenticated;
 
 -- A refusal's DETAIL, which throws_ok cannot see. Returns 'no refusal' when the call succeeds.

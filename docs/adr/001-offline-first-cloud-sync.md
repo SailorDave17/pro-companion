@@ -88,7 +88,13 @@ it (`docs/event-chain.md`). The server cannot stamp it on insert: an event writt
 one admission and uploaded after a re-admission would get the wrong one. So attribution keys on the
 admission, which carries the role and race area, not on the auth identity. A re-admission changes
 the admission on later events only, and the device's chain continues across it. The server's check
-that an event names its writer's admission is #73.
+that an event names its writer's admission is #73 (built 2026-10-31): a live `committee_device`
+lookup on every append, never a JWT claim, which changes only on refresh and cannot differ per
+event for one anonymous user; with the device-handoff link (another unrevoked user's admission of
+the race day whose successors end in the slot the caller's active admission holds) and the
+role-change marker, the device's `admission.superseded`
+event under the old admission, whose own sequence number bounds what that admission accepts (G46).
+README's "The event log, and the events it refuses" carries the rule and the reasoning.
 
 ### The race-timer link
 

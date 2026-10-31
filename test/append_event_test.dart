@@ -35,7 +35,7 @@ void main() {
 
     test('criteria 1 and 5: an admitted phone\'s event is stored, and a re-send is a no-op', () async {
       final ulid = newUlid();
-      final canonical = sampleEvent(ulid);
+      final canonical = scorer.event(ulid);
 
       final (status, body) = await append(scorer, canonical);
       expect(status, 200, reason: '$body');
@@ -52,7 +52,7 @@ void main() {
     test('criterion 6: a refusal is an HTTP 422 carrying its reason, and its record outlives the '
         'error status', () async {
       final ulid = newUlid();
-      final canonical = sampleEvent(ulid).replaceFirst('"seq":1', '"seq":"three"');
+      final canonical = scorer.event(ulid).replaceFirst('"seq":1', '"seq":"three"');
       final before = await stack.refusals(eventId);
 
       final (status, body) = await append(scorer, canonical);
@@ -75,7 +75,7 @@ void main() {
 
     test('criterion 3: a phone holding no admission in the club is refused the same way, and its '
         'event is not kept (G43)', () async {
-      final canonical = sampleEvent(newUlid());
+      final canonical = stranger.event(newUlid());
       final before = await stack.refusals(eventId);
 
       final (status, body) = await append(stranger, canonical);
@@ -98,7 +98,8 @@ void main() {
         }
       });
       store.setAdmissionId(scorer.admissionId!);
-      final event = store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'text': 'Mark 2 hold'}));
+      // The role a phone's pick stamps (#20); #73 holds it to the admission's.
+      final event = store.append(const NewEvent(kind: 'note', source: 'tap', role: 'scorer', payload: {'text': 'Mark 2 hold'}));
       final canonical = store.readCanonical().single;
       expect((jsonDecode(canonical) as Map)['admission_id'], scorer.admissionId);
 

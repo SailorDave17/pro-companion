@@ -49,7 +49,7 @@ void main() {
 
     Future<(int, Object?)> append(Phone phone, String eventId, int seq) => phone.send(
         'POST', '/rest/v1/rpc/append_event',
-        body: {'p_event': eventId, 'p_canonical': sampleEvent(newUlid(), seq: seq)});
+        body: {'p_event': eventId, 'p_canonical': phone.event(newUlid(), eventId: eventId, seq: seq)});
 
     test('criterion 1: with no device it lists every admission of the event, with its role, race '
         'area, person, admitted time and state, and changes nothing', () async {

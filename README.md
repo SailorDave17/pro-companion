@@ -50,6 +50,43 @@ so the phone keeps a refused event and does not send it again. Every other failu
 network error, a 5xx, and any error whose code is not `append_event_refused`, since an error the
 function raises can arrive as a 4xx (#6 keys on the code, never on the status).
 
+**The server holds the text to the phone's admission** (#73; groom decisions G44 and G46). Every
+event names the admission it was written under (`admission_id`, stamped by the core since #49, and a
+generated column of the log since #73). `append_event` judges it after the caller and before the
+insert, and never rewrites the text, which would break the hash the phone computed:
+
+- **The admission named must be the caller's own on that race day**, active or superseded. It may
+  also be another user's admission of the race day, when that user holds no revoked admission
+  there and the chain of successors from the named admission ends in the slot (role and race
+  area) the caller's active admission holds: the **device-handoff link**. A phone that lost its
+  session signs in as a new user and is admitted again with the slot's code, and the events it
+  logged before the loss still name the admission they were written under, those from before a
+  role change it made before the loss included; the link is the code, not the device (owner
+  decisions, 2026-10-31). A slot the caller held earlier that day and left does not count.
+  Anything else, a null admission included, is refused as `admission_mismatch`. A phone admitted
+  to two race days names each day's own admission on that day's events.
+- **The text's role must be the admission's role.** A different role, or none, is refused as
+  `role_mismatch`.
+- **Under a superseded admission** (a role change, #70), events are accepted up to the phone's
+  role-change marker and refused past it (G46) as `admission_superseded`. The marker is the device's
+  event of kind `admission.superseded`, logged under the old admission; its own sequence number is
+  the bound, and its payload is the phone's (#71 logs it before it stamps the new admission). With
+  no marker stored, events under a superseded admission are accepted, since a phone uploads in
+  sequence order and the marker lands before anything written after it.
+- **A byte-identical re-send of a stored event is a no-op** before any of this is judged, so a rule
+  added later never turns a retry into a refusal.
+
+The three refusals are kept like the others, and a phone reads each as a stub.
+
+**Why a live `committee_device` lookup, not a JWT claim.** A role claim would need the access-token
+hook, and it changes only when the token is refreshed, so a role change or a revocation would hold
+until the next refresh. It also cannot differ per event for one anonymous user, where a phone may
+hold admissions on two race days, and a superseded one beside its active one. The lookup reads the
+rows as they are on every call, superseded and revoked ones included, which is what the marker
+rule and the handoff link need. Its cost is a few indexed reads of `committee_device` per append
+(the named admission by its key, the rest by the user's index), and one of the marker index under
+a superseded admission.
+
 **The server keeps data it refused.** When the phone that sent a refused event holds any admission
 in that club, active, superseded or revoked, the server keeps the event in `event_refusal`
 (groom decision G37). It is kept with its exact bytes: the full payload, including GPS, names and
@@ -338,9 +375,9 @@ dart run scripts/owner.dart revoke --club "Hoover Sailing Club" --event "Club ni
   then refuses and prints their ids, and `--event-id <id>` names one in place of the three flags.
   It finds its target and key as `provision` does.
 
-Not built yet: the phone's sign-in screens (the code entry is #71, the magic link #104), the server's
-check of the admission each event carries (#73), starting sync in the app (#113), and magic-link mail
-and its redirect on the live project, which are held for the pilot's sixth milestone.
+Not built yet: the phone's sign-in screens (the code entry is #71, the magic link #104), starting
+sync in the app (#113), and magic-link mail and its redirect on the live project, which are held for
+the pilot's sixth milestone.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses

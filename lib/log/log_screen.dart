@@ -164,12 +164,15 @@ String chainPhoneText(DeviceChain d) {
   return '${roleName(role)}${mark == null ? '' : ' at ${markName(mark)}'} · phone …$id';
 }
 
-/// A refusal's category in words (append_event's reasons, #48).
+/// A refusal's category in words (append_event's reasons, #48 and #73).
 String refusalReasonText(String reason) => switch (reason) {
       'not_admitted' => 'not admitted',
       'revoked' => 'revoked',
       'inconsistent_canonical' => 'inconsistent text',
       'ulid_conflict' => 'another text under its ULID',
+      'admission_mismatch' => 'not its phone\'s admission',
+      'role_mismatch' => 'not its admission\'s role',
+      'admission_superseded' => 'after its role change',
       _ => reason,
     };
 
