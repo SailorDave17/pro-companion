@@ -1,3 +1,4 @@
+import 'admissions.dart';
 import 'clock_offsets.dart';
 import 'finishes.dart';
 import 'fleets.dart';
@@ -24,5 +25,6 @@ abstract final class EventKinds {
     ...CourseKinds.all,
     ...ClockKinds.all,
     ...RoundingKinds.all,
+    ...AdmissionKinds.all,
   };
 }

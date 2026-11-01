@@ -79,7 +79,8 @@ void main() {
     testWidgets('the picker offers PRO, recorder, mark boat and safety, in that order', (tester) async {
       await openApp(tester);
       expect(picker, findsOneWidget);
-      expect(buttons(tester), {'PRO', 'RECORDER', 'MARK BOAT', 'SAFETY'});
+      // And, below them, the join screen for a phone handed a code (#71).
+      expect(buttons(tester), {'PRO', 'RECORDER', 'MARK BOAT', 'SAFETY', 'JOIN WITH CODE'});
       final tops = [for (final r in offered) tester.getTopLeft(pick(r)).dy];
       expect(tops, [...tops]..sort(), reason: 'top to bottom in the order listed');
       expect(pickableRoles, offered, reason: 'course PRO arrives with #74, the scorer with its own home');
@@ -428,6 +429,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<void> setAdmissionId(String admissionId) => _inner.setAdmissionId(admissionId);
+
+  @override
+  Future<Admission> join(String code) => _inner.join(code);
 
   @override
   Future<void> reportFix(GpsFix fix) => _inner.reportFix(fix);

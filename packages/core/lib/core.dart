@@ -5,6 +5,7 @@
 /// that.
 library;
 
+export 'src/admissions.dart' show Admission, AdmissionEvents, AdmissionKinds, JoinCodes;
 export 'src/chain.dart'
     show ChainRefusal, ChainState, ChainVerdict, canonicalJson, chainHash, genesisHash, verifyChain, verifyChains;
 export 'src/chain_status.dart' show ChainBreak, ChainPoint, ChainStatus, DeviceChain, DeviceChainStates;

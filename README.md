@@ -231,7 +231,7 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
     throttles cause on some days. Any other failure fails at once, a migration that fails to apply
     among them.
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
-  device-handoff phone is one. A full run signs in 19 of them, so a second full run within the hour
+  device-handoff phone is one. A full run signs in 20 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
   token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 22,
   15 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
@@ -332,6 +332,21 @@ dart run scripts/owner.dart sign-in-mode --club "Hoover Sailing Club" --mode nam
 - **The script prints the mode it reads back** after the switch, not the one it asked for, and fails
   when they differ. It finds its target and key as `provision` does.
 
+**The phone's join screen** (#71) is where a device-handoff phone presents its code: JOIN WITH CODE
+on the role picker, the code typed as the script prints it (`XXXX-XXXX`; the field upper-cases and
+inserts the dash), then JOIN. The core does the rest through sync, in order: it signs the phone in
+anonymously when it holds no session; asks `race_day_for_code(code)` which race day the code was
+issued for, so the volunteer never sees an event id (the function is a definer, callable by any
+signed-in phone, and refuses a code issued to no race day or to more than one with `admit_device`'s
+own message); calls `admit_device(event, code)`; reads the role and race area granted from the
+phone's own `committee_device` row; and caches the admission on the core, where a change of
+admission first appends the role-change marker (`admission.superseded`, G46) under the admission
+being left. The screen then shows the role and race area granted, and one tap logs the role pick and
+opens that role's home. A code the server refuses is one plain sentence that names no role, race
+area or event, and the code stays in the field. With no signal, the screen says admission needs
+signal, keeps the code and sends it again every five seconds until the server answers. On a build
+with no server wired to the core (before #113 starts sync in the core host) the screen says so.
+
 ### Revoking a phone
 
 When a committee phone is lost, the owner takes it off the event (#72). Run with no `--device`,
@@ -375,9 +390,10 @@ dart run scripts/owner.dart revoke --club "Hoover Sailing Club" --event "Club ni
   then refuses and prints their ids, and `--event-id <id>` names one in place of the three flags.
   It finds its target and key as `provision` does.
 
-Not built yet: the phone's sign-in screens (the code entry is #71, the magic link #104), starting
-sync in the app (#113), and magic-link mail and its redirect on the live project, which are held for
-the pilot's sixth milestone.
+Not built yet: the phone's magic-link screen (#104; the code entry is #71's join screen, above),
+starting sync in the app (#113, which also wires the join screen's call to sync in the core host),
+and magic-link mail and its redirect on the live project, which are held for the pilot's sixth
+milestone.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses

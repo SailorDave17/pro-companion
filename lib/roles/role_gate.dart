@@ -3,6 +3,8 @@ import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
 import '../finish/volume_key.dart';
+import '../join/join_screen.dart';
+import '../ui/bars.dart';
 import '../ui/clock.dart';
 import '../ui/fill_or_scroll.dart';
 import '../ui/fit_label.dart';
@@ -17,6 +19,10 @@ import 'roles.dart';
 /// A pick and its undo are each one event, confirmed by one buzz and one tone
 /// once committed, with no confirm dialog: a wrong pick is undone, not
 /// guarded against.
+///
+/// From the picker, JOIN WITH CODE opens the join screen (#71): a phone
+/// admitted there comes back with the pick of the role its code granted,
+/// and that role's home opens. #77 later narrows the picker to that role.
 class RoleGate extends StatefulWidget {
   const RoleGate({
     super.key,
@@ -79,6 +85,21 @@ class _RoleGateState extends State<RoleGate> {
     }
   }
 
+  /// JOIN WITH CODE (#71): the join screen logs the granted role's pick itself
+  /// and hands it back, so this phone's home opens on it.
+  Future<void> _join() async {
+    final result = await Navigator.of(context).push<Object?>(MaterialPageRoute(
+      builder: (_) => JoinScreen(core: widget.core, confirmation: widget.confirmation),
+    ));
+    if (!mounted || result is! EventEnvelope) return;
+    setState(() {
+      _roleEvents.add(result);
+      _deviceId ??= result.deviceId;
+      _unreadable = false;
+      _notLogged = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final deviceId = _deviceId;
@@ -107,16 +128,19 @@ class _RoleGateState extends State<RoleGate> {
               ? 'Not logged. Tap again.'
               : null,
       onPick: (role) => _log(RoleEvents.assign(role)),
+      onJoin: _join,
     );
   }
 }
 
 /// The role picker (#20 criterion 1): one tap on a role logs the pick and
-/// opens that role's home.
+/// opens that role's home. Below the roles, JOIN WITH CODE (#71) opens the
+/// join screen for a phone handed a role's admission code.
 class RolePicker extends StatelessWidget {
-  const RolePicker({super.key, required this.onPick, this.problem});
+  const RolePicker({super.key, required this.onPick, required this.onJoin, this.problem});
 
   final ValueChanged<String> onPick;
+  final VoidCallback onJoin;
 
   /// Shown above the roles: a pick that did not log, or a log that could not
   /// be read.
@@ -178,6 +202,17 @@ class RolePicker extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 16),
+                // Set-up, apart from the picks: a phone handed a code (#71).
+                SizedBox(
+                  width: double.infinity,
+                  height: Bars.minTargetDp + 8,
+                  child: OutlinedButton(
+                    key: const ValueKey('join-with-code'),
+                    onPressed: onJoin,
+                    child: const FitLabel('JOIN WITH CODE'),
+                  ),
+                ),
               ],
             ),
           ],

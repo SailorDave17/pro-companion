@@ -361,7 +361,8 @@ void main() {
       expect(run.accepted, 2, reason: '$run');
       expect(server.log.keys, unorderedEquals(fresh));
       expect(server.appendsOf(old.last), 0, reason: 'still held under the revoked admission');
-      expect(phone.store.uploadStatus().held, 1);
+      // old.last, and the role-change marker the move appended under the revoked admission (#71).
+      expect(phone.store.uploadStatus().held, 2);
     });
 
     test('one refusal holds every admission the user holds on the race day, with no send under the '
@@ -377,7 +378,8 @@ void main() {
       await engine.syncOnce();
       await engine.syncOnce();
       expect([for (final u in [...a, ...b]) server.appendsOf(u)], [1, 0, 0, 0]);
-      expect(phone.store.uploadStatus().held, 3);
+      // a's second, the role-change marker under the first admission (#71), and both of b.
+      expect(phone.store.uploadStatus().held, 4);
       expect(phone.store.revocation()?.eventId, dayOne);
     });
 
@@ -396,7 +398,8 @@ void main() {
       final b = phone.log(2);
       await engine.syncOnce();
       expect([for (final u in [...a, ...b]) server.appendsOf(u)], [1, 0, 0]);
-      expect(phone.store.uploadStatus().held, 2);
+      // Both of b, and the role-change marker under the first admission (#71).
+      expect(phone.store.uploadStatus().held, 3);
     });
 
     test('an event whose earlier send may have landed still goes once after the revocation, and its '

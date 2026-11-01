@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:sqlite3/sqlite3.dart' as sql;
 
+import 'admissions.dart';
 import 'chain.dart';
 import 'chain_status.dart';
 import 'clock_offsets.dart';
@@ -323,8 +324,41 @@ class EventStore {
   /// later event is stamped with (#49). A re-admission calls this again and
   /// replaces it; events already stored keep the admission they were written
   /// under. When this returns, it is committed.
+  ///
+  /// A change of admission first appends the role-change marker (#71, groom
+  /// decision G46), `admission.superseded`, under the admission being left,
+  /// as this phone's last event under it: the server accepts this device's
+  /// events under that admission up to the marker's own sequence number and
+  /// refuses any past it (#73). The marker and the new admission land in one
+  /// commit, so no event is ever stamped with the new admission before the
+  /// marker is stored. The same admission set again appends nothing.
   void setAdmissionId(String admissionId) {
     validateAdmissionId(admissionId);
+    final old = _admissionId;
+    if (old == null || old == admissionId) {
+      _writeAdmissionId(admissionId);
+      return;
+    }
+    final seq = _nextSeq;
+    final prevHash = _prevHash;
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      final marker = AdmissionEvents.superseded(by: admissionId);
+      validateNewEvent(marker);
+      final now = _clock();
+      _appendOne(marker, newUlid(now, _random), now, location.current());
+      _writeAdmissionId(admissionId);
+      _db.execute('COMMIT');
+    } catch (_) {
+      _nextSeq = seq;
+      _prevHash = prevHash;
+      _admissionId = old;
+      if (!_db.autocommit) _db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  void _writeAdmissionId(String admissionId) {
     _db.execute(
       "INSERT INTO meta (key, value) VALUES ('admission_id', ?) "
       'ON CONFLICT (key) DO UPDATE SET value = excluded.value',

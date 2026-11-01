@@ -188,7 +188,10 @@ void main() {
       store.close();
 
       expect(after.sublist(0, 2), before, reason: 'the earlier events, byte for byte as stored');
-      expect(admissionsIn(after), [admission, admission, readmission, readmission]);
+      // Since #71 the change itself appends the role-change marker under the admission being
+      // left, so three events carry the first admission and the marker is the third.
+      expect(admissionsIn(after), [admission, admission, admission, readmission, readmission]);
+      expect((jsonDecode(after[2]) as Map)['kind'], AdmissionKinds.superseded);
       expect(verifyChain(after), const ChainVerdict.intact(),
           reason: 'one chain across both admissions: the chain is per device, not per admission');
       expect(openStore(path).admissionId, readmission, reason: 'a restart keeps the re-admission');
@@ -203,7 +206,93 @@ void main() {
 
       expect([first.admissionId, second.admissionId], [admission, readmission]);
       final all = await core.readAll();
-      expect([for (final e in all) e.toWire()], [first.toWire(), second.toWire()]);
+      // The marker (#71) sits between them, under the first admission.
+      expect([for (final e in all) e.kind], ['note', AdmissionKinds.superseded, 'note']);
+      expect([all.first.toWire(), all.last.toWire()], [first.toWire(), second.toWire()]);
+      expect(all[1].admissionId, admission);
+    });
+  });
+
+  group('#71 criterion 6: a change of admission appends the role-change marker first (groom decision G46)', () {
+    test('under the old admission, as this phone\'s last event under it, naming the new one', () {
+      final store = openStore(tempDbPath());
+      store.setAdmissionId(admission);
+      store.append(RoleEvents.assign(Roles.recorder));
+      store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'n': 1}));
+      store.setAdmissionId(readmission);
+      store.append(RoleEvents.assign(Roles.scorer));
+      store.append(const NewEvent(kind: 'note', source: 'tap', payload: {'n': 2}));
+
+      final own = store.readOwn();
+      final markers = own.where((e) => e.kind == AdmissionKinds.superseded).toList();
+      expect(markers, hasLength(1), reason: 'one change, one marker');
+      final marker = markers.single;
+      expect(marker.admissionId, admission, reason: 'written under the admission being left');
+      expect(marker.payload, {'superseded_by': readmission});
+      expect(marker.source, AdmissionEvents.source);
+      expect(marker.role, Roles.recorder, reason: 'stamped with the role the phone ran as under the old admission');
+      expect(marker.seq, 3);
+      // The bound the server reads (#73): everything this phone wrote under the old admission is
+      // at or below the marker's own sequence number, and everything under the new one is above.
+      for (final e in own) {
+        expect(e.seq <= marker.seq, e.admissionId == admission, reason: '${e.kind} seq ${e.seq}');
+      }
+      expect(store.admissionId, readmission);
+      expect(verifyChain(store.readCanonical()), const ChainVerdict.intact());
+      expect(store.pendingUploads().map((p) => (p.seq, p.admissionId)), contains((3, admission)),
+          reason: 'it uploads under the old admission, as that admission\'s last accepted event');
+    });
+
+    test('the first admission appends nothing, and the same admission again appends nothing', () {
+      final store = openStore(tempDbPath());
+      store.setAdmissionId(admission);
+      store.append(const NewEvent(kind: 'note', source: 'tap'));
+      store.setAdmissionId(admission);
+      expect([for (final e in store.readOwn()) e.kind], ['note']);
+    });
+
+    test('a restart after the change keeps the marker, the new admission, and the chain', () {
+      final path = tempDbPath();
+      final first = EventStore.open(path);
+      first.setAdmissionId(admission);
+      first.append(const NewEvent(kind: 'note', source: 'tap'));
+      first.setAdmissionId(readmission);
+      first.close();
+
+      final again = openStore(path);
+      expect(again.admissionId, readmission);
+      final next = again.append(const NewEvent(kind: 'note', source: 'tap'));
+      expect([for (final e in again.readOwn()) (e.kind, e.admissionId)],
+          [('note', admission), (AdmissionKinds.superseded, admission), ('note', readmission)]);
+      expect(next.seq, 3);
+      expect(verifyChain(again.readCanonical()), const ChainVerdict.intact());
+    });
+
+    test('over the core interface, as the host\'s join stamps it', () async {
+      final core = await spawnedCore();
+      await core.setAdmissionId(admission);
+      await core.append(const NewEvent(kind: 'note', source: 'tap'));
+      await core.setAdmissionId(readmission);
+      final own = await core.readOwn();
+      expect([for (final e in own) (e.kind, e.admissionId, e.seq)],
+          [('note', admission, 1), (AdmissionKinds.superseded, admission, 2)]);
+      expect(own.last.payload, {'superseded_by': readmission});
+    });
+
+    test('and the fake core the same way, through setAdmissionId and through join', () async {
+      final fake = FakeCore();
+      await fake.setAdmissionId(admission);
+      await fake.append(const NewEvent(kind: 'note', source: 'tap'));
+      await fake.setAdmissionId(readmission);
+      fake.onJoin = (code) async => Admission(
+          admissionId: '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f', eventId: readmission, role: 'scorer', courseId: null, raceArea: null);
+      await fake.join('SCOR-0001');
+      expect([for (final e in await fake.readOwn()) (e.kind, e.admissionId)], [
+        ('note', admission),
+        (AdmissionKinds.superseded, admission),
+        (AdmissionKinds.superseded, readmission),
+      ]);
+      expect(await fake.admissionId(), '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f');
     });
   });
 

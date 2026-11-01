@@ -3,8 +3,10 @@
 /// against the fake core").
 library;
 
+import 'dart:async';
 import 'dart:math';
 
+import 'src/admissions.dart';
 import 'src/chain_status.dart';
 import 'src/client.dart';
 import 'src/clock_offsets.dart';
@@ -47,14 +49,14 @@ class FakeCore implements CoreClient {
   /// How many calls the UI has made, by command name.
   final calls = <String, int>{};
 
-  Future<T> _call<T>(String command, T Function() body) async {
+  Future<T> _call<T>(String command, FutureOr<T> Function() body) async {
     calls[command] = (calls[command] ?? 0) + 1;
     // Async like the real port, but a microtask rather than a timer, so a
     // widget test never ends with a timer still pending.
     await Future<void>.value();
     final failure = failWith;
     if (failure != null) throw failure;
-    return body();
+    return await body();
   }
 
   /// Adds events as though they were already in the log: this phone's own,
@@ -76,6 +78,16 @@ class FakeCore implements CoreClient {
   /// no refusal stubs, so it verifies nothing, and a test sets it. A test may
   /// change it while the app runs, as a pull would.
   ChainStatus chainStatusValue = ChainStatus.empty;
+
+  /// What [join] runs (#71), standing in for the server sync reaches: given
+  /// the code, it answers what the code granted, or throws the
+  /// [CoreException] the real core would (`JoinCodes`). The fake then caches
+  /// the admission as the real core does, marker included. With none set, a
+  /// join is refused as `no_server`, as a core nothing is wired to is.
+  Future<Admission> Function(String code)? onJoin;
+
+  /// Every code [join] was given, in order.
+  final joins = <String>[];
 
   // The store's read order: device time, device, then the device's sequence
   // number (#145).
@@ -154,7 +166,37 @@ class FakeCore implements CoreClient {
   @override
   Future<void> setAdmissionId(String admissionId) => _call(Wire.setAdmissionId, () {
         validateAdmissionId(admissionId);
-        _admissionId = admissionId;
+        _stampAdmission(admissionId);
+      });
+
+  /// As the real core does (#71): a change of admission appends the
+  /// role-change marker under the admission being left, then stamps the new
+  /// one; the first admission, or the same one again, appends nothing.
+  void _stampAdmission(String admissionId) {
+    final old = _admissionId;
+    if (old != null && old != admissionId) {
+      final now = _clock();
+      _add(AdmissionEvents.superseded(by: admissionId), newUlid(now, _random), now, location.current());
+    }
+    _admissionId = admissionId;
+  }
+
+  @override
+  Future<Admission> join(String code) => _call(Wire.join, () async {
+        if (code.isEmpty) throw ArgumentError.value(code, 'code', 'must be a non-empty string');
+        joins.add(code);
+        final handler = onJoin;
+        if (handler == null) {
+          throw joinException(JoinCodes.noServer, 'this core has no server to join through: nothing is wired to it');
+        }
+        // Through the wire form, so an answer the real core could not send
+        // fails here too.
+        final wire = (await handler(code)).toWire();
+        requireWireSafe(wire, 'join');
+        final admission = Admission.fromWire(wire);
+        validateAdmissionId(admission.admissionId);
+        _stampAdmission(admission.admissionId);
+        return admission;
       });
 
   @override

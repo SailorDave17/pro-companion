@@ -19,7 +19,7 @@ import 'support/local_stack.dart';
 /// owner) are the instrument, since no phone can read the log before #50. The last case is #64's
 /// pull, the other direction.
 ///
-/// Spend per run of this file: 2 anonymous sign-ins (the device-handoff case) of the stack's 30 an
+/// Spend per run of this file: 3 anonymous sign-ins (the device-handoff case and #71's join) of the stack's 30 an
 /// hour, and 15 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 22
 /// verifications (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than
 /// on what they test. Prove a mutation with --plain-name on one case.
@@ -529,6 +529,57 @@ void main() {
       // Accepted by #73's device-handoff link (owner decision at its pickup, 2026-10-31): the old
       // admission is another user's, but it is on this race day in the slot the new user holds, so
       // the server reads the link as the code. admission_check_test.sql holds the rule's edges.
+    });
+
+    test('#71 criteria 1 and 6: a phone joins with a code alone, admit_device admits it to the code\'s '
+        'role and race area, and a second code supersedes it with the marker under the old admission, '
+        'which uploads accepted', () async {
+      final phone = await StackPhone.open(stack);
+      addTearDown(phone.close);
+      // The one anonymous sign-in this case spends: join signs the phone in itself when it holds
+      // no session, then asks race_day_for_code which race day the code is for.
+      final granted = await phone.engine.join(day.codes['recorder Alpha']!);
+      expect([granted.role, granted.raceArea, granted.eventId], ['recorder', 'Alpha', day.eventId]);
+      expect(phone.transport.seen.map((s) => s.path),
+          containsAllInOrder(['/auth/v1/signup', '/rest/v1/rpc/race_day_for_code', '/rest/v1/rpc/admit_device']));
+      final mine = (await stack.admissions(day.eventId)).singleWhere((r) => r['id'] == granted.admissionId);
+      expect([mine['role'], mine['race_area'], mine['is_anonymous'], mine['superseded_by']],
+          ['recorder', 'Alpha', true, null], reason: 'admitted on the server to exactly the code\'s slot');
+      expect(phone.store.admissionId, granted.admissionId, reason: 'cached in the core');
+      expect(phone.store.admissionEvent(granted.admissionId), day.eventId);
+      expect(phone.store.readOwn(), isEmpty, reason: 'a first admission appends no marker');
+
+      // As the join screen does on OPEN HOME: the granted role's pick, then the day's taps.
+      phone.role = 'recorder';
+      phone.store.append(RoleEvents.assign('recorder'));
+      final before = phone.log(2);
+      final first = await phone.engine.syncOnce();
+      expect(first.accepted, 3, reason: '$first');
+
+      // Another role's code: a new admission (#70), and the marker first (#71, G46).
+      final changed = await phone.engine.join(day.codes['scorer']!);
+      expect([changed.role, changed.raceArea], ['scorer', null]);
+      expect(changed.admissionId, isNot(granted.admissionId));
+      final marker = phone.store.readOwn().singleWhere((e) => e.kind == AdmissionKinds.superseded);
+      expect([marker.admissionId, marker.role, marker.payload],
+          [granted.admissionId, 'recorder', {'superseded_by': changed.admissionId}]);
+      expect(phone.store.admissionId, changed.admissionId);
+      phone.role = 'scorer';
+      phone.store.append(RoleEvents.assign('scorer'));
+      final after = phone.log(1);
+      final second = await phone.engine.syncOnce();
+      expect(second.accepted, 3, reason: 'the marker, the new pick and the note: $second');
+
+      // The server holds the marker under the old admission, every note on this race day, and
+      // the old admission as superseded by the new one.
+      final shore = await stack.eventLogRows(day.eventId);
+      final onShore = shore.singleWhere((r) => r['ulid'] == marker.ulid);
+      expect((jsonDecode(onShore['canonical'] as String) as Map)['admission_id'], granted.admissionId);
+      for (final u in [...before, ...after]) {
+        expect(await stack.eventOf(u), day.eventId, reason: u);
+      }
+      final old = (await stack.admissions(day.eventId)).singleWhere((r) => r['id'] == granted.admissionId);
+      expect(old['superseded_by'], changed.admissionId);
     });
 
     test('#53 criteria 1 to 3: a phone revoked by revoke_device is told once, by name, keeps what it '

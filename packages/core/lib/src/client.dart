@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'admissions.dart';
 import 'chain_status.dart';
 import 'envelope.dart';
 import 'location.dart';
@@ -37,8 +38,18 @@ abstract interface class CoreClient {
 
   /// Caches [admissionId], `admit_device`'s answer, so that every event
   /// appended from now on carries it (#49). A re-admission calls this again;
-  /// events already stored keep the admission they were written under.
+  /// events already stored keep the admission they were written under, and
+  /// the core first appends the role-change marker under the old admission
+  /// (#71, groom decision G46), as its last event from this phone.
   Future<void> setAdmissionId(String admissionId);
+
+  /// Admits this phone with a role's admission [code] (#71, ADR 005): signs
+  /// it in by device handoff when it holds no session, finds the race day the
+  /// code is for, calls `admit_device`, and caches the admission as
+  /// [setAdmissionId] does, marker included. Answers with what the code
+  /// granted. A refusal, no signal and a core with no server wired to it each
+  /// come back as a [CoreException] coded from `JoinCodes`.
+  Future<Admission> join(String code);
 
   /// Tells the core the phone's latest fix, [fix]'s `ageMs` old as of now
   /// (#31). Every event appended from now on carries it, with its age grown
@@ -150,6 +161,9 @@ class PortCoreClient implements CoreClient {
   Future<void> setAdmissionId(String admissionId) async {
     await _call(Wire.setAdmissionId, {'admission_id': admissionId});
   }
+
+  @override
+  Future<Admission> join(String code) async => Admission.fromWire(await _call(Wire.join, {'code': code}) as Map);
 
   @override
   Future<void> reportFix(GpsFix fix) async {

@@ -27,18 +27,22 @@ abstract final class Wire {
   static const pullStatus = 'pullStatus';
   static const chainStatus = 'chainStatus';
   static const raceTimes = 'raceTimes';
+  static const join = 'join';
   static const close = 'close';
 
   /// Every command the core serves. There is no update and no delete, and a
   /// command not listed here is refused (#24 criterion 3). setAdmissionId
-  /// replaces the admission the phone holds (#49), and reportLocation the
+  /// replaces the admission the phone holds (#49), appending the role-change
+  /// marker under the old one first (#71), and reportLocation the
   /// position (#31) and satellite time (#55) it holds in memory, never a
   /// stored event (a report that the phone's clock was set appends a new
   /// `clock.changed`, #55), and
   /// uploadStatus, revocation and pullStatus read what sync (#6, #53, #64)
   /// keeps beside the log. chainStatus verifies the chains the log holds
   /// (#67), and raceTimes times every phone's finishes from their guns (#69);
-  /// both write nothing.
+  /// both write nothing. join (#71) hands a code to whatever the host wired
+  /// the core to (sync, in the app), which admits the phone and stamps the
+  /// admission; a core with nothing wired refuses it as `no_server`.
   static const commands = {
     append,
     readAll,
@@ -53,6 +57,7 @@ abstract final class Wire {
     pullStatus,
     chainStatus,
     raceTimes,
+    join,
     close,
   };
 
@@ -83,7 +88,8 @@ class CoreException implements Exception {
   const CoreException(this.code, this.message);
 
   /// `refused` (the store said no), `invalid` (bad arguments),
-  /// `unknown_command`, or `failed` (anything else).
+  /// `unknown_command`, or `failed` (anything else); from `join`, one of
+  /// `JoinCodes.all` (#71).
   final String code;
   final String message;
 
