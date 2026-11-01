@@ -246,7 +246,8 @@ void main() {
       store.recordRevoked(admissionA);
 
       final status = store.uploadStatus();
-      expect([status.pending, status.neverAdmitted, status.held], [2, 1, 1], reason: 'control: the counts as #6 and #53 left them');
+      // Held: the note under A, and the role-change marker the change to B appended under A (#71).
+      expect([status.pending, status.neverAdmitted, status.held], [2, 1, 2], reason: 'control: the counts as #6, #53 and #71 left them');
       expect(status.waitingByKind, {'note': 1, 'station.selected': 1});
       expect(status.waitingByKind.values.fold(0, (a, b) => a + b), status.pending);
     });
@@ -333,12 +334,13 @@ void main() {
       store.append(note);
       store.recordAdmissionEvent(admissionA, dayOne);
       store.recordRefused(refused, 'revoked', mayBeOnShore: false);
-      expect([store.uploadStatus().pending, store.uploadStatus().held], [3, 0], reason: 'control: not yet revoked');
+      // Two notes under A, the role-change marker the change to B appended under A (#71), and B's note.
+      expect([store.uploadStatus().pending, store.uploadStatus().held], [4, 0], reason: 'control: not yet revoked');
 
       store.recordRevoked(admissionA);
       final status = store.uploadStatus();
-      expect([status.pending, status.held, status.refused.length], [1, 2, 1]);
-      expect(store.pendingUploads().length, 3, reason: 'held events still have no outcome: nothing is invented');
+      expect([status.pending, status.held, status.refused.length], [1, 3, 1]);
+      expect(store.pendingUploads().length, 4, reason: 'held events still have no outcome: nothing is invented');
     });
 
     test('an event whose earlier send may have landed waits rather than being held, since it goes once '

@@ -110,6 +110,22 @@ class FakeServer extends http.BaseClient {
   final admissions = <String, Map<String, String>>{};
   final revoked = <String>{};
 
+  /// The admission codes issued (#71): code to the race day, role and race area it was issued for,
+  /// as admission_code holds them. While empty, admit_device admits any code to the race day named,
+  /// as it did before #71's tests; once any is issued, a code it does not hold is refused as the
+  /// server refuses one, and race_day_for_code answers from here.
+  final codes = <String, ({String event, String role, String? course})>{};
+
+  /// Each race area's name, as the course table holds it (#71 reads the one granted).
+  final courses = <String, String>{};
+
+  /// What each admission granted, by admission id: role and race area, as committee_device holds them.
+  final slots = <String, ({String role, String? course})>{};
+
+  /// Issues [code] for [role] on race day [event], and for a bound role on race area [course].
+  void issueCode(String code, {required String event, required String role, String? course}) =>
+      codes[code] = (event: event, role: role, course: course);
+
   /// Each race day's name, as the event table holds it (#53).
   final eventNames = <String, String>{};
 
@@ -133,12 +149,20 @@ class FakeServer extends http.BaseClient {
     return hash;
   }
 
-  /// Admits [user] to [event] directly, as another phone's admit_device would.
-  String admitDirectly(String user, String event) {
+  /// Admits [user] to [event] directly, as another phone's admit_device would, as [role] on race
+  /// area [course].
+  String admitDirectly(String user, String event, {String role = 'scorer', String? course}) {
     final id = uuid(0xa00 + admissions.values.fold<int>(0, (n, m) => n + m.length) + 1);
     (admissions[user] ??= {})[id] = event;
+    slots[id] = (role: role, course: course);
     return id;
   }
+
+  /// admit_device's refusal of a code, as PostgREST relays the function's 28000.
+  static http.Response notRecognised() => http.Response(
+      jsonEncode({'code': '28000', 'details': null, 'hint': null, 'message': 'admit_device: event or admission code not recognised'}),
+      403,
+      headers: {'content-type': 'application/json'});
 
   /// A session for [user], as GoTrue answers one. Its access token is valid for [validFor] on the
   /// real clock: gotrue judges expiry by DateTime.now, which fake_async does not move.
@@ -218,15 +242,32 @@ class FakeServer extends http.BaseClient {
       case ('GET', '/rest/v1/committee_device'):
         final user = r.caller;
         if (user == null) return _denied('table committee_device');
-        return _json(200, [
+        // The phone's own rows (committee_device_select_own), filtered and projected as PostgREST
+        // does: the run reads them whole, and a join (#71) asks for the one it was just granted.
+        return _json(200, _filtered(r, [
           for (final MapEntry(key: id, value: event) in (admissions[user] ?? const {}).entries)
             {
               'id': id,
               'event_id': event,
               'revoked_at': revoked.contains(id) ? '2026-10-24T12:00:00+00:00' : null,
               'superseded_by': null,
+              'role': slots[id]?.role ?? 'scorer',
+              'course_id': slots[id]?.course,
             },
-        ]);
+        ]));
+      case ('GET', '/rest/v1/course'):
+        // course_select_admitted: a phone admitted to the race area's event reads it. The fake
+        // answers every race area it knows to any signed-in phone, which is wider than the stack;
+        // a read the stack answers, this answers too.
+        if (r.caller == null) return _denied('table course');
+        return _json(200, _filtered(r, [
+          for (final MapEntry(key: id, value: name) in courses.entries) {'id': id, 'name': name},
+        ]));
+      case ('POST', '/rest/v1/rpc/race_day_for_code'):
+        if (r.caller == null) return _denied('function race_day_for_code');
+        final slot = codes[r.json['p_admission_code']];
+        if (slot == null) return notRecognised();
+        return _json(200, slot.event);
       case ('GET', '/rest/v1/event_log'):
         if (r.caller == null) return _denied('table event_log');
         return _json(200, _read(r, [
@@ -260,9 +301,15 @@ class FakeServer extends http.BaseClient {
         final user = r.caller;
         if (user == null) return _denied('function admit_device');
         final event = r.json['p_event'] as String;
-        final held = admissions[user]?.entries.where((e) => e.value == event);
-        if (held != null && held.isNotEmpty) return _json(200, held.first.key);
-        return _json(200, admitDirectly(user, event));
+        final slot = codes[r.json['p_admission_code']];
+        if (codes.isNotEmpty && (slot == null || slot.event != event)) return notRecognised();
+        final held = admissions[user]?.entries.where((e) => e.value == event).toList() ?? const [];
+        // The active slot's own code answers the active row (#70); another slot's code supersedes.
+        for (final MapEntry(key: id, value: _) in held) {
+          final active = slots[id];
+          if (slot == null || (active?.role == slot.role && active?.course == slot.course)) return _json(200, id);
+        }
+        return _json(200, admitDirectly(user, event, role: slot?.role ?? 'scorer', course: slot?.course));
       case ('POST', '/rest/v1/rpc/append_event'):
         return _append(r);
     }

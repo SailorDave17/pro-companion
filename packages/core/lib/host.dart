@@ -11,7 +11,7 @@ import 'src/store.dart';
 import 'src/wire.dart';
 
 export 'src/client.dart' show CoreClient, PortCoreClient;
-export 'src/server.dart' show CoreServer;
+export 'src/server.dart' show CoreServer, JoinHandler;
 
 /// The name a core host publishes its port under, VM-wide, and the UI engine
 /// looks it up by (ADR 003 decision 3). The app publishes it with
@@ -62,8 +62,16 @@ void _coreMain(List<Object?> args) {
 /// 003, #32). Returns the port requests go to, for the host to publish under
 /// [corePortName]. A close request is refused, because the host and not a
 /// client owns the core's lifetime. Throws when the log cannot be opened.
-SendPort serveCore(String dbPath) {
-  final server = CoreServer(EventStore.open(dbPath), closable: false);
+///
+/// [join] is what a `join` request runs (#71). With none, a join is refused
+/// as `no_server`. A host that builds sync on the store first (#113) opens the
+/// store itself and calls [serveStore].
+SendPort serveCore(String dbPath, {JoinHandler? join}) => serveStore(EventStore.open(dbPath), join: join);
+
+/// [serveCore] over a store the host already opened, so the host can build
+/// sync on the same store and hand its join in as [join] (#71, #113).
+SendPort serveStore(EventStore store, {JoinHandler? join}) {
+  final server = CoreServer(store, closable: false, join: join);
   final requests = ReceivePort();
   requests.listen(server.handle);
   return requests.sendPort;

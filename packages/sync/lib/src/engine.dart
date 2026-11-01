@@ -972,8 +972,8 @@ class SyncEngine {
   /// Admits the signed-in phone to race day [eventId] with an admission
   /// [code] (ADR 005's admit_device), remembers which race day the admission
   /// is for, and returns its id. It does not stamp the admission on the
-  /// core's events: the caller does that with [EventStore.setAdmissionId], so
-  /// #71 can log its role-change marker under the old admission first.
+  /// core's events: the caller does that with [EventStore.setAdmissionId],
+  /// which logs the role-change marker under the old admission first (#71).
   Future<String> admit(String eventId, String code, {String? person}) => _exclusive(() async {
         // Checked before the server admits: afterwards, the store would refuse
         // the race day and the admission the server made would be lost.
@@ -989,6 +989,101 @@ class SyncEngine {
         _store.recordAdmissionEvent(id, eventId);
         return id;
       });
+
+  /// The join screen's one call (#71): admits this phone with a role's
+  /// admission [code] and stamps the admission on the store, so every event
+  /// from now on carries it. In order: the kept session is recovered, or the
+  /// phone is signed in by device handoff when it holds none; the race day the
+  /// code is for is looked up (`race_day_for_code`); `admit_device` admits the
+  /// phone; the role and race area granted are read from the phone's own
+  /// committee_device row; the race day is recorded and the admission stamped
+  /// ([EventStore.setAdmissionId], which appends the role-change marker under
+  /// the old admission on a change, G46). Answers with what the code granted.
+  ///
+  /// It throws a [CoreException] coded from [JoinCodes], and nothing else,
+  /// for everything the screen must tell apart: the server judged the code
+  /// and refused ([JoinCodes.refused], with one plain sentence that names no
+  /// role, race area or event); the server could not be reached
+  /// ([JoinCodes.noSignal], and the screen keeps the code and tries again); a
+  /// failure the server did not judge ([JoinCodes.failed]). Never a token in
+  /// a message.
+  ///
+  /// A phone holding a session it cannot reach the server to check is "no
+  /// signal", never a fresh sign-in: a new anonymous user would hold no
+  /// admission, and the events written for the kept one would be stranded.
+  Future<Admission> join(String code) => _exclusive(() async {
+        if (code.isEmpty) throw joinException(JoinCodes.failed, 'no code was entered');
+        try {
+          final blocked = await _ensureSession();
+          if (_client.auth.currentSession == null) {
+            if (_session.exists || blocked?.$1 == UploadRunState.unreachable) {
+              throw joinException(JoinCodes.noSignal,
+                  'the phone holds a session it cannot check without signal (${blocked?.$2 ?? 'no answer'})');
+            }
+            await _signIn(_client.auth.signInAnonymously);
+          }
+          final eventId = await _client.rpc<dynamic>('race_day_for_code', params: {'p_admission_code': code});
+          if (eventId is! String || !isAdmissionId(eventId)) {
+            throw joinException(JoinCodes.failed, 'race_day_for_code answered with no race day');
+          }
+          final id = await _client.rpc<dynamic>('admit_device', params: {'p_event': eventId, 'p_admission_code': code});
+          if (id is! String) throw joinException(JoinCodes.failed, 'admit_device answered with no admission id');
+          final rows = await _client.rest.from('committee_device').select('id, role, course_id').eq('id', id);
+          final row = rows.cast<Map>().where((r) => r['id'] == id).firstOrNull;
+          final role = row?['role'];
+          if (role is! String) throw joinException(JoinCodes.failed, 'the admission could not be read back');
+          final courseId = row!['course_id'] as String?;
+          String? raceArea;
+          if (courseId != null) {
+            final courses = await _client.rest.from('course').select('id, name').eq('id', courseId);
+            final course = courses.cast<Map>().where((r) => r['id'] == courseId).firstOrNull;
+            raceArea = course?['name'] is String ? course!['name'] as String : null;
+          }
+          _store.recordAdmissionEvent(id, eventId);
+          _store.setAdmissionId(id);
+          _persistIfStale();
+          return Admission(admissionId: id, eventId: eventId, role: role, courseId: courseId, raceArea: raceArea);
+        } on CoreException {
+          rethrow;
+        } catch (e) {
+          throw _joinFailure(e);
+        }
+      });
+
+  /// What a failure on the way to an admission proves, as a [CoreException]
+  /// for the screen. The server's own judgement of the code is a refusal; no
+  /// answer from the server is no signal; anything else is a failure, named
+  /// without any token.
+  CoreException _joinFailure(Object e) {
+    switch (e) {
+      case PostgrestException(:final code, :final details):
+        // admit_device and race_day_for_code raise 28000 for an unrecognised
+        // code or event, 42501 for a revoked phone or a sign-in path the club
+        // does not admit, 22023 for a person on the wrong path.
+        if (code == '28000') return joinException(JoinCodes.refused, 'That code was not recognised.');
+        if (code == '42501') {
+          final detail = '$details';
+          return joinException(
+              JoinCodes.refused,
+              detail.startsWith('sign_in_mode=')
+                  ? 'The club does not admit phones signed in this way.'
+                  : 'This phone was revoked from the race day.');
+        }
+        if (code == '22023') return joinException(JoinCodes.refused, 'That code was not recognised.');
+        if (_classify(e) == _Failure.unreachable) {
+          return joinException(JoinCodes.noSignal, 'no answer from the server (${_describe(e)})');
+        }
+        return joinException(JoinCodes.failed, 'the server could not admit this phone (${_describe(e)})');
+      case SignInRateLimited():
+        return joinException(JoinCodes.failed, 'The server is rate limiting sign-ins. Try again in a few minutes.');
+      case AuthRetryableFetchException() || http.ClientException() || TimeoutException() || SocketException():
+        return joinException(JoinCodes.noSignal, 'no answer from the server (${_describe(e)})');
+      case AuthException():
+        return joinException(JoinCodes.failed, 'the sign-in was refused (${_describe(e)})');
+      default:
+        return joinException(JoinCodes.failed, _describe(e));
+    }
+  }
 
   /// Stops syncing: no run starts after this, and the one in progress, if any,
   /// stops at its next event.
