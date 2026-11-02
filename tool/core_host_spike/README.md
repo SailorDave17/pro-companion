@@ -60,7 +60,7 @@ there, and a provider call blocked its caller. The numbers are in `docs/adr/004-
 | The three endpoints: an explicit broadcast, a bound service, a content provider's `call()` | `android/app/src/main/kotlin/.../LinkEndpoints.kt` |
 | Who may send: the pinned package, signed by a pinned certificate, judged at runtime | `.../LinkTrust.kt`, called first by `.../LinkInbox.kt` |
 | The core's side: one `LINK` line per event, counted per run and de-duplicated by id | `lib/main.dart` (`LinkLog`) |
-| The race-timer stand-in: a foreground service emitting a scripted day over one mechanism | `android/harness/` (package `com.procompanion.link_harness`) |
+| The race-timer stand-in: a foreground service emitting a scripted day over one mechanism. #33 drives the real app with it, from the app's own Gradle build under `-PlinkHarness`, with `-PlinkHarnessPackage`, `-PlinkHarnessCompanion` and the extras `--es companion`, `--ei resend` and `--ei retry_ms` (`integration_test/race_timer_link.sh`). Without them it is the spike's as before | `android/harness/` (package `com.procompanion.link_harness`) |
 | Build, sign the harness with a trusted and an imposter key, install | `link_build.sh` |
 | Criteria 1 and 2: 50 events per mechanism, backgrounded, then destroyed + forced Doze | `link_run.sh`, read by `link_report.dart` |
 | Criterion 3: an imposter-signed harness is refused, a trusted one accepted | `LinkTrustTest` (instrumented), run by `link_tests.sh` |

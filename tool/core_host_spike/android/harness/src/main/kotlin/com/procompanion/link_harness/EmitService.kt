@@ -23,6 +23,12 @@ import android.util.Log
  *
  * Every emission is logged under the tag LINK as `EMIT run=… mech=… n=… status=…`, and
  * the run ends with `DONE …`. link_report.dart reads them beside the companion's lines.
+ *
+ * #33, to drive the real app: `--es companion <package>` names the companion in place of
+ * the spike, and `--ei resend <n>` sends event n again at the end of the run, under its
+ * same id, on an EMIT line of its own that ends `resend=true`. `--ei retry_ms <ms>` then
+ * does what ADR 004 asks of race-timer: every event not answered `accepted` is sent again
+ * under its same id, once a second, until it is or the time is up.
  */
 class EmitService : Service() {
     private lateinit var worker: HandlerThread
@@ -40,50 +46,73 @@ class EmitService : Service() {
         val count = intent?.getIntExtra("count", 50) ?: 50
         val intervalMs = (intent?.getIntExtra("interval_ms", 5000) ?: 5000).toLong()
         val run = intent?.getStringExtra("run") ?: "r${System.currentTimeMillis()}"
+        val companion = intent?.getStringExtra("companion") ?: Link.COMPANION
+        val resend = intent?.getIntExtra("resend", 0) ?: 0
+        val retryMs = (intent?.getIntExtra("retry_ms", 0) ?: 0).toLong()
         handler.post {
-            emit(mech, count, intervalMs, run)
+            emit(mech, count, intervalMs, run, companion, resend, retryMs)
             stopSelf(startId)
         }
         return START_NOT_STICKY
     }
 
-    private fun emit(mech: String, count: Int, intervalMs: Long, run: String) {
+    private fun emit(mech: String, count: Int, intervalMs: Long, run: String, companion: String, resend: Int, retryMs: Long) {
         val power = getSystemService(PowerManager::class.java)
         val lock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "linkharness:emit")
-        lock.acquire(count * intervalMs + 60_000)
+        lock.acquire(count * intervalMs + retryMs + 60_000)
         Log.i(TAG, "BEGIN run=$run mech=$mech count=$count interval_ms=$intervalMs sdk=${Build.VERSION.SDK_INT} idle=${power.isDeviceIdleMode}")
         val script = EventScript(run)
+        var emitted = 0
         var ok = 0
         var refused = 0
         var errors = 0
-        val emitter = runCatching { emitterFor(this, mech) }
+        val emitter = runCatching { emitterFor(this, mech, companion) }
             .onFailure { Log.e(TAG, "no emitter for $mech", it) }
             .getOrNull()
+
+        fun send(n: Int, e: Emission, sentNs: Long, note: String = ""): String {
+            val status = try {
+                emitter?.send(e.json) ?: "error:no_emitter"
+            } catch (t: Throwable) {
+                "error:${t.javaClass.simpleName}:${t.message}"
+            }.replace(Regex("\\s+"), "_")
+            val sendUs = (SystemClock.elapsedRealtimeNanos() - sentNs) / 1000
+            emitted++
+            when (status) {
+                "accepted", "sent" -> ok++
+                "refused" -> refused++
+                else -> errors++
+            }
+            Log.i(TAG, "EMIT run=$run mech=$mech n=$n id=${e.id} kind=${e.kind} at_ms=${e.atMs} status=$status send_us=$sendUs idle=${power.isDeviceIdleMode}$note")
+            return status
+        }
+
         try {
             val start = SystemClock.elapsedRealtime()
+            var again: Emission? = null
+            val unanswered = linkedMapOf<Int, Emission>()
             for (n in 1..count) {
                 val wait = start + (n - 1) * intervalMs - SystemClock.elapsedRealtime()
                 if (wait > 0) SystemClock.sleep(wait)
                 val emitNs = SystemClock.elapsedRealtimeNanos()
                 val e = script.event(n, emitNs)
-                val status = try {
-                    emitter?.send(e.json) ?: "error:no_emitter"
-                } catch (t: Throwable) {
-                    "error:${t.javaClass.simpleName}:${t.message}"
-                }.replace(Regex("\\s+"), "_")
-                val sendUs = (SystemClock.elapsedRealtimeNanos() - emitNs) / 1000
-                when (status) {
-                    "accepted", "sent" -> ok++
-                    "refused" -> refused++
-                    else -> errors++
+                if (send(n, e, emitNs) != "accepted") unanswered[n] = e
+                if (n == resend) again = e
+            }
+            // #33, criterion 2: a retry is the same bytes, so the id and at_ms cannot differ.
+            again?.let { send(resend, it, SystemClock.elapsedRealtimeNanos(), " resend=true") }
+            val giveUp = SystemClock.elapsedRealtime() + retryMs
+            while (unanswered.isNotEmpty() && SystemClock.elapsedRealtime() < giveUp) {
+                SystemClock.sleep(1_000)
+                for ((n, e) in unanswered.toList()) {
+                    if (send(n, e, SystemClock.elapsedRealtimeNanos(), " resend=true") == "accepted") unanswered.remove(n)
                 }
-                Log.i(TAG, "EMIT run=$run mech=$mech n=$n id=${e.id} kind=${e.kind} status=$status send_us=$sendUs idle=${power.isDeviceIdleMode}")
             }
         } finally {
             emitter?.close()
             lock.release()
         }
-        Log.i(TAG, "DONE run=$run mech=$mech emitted=$count ok=$ok refused=$refused errors=$errors idle=${power.isDeviceIdleMode}")
+        Log.i(TAG, "DONE run=$run mech=$mech emitted=$emitted ok=$ok refused=$refused errors=$errors idle=${power.isDeviceIdleMode}")
     }
 
     override fun onDestroy() {

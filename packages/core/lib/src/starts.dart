@@ -12,7 +12,8 @@ import 'order.dart';
 /// boat's clearance, and an undo, are each a new event naming the one they
 /// apply to.
 abstract final class StartKinds {
-  /// A fleet's start gun. Its time is the envelope's device timestamp.
+  /// A fleet's start gun. Its time is [firedAt]'s: when race-timer fired it,
+  /// or the device time it was tapped at.
   static const start = 'start';
 
   /// A general recall of a fleet's start: that start no longer anchors
@@ -45,13 +46,32 @@ abstract final class StartKinds {
   /// back. Its `correctsUlid` is the event it undoes.
   static const undo = 'start.undo';
 
+  /// race-timer began a start sequence (#33, ADR 004). It has no manual
+  /// equivalent, and moves no anchor.
+  static const sequenceStart = 'start.sequence_start';
+
+  /// A signal race-timer fired on the way to the gun (#33, ADR 004). It too
+  /// moves no anchor. A kind race-timer adds later is logged as one.
+  static const signal = 'start.signal';
+
   /// The events that make up a fleet's sequence. Each carries its fleet; a
   /// time correction and an undo name the event they apply to, so they
   /// follow it. An individual recall and an OCS name their start, and change
   /// nothing about which start anchors.
   static const sequence = {start, postponement, generalRecall};
 
-  static const all = {start, generalRecall, postponement, timeCorrected, individualRecall, ocs, ocsCleared, undo};
+  static const all = {
+    start,
+    generalRecall,
+    postponement,
+    timeCorrected,
+    individualRecall,
+    ocs,
+    ocsCleared,
+    undo,
+    sequenceStart,
+    signal,
+  };
 }
 
 /// Builds start events. [fleet] is required, and null only on a day run as a
@@ -121,14 +141,34 @@ class FleetRaceState {
   String toString() => 'FleetRaceState(starts: $starts, recalls: $recalls, anchor: $anchorUlid)';
 }
 
+/// When [e] happened on the water, in milliseconds since the epoch: race-timer's
+/// own `at_ms` for what it sent (#33), or the device time it was tapped at.
+/// The two differ by the link's latency, and by far more for an event that
+/// waited to be resent, or that a fix re-logged.
+int firedAt(EventEnvelope e) {
+  final at = e.payload['at_ms'];
+  return at is int ? at : e.deviceTs;
+}
+
+/// Orders [a] before [b] when it happened first on the water ([firedAt]), and
+/// two that fired in the same millisecond in the order they were logged. Not
+/// [happened]: race-timer need not resend in order (ADR 004), so the event
+/// logged last is not always the one that fired last.
+int onTheWater(EventEnvelope a, EventEnvelope b) {
+  final byFired = firedAt(a).compareTo(firedAt(b));
+  return byFired != 0 ? byFired : happened(a, b);
+}
+
 /// [fleet]'s starts, postponements and recalls that have not been undone, in
-/// the order they happened. Another fleet's never enter it.
+/// the order they happened on the water, so a gun race-timer had to resend
+/// still comes before the recall that cancels it. Another fleet's never enter
+/// it.
 List<EventEnvelope> sequenceOf(Iterable<EventEnvelope> events, String? fleet) {
   final undone = undoneBy(events, StartKinds.undo);
   return events
       .where((e) => StartKinds.sequence.contains(e.kind) && fleetOf(e) == fleet && !undone.contains(e.ulid))
       .toList()
-    ..sort(happened);
+    ..sort(onTheWater);
 }
 
 /// [fleet]'s race state. Another fleet's starts and recalls never enter it,
@@ -168,10 +208,10 @@ List<EventEnvelope> _timeFixesOf(Iterable<EventEnvelope> events, EventEnvelope s
 }
 
 /// When [start]'s gun went, in milliseconds since the epoch: its latest time
-/// correction not undone, or else the device time it was tapped at.
+/// correction not undone, or else [firedAt]. A typed time beats race-timer's.
 int gunTime(Iterable<EventEnvelope> events, EventEnvelope start) {
   final fixes = _timeFixesOf(events, start);
-  return fixes.isEmpty ? start.deviceTs : fixes.last.payload['time'] as int;
+  return fixes.isEmpty ? firedAt(start) : fixes.last.payload['time'] as int;
 }
 
 /// The time [fleet]'s elapsed time is measured from - its anchor's
@@ -200,13 +240,15 @@ class OcsEntry {
 }
 
 /// [start]'s events of [kind] that name it in `payload.start` and have not
-/// been undone, in the order they were logged.
+/// been undone, in the order they were logged. A race-timer recall that
+/// arrived before its gun could name none (#33), so it names the sequence.
 List<EventEnvelope> _namingStart(Iterable<EventEnvelope> events, EventEnvelope start, String kind) {
   final undone = undoneBy(events, StartKinds.undo);
-  return events
-      .where((e) => e.kind == kind && e.payload['start'] == start.ulid && !undone.contains(e.ulid))
-      .toList()
-    ..sort(happened);
+  final sequence = start.payload['sequence'];
+  bool names(EventEnvelope e) =>
+      e.payload['start'] == start.ulid ||
+      (e.payload['start'] == null && sequence != null && e.payload['sequence'] == sequence);
+  return events.where((e) => e.kind == kind && names(e) && !undone.contains(e.ulid)).toList()..sort(happened);
 }
 
 /// [ocs]'s clearances that have not been undone, in the order they were made.

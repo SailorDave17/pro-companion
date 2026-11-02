@@ -49,6 +49,12 @@ Widget fleetButton({
 ///
 /// A finish-at-mark screen opens it too (#30), as its own action, with the
 /// fleets already finishing there flagged.
+///
+/// The sequence screen opens it to move a race-timer sequence (#33), with
+/// [offerTakeBack] set: its last row pops [takeBack] rather than a fleet, for a
+/// sequence that should never have counted, such as a rehearsal. Opened from
+/// the card of a race-timer gun, [offerTimeFix] adds a row that pops [fixTime]:
+/// the card is where a gun's time is fixed, and it opens this instead.
 class FleetPickerScreen extends StatelessWidget {
   const FleetPickerScreen({
     super.key,
@@ -57,7 +63,16 @@ class FleetPickerScreen extends StatelessWidget {
     this.title = 'Switch fleet',
     this.actionId = 'fleet-switch',
     this.finishingHere = const {},
+    this.itemScoped = false,
+    this.offerTimeFix = false,
+    this.offerTakeBack = false,
   });
+
+  /// What the take-back row pops. A fleet's id is a ULID, so it cannot be one.
+  static const takeBack = 'take-back';
+
+  /// What the time-fix row pops.
+  static const fixTime = 'fix-time';
 
   final List<Fleet> fleets;
   final String? current;
@@ -68,6 +83,11 @@ class FleetPickerScreen extends StatelessWidget {
 
   /// The fleets a mark boat's station is the finish for (#30).
   final Set<String> finishingHere;
+
+  /// A pick here corrects one item, so it may take a tap more (#33).
+  final bool itemScoped;
+  final bool offerTimeFix;
+  final bool offerTakeBack;
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +118,7 @@ class FleetPickerScreen extends StatelessWidget {
                 child: RaceTimeAction(
                   id: actionId,
                   primary: true,
+                  itemScoped: itemScoped,
                   child: SizedBox(
                     width: double.infinity,
                     height: Bars.minTargetDp + 8,
@@ -108,6 +129,43 @@ class FleetPickerScreen extends StatelessWidget {
                       onPressed: () => Navigator.of(context).pop(f.id),
                       finishingHere: finishingHere.contains(f.id),
                     ),
+                  ),
+                ),
+              ),
+            // The time fix of the gun the card showed: one item, so a tap more
+            // than the card's own, as the owner accepted at #33's review.
+            if (offerTimeFix)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: RaceTimeAction(
+                  id: 'fix-gun-time',
+                  primary: true,
+                  itemScoped: true,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: Bars.minTargetDp + 8,
+                    child: fleetButton(
+                      key: const ValueKey('pick-fix-time'),
+                      current: false,
+                      label: 'FIX THE GUN TIME',
+                      onPressed: () => Navigator.of(context).pop(fixTime),
+                    ),
+                  ),
+                ),
+              ),
+            if (offerTakeBack)
+              RaceTimeAction(
+                id: actionId,
+                primary: true,
+                itemScoped: itemScoped,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: Bars.minTargetDp + 8,
+                  child: fleetButton(
+                    key: const ValueKey('pick-take-back'),
+                    current: false,
+                    label: 'NO FLEET · TAKE IT BACK',
+                    onPressed: () => Navigator.of(context).pop(takeBack),
                   ),
                 ),
               ),

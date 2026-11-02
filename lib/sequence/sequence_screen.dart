@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,12 +14,24 @@ import '../ui/digit_keypad.dart';
 import '../ui/fit_label.dart';
 import '../ui/race_time.dart';
 import '../ui/sunlight.dart';
+import 'link_banner.dart';
 import 'ocs_panel.dart';
+
+/// How long a race-timer gun can reach the phone after it fired before the
+/// card says when it arrived. Normally it is milliseconds.
+const _lateAfterMs = 2000;
 
 /// The sequence card (#25): the selected fleet's start, logged by hand when
 /// race-timer is not running. That is ADR 001's fallback, marked
 /// `source: manual` so a protest committee can tell a hand-tapped gun from
 /// race-timer's.
+///
+/// With race-timer running, its signals land in the log by themselves (#33).
+/// The core has no way to tell a screen, so the card re-reads the log every
+/// few seconds, as the shore chip does. A banner says when nothing has come
+/// from race-timer for ten minutes, and the manual controls stay where they
+/// are. The fleet selected here is the fleet the next sequence arms to, and
+/// UNDO, then a fleet, moves a sequence that landed on the wrong one.
 ///
 /// Laid out like the finish screen (owner's choice, 2026-09-25): the fleet
 /// row under the title, GUN anchored big at the bottom where it never moves,
@@ -31,13 +44,23 @@ import 'ocs_panel.dart';
 /// against the start, and OCS opens [OcsPanel] in the card's place, where each
 /// boat over is logged by her sail number and cleared when she comes back.
 class SequenceScreen extends StatefulWidget {
-  const SequenceScreen({super.key, required this.core, required this.confirmation, this.clock = systemClock});
+  const SequenceScreen({
+    super.key,
+    required this.core,
+    required this.confirmation,
+    this.clock = systemClock,
+    this.every = const Duration(seconds: 5),
+  });
 
   final CoreClient core;
   final ConfirmationService confirmation;
 
-  /// The phone's clock: a gun's typed time may not be later than now.
+  /// The phone's clock: a gun's typed time may not be later than now, and the
+  /// link's quiet time is counted on it.
   final int Function() clock;
+
+  /// How often the log is read for what race-timer sent.
+  final Duration every;
 
   @override
   State<SequenceScreen> createState() => _SequenceScreenState();
@@ -45,9 +68,18 @@ class SequenceScreen extends StatefulWidget {
 
 class _SequenceScreenState extends State<SequenceScreen> {
   final _events = <EventEnvelope>[];
+
+  /// Every event held, since a read and an append can each bring the same one.
+  final _held = <String>{};
   bool _loaded = false;
   bool _failed = false;
   String? _deviceId;
+
+  /// Whether race-timer has reached this phone lately, as of the last read.
+  bool _linkUp = false;
+  Timer? _timer;
+  bool _reading = false;
+  bool _current = true;
 
   /// The gun whose time is being typed, or null while the keypad is shut.
   String? _fixing;
@@ -70,18 +102,88 @@ class _SequenceScreenState extends State<SequenceScreen> {
   @override
   void initState() {
     super.initState();
-    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
-      if (!mounted) return;
-      setState(() {
-        // Finishes too: their sail numbers are the boats the OCS panel knows.
-        _events.addAll((r[0] as List<EventEnvelope>).where((e) =>
-            StartKinds.all.contains(e.kind) || FleetKinds.all.contains(e.kind) || FinishKinds.all.contains(e.kind)));
-        _deviceId = r[1] as String;
-        _loaded = true;
-      });
-    }, onError: (Object _) {
+    _firstRead().catchError((Object _) {
       if (mounted) setState(() => _failed = true);
     });
+    _timer = Timer.periodic(widget.every, (_) {
+      if (_current) _readLog();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    // Back on top: what arrived behind the screen it opened is read now.
+    if (current && !_current) _readLog();
+    _current = current;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  /// Takes in what this screen reads, and returns whether any of it is new.
+  /// Finishes too: their sail numbers are the boats the OCS panel knows.
+  bool _hold(Iterable<EventEnvelope> events) {
+    var fresh = false;
+    for (final e in events) {
+      final shown = StartKinds.all.contains(e.kind) || FleetKinds.all.contains(e.kind) || FinishKinds.all.contains(e.kind);
+      if (shown && _held.add(e.ulid)) {
+        _events.add(e);
+        fresh = true;
+      }
+    }
+    return fresh;
+  }
+
+  bool _linkIsUp() {
+    final deviceId = _deviceId;
+    return deviceId != null && linkActive(_events, deviceId: deviceId, now: widget.clock());
+  }
+
+  Future<void> _firstRead() async {
+    final r = await Future.wait([widget.core.readOwn(), widget.core.deviceId()]);
+    if (!mounted) return;
+    setState(() {
+      _hold(r[0] as List<EventEnvelope>);
+      _deviceId = r[1] as String;
+      _loaded = true;
+      _linkUp = _linkIsUp();
+    });
+  }
+
+  /// What race-timer sent since the last read. It was confirmed when the core
+  /// stored it, with this screen shut or open, so nothing fires here. A failed
+  /// read leaves the card as it was and says nothing: "Not logged" means a tap
+  /// that did not land. The one exception is the screen's first read, which
+  /// the timer retries until it lands, since the card has nothing to show
+  /// until then, and that clears what the failure raised.
+  Future<void> _readLog() async {
+    if (_reading) return;
+    _reading = true;
+    try {
+      if (!_loaded) {
+        await _firstRead();
+        if (mounted && _loaded) setState(() => _failed = false);
+        return;
+      }
+      final own = await widget.core.readOwn();
+      if (!mounted) return;
+      final fresh = _hold(own);
+      final linkUp = _linkIsUp();
+      if (fresh || linkUp != _linkUp) {
+        setState(() {
+          _linkUp = linkUp;
+        });
+      }
+    } catch (_) {
+      // The next tick tries again.
+    } finally {
+      _reading = false;
+    }
   }
 
   /// The fleet this phone is starting, or null on a single-fleet day.
@@ -109,14 +211,56 @@ class _SequenceScreenState extends State<SequenceScreen> {
     try {
       final stored = await widget.confirmation.confirm(() => widget.core.append(event));
       if (!mounted) return;
-      setState(() {
-        _events.add(stored);
+      _appended([stored]);
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  void _appended(List<EventEnvelope> stored) => setState(() {
+        _hold(stored);
         _failed = false;
         _fixing = null;
         _digits = '';
         _sailDigits = '';
         _ocsSelected = null;
       });
+
+  /// UNDO, or the card, on a race-timer sequence: the first tap opens the
+  /// fleets and writes nothing, so Back is a true cancel, and the pick does
+  /// everything in one commit, with one confirmation (owner decisions on #33).
+  /// The core works it out from the log at that moment, so signals that arrive
+  /// behind the picker move too. Picking the fleet it is on logs nothing. From
+  /// the card, [gun] is the race-timer gun it shows, and the picker offers its
+  /// time fix too, since the card is where that lives.
+  Future<void> _fixSequence(EventEnvelope event, List<Fleet> all, String? fleet, {EventEnvelope? gun}) async {
+    final sequence = event.payload[linkSequenceKey] as String;
+    final chosen = await Navigator.of(context).push<String>(MaterialPageRoute(
+      builder: (_) => FleetPickerScreen(
+        fleets: all,
+        current: fleet,
+        title: 'Right fleet',
+        actionId: 'sequence-fleet',
+        itemScoped: true,
+        offerTimeFix: gun != null,
+        offerTakeBack: true,
+      ),
+    ));
+    if (chosen == FleetPickerScreen.fixTime) {
+      if (mounted && gun != null) {
+        setState(() {
+          _fixing = gun.ulid;
+          _digits = '';
+        });
+      }
+      return;
+    }
+    if (chosen == null || chosen == fleet || !mounted) return;
+    try {
+      final stored = await widget.confirmation.confirm(() => chosen == FleetPickerScreen.takeBack
+          ? widget.core.takeBackSequence(sequence)
+          : widget.core.relogSequence(sequence, chosen));
+      if (mounted) _appended(stored);
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
@@ -193,7 +337,7 @@ class _SequenceScreenState extends State<SequenceScreen> {
     final m = int.parse(_digits.substring(2, 4));
     final s = int.parse(_digits.substring(4, 6));
     if (h > 23 || m > 59 || s > 59) return (time: null, problem: 'not a time');
-    final day = DateTime.fromMillisecondsSinceEpoch(gun.deviceTs);
+    final day = DateTime.fromMillisecondsSinceEpoch(firedAt(gun));
     final time = DateTime(day.year, day.month, day.day, h, m, s).millisecondsSinceEpoch;
     if (time > widget.clock()) return (time: null, problem: 'later than now');
     return (time: time, problem: null);
@@ -202,10 +346,12 @@ class _SequenceScreenState extends State<SequenceScreen> {
   Widget _keypad(EventEnvelope gun) {
     final typed = _typedTime(gun);
     final now = gunTime(_events, gun);
+    final fired = firedAt(gun);
+    final origin = gun.source == raceTimerSource ? 'race-timer' : 'tapped';
     return DigitKeypad(
-      title: now == gun.deviceTs
-          ? 'Fix gun · tapped ${clockText(gun.deviceTs)}'
-          : 'Fix gun ${clockText(now)} · tapped ${clockText(gun.deviceTs)}',
+      title: now == fired
+          ? 'Fix gun · $origin ${clockText(fired)}'
+          : 'Fix gun ${clockText(now)} · $origin ${clockText(fired)}',
       display: typed.problem == null ? _typedClock() : '${_typedClock()} · ${typed.problem}',
       onDigit: (d) => setState(() {
         if (_digits.length < 6) _digits += d;
@@ -217,6 +363,17 @@ class _SequenceScreenState extends State<SequenceScreen> {
       }),
       onSave: typed.time == null ? null : () => _append(StartEvents.correctTime(gun.ulid, time: typed.time!)),
     );
+  }
+
+  /// The name race-timer gave [event]'s sequence, or null.
+  String? _sequenceName(EventEnvelope event) {
+    for (final e in _events) {
+      if (e.kind == StartKinds.sequenceStart && e.payload[linkSequenceKey] == event.payload[linkSequenceKey]) {
+        final name = (e.payload[linkFieldsKey] as Map)['sequence_name'];
+        if (name is String) return name;
+      }
+    }
+    return null;
   }
 
   /// UNDO LAST's label for [target], the event it would take back.
@@ -249,6 +406,8 @@ class _SequenceScreenState extends State<SequenceScreen> {
     final ocsFor = anchor != null && anchor.ulid == _ocsFor ? anchor : null;
     final stillOver = anchor == null ? 0 : ocsAt(_events, anchor).where((o) => !o.cleared).length;
     final height = MediaQuery.sizeOf(context).height;
+    // Only once the log is read, or a phone mid-sequence flashes it on opening.
+    final showBanner = _loaded && !_linkUp;
 
     // UNDO LAST takes back whichever came last: this fleet's last sequence
     // event, or the switch that made it this fleet - as on the finish screen.
@@ -261,6 +420,42 @@ class _SequenceScreenState extends State<SequenceScreen> {
             ? null
             : StartEvents.undo(lastStart.ulid);
     final undoLabel = undoSwitch ? 'UNDO SWITCH (${fleetName ?? 'fleet'})' : _undoLabel(lastStart);
+
+    // UNDO on a race-timer event takes in its whole sequence, because what is
+    // wrong with it is its fleet (#33). With no fleets, nothing can be
+    // misattributed, so UNDO goes on taking back one event at a time. The
+    // PRO's own tap on this card is undone first, but the switch here is not:
+    // a wrong fleet is often noticed after the phone has moved on, so a fleet
+    // holding a sequence offers its fix, and a mis-tapped switch is undone
+    // from the fleet row (owner decision on #33).
+    // By when each fired, not when each arrived: a backlog race-timer resent
+    // out of order must not put an earlier race back (#33's review).
+    final lastLink = lastRaceTimerEvent(_events, fleet: fleet);
+    final fixable =
+        allFleets.isNotEmpty && lastLink != null && (lastStart == null || onTheWater(lastLink, lastStart) >= 0)
+            ? lastLink
+            : null;
+    // A countdown under way. Its gun is still to come, so the anchor still
+    // standing is the last race's, and it is not what the card should offer.
+    // One race-timer stopped sending partway through is over once the link
+    // goes quiet: nothing on a day with no fleets could otherwise end it.
+    final running = _linkUp &&
+            lastLink != null &&
+            (lastLink.kind == StartKinds.sequenceStart || lastLink.kind == StartKinds.signal) &&
+            (latest == null || onTheWater(lastLink, latest) > 0) &&
+            (anchor == null || anchor.payload[linkSequenceKey] != lastLink.payload[linkSequenceKey])
+        ? lastLink
+        : null;
+    // What the card shows came from race-timer: on a day with fleets, the card
+    // opens the right-fleet picker, with the gun's time fix as one of its rows,
+    // so a sequence on the wrong fleet is two taps from the card whatever was
+    // tapped since. UNDO still takes back one tap at a time (owner decision at
+    // #33's review).
+    final shown = running ?? anchor ?? latest;
+    final cardLink =
+        allFleets.isNotEmpty && shown != null && shown.source == raceTimerSource && shown.payload[linkSequenceKey] is String
+            ? shown
+            : null;
 
     return Scaffold(
       // Nothing here is typed with the system keyboard, as on FINISHES: back
@@ -323,18 +518,34 @@ class _SequenceScreenState extends State<SequenceScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  _StartCard(
-                                    anchor: anchor,
-                                    anchorAt: anchor == null ? null : gunTime(_events, anchor),
-                                    latest: latest,
-                                    individualRecall:
-                                        anchor != null && individualRecallsOf(_events, anchor).isNotEmpty,
-                                    onFix: anchor == null
-                                        ? null
-                                        : () => setState(() {
-                                              _fixing = anchor.ulid;
-                                              _digits = '';
-                                            }),
+                                  // One child of one height whether the banner
+                                  // shows or not: this Column spaces its children
+                                  // out, so an extra one would move every row.
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (showBanner) const LinkBanner(),
+                                      _StartCard(
+                                        height: _StartCard.fullHeight - (showBanner ? LinkBanner.height : 0),
+                                        anchor: anchor,
+                                        anchorAt: anchor == null ? null : gunTime(_events, anchor),
+                                        latest: latest,
+                                        running: running,
+                                        sequenceName: running == null ? null : _sequenceName(running),
+                                        individualRecall:
+                                            anchor != null && individualRecallsOf(_events, anchor).isNotEmpty,
+                                        onFix: anchor == null || running != null || cardLink != null
+                                            ? null
+                                            : () => setState(() {
+                                                  _fixing = anchor.ulid;
+                                                  _digits = '';
+                                                }),
+                                        onFleet: cardLink == null
+                                            ? null
+                                            : () => _fixSequence(cardLink, allFleets, fleet,
+                                                gun: cardLink == anchor ? anchor : null),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 12),
                                   Row(
@@ -371,7 +582,9 @@ class _SequenceScreenState extends State<SequenceScreen> {
                                   const SizedBox(height: 8),
                                   // Both need a gun to name, so neither does
                                   // anything before the first or after a
-                                  // general recall (#29).
+                                  // general recall (#29), or during a
+                                  // countdown, when the gun still anchoring
+                                  // is the last race's (#33).
                                   Row(
                                     children: [
                                       Expanded(
@@ -380,7 +593,7 @@ class _SequenceScreenState extends State<SequenceScreen> {
                                           child: SizedBox(
                                             height: Bars.minTargetDp + 8,
                                             child: OutlinedButton(
-                                              onPressed: anchor == null
+                                              onPressed: anchor == null || running != null
                                                   ? null
                                                   : () => _append(StartEvents.individualRecall(anchor.ulid,
                                                       fleet: fleet, source: 'manual')),
@@ -396,7 +609,8 @@ class _SequenceScreenState extends State<SequenceScreen> {
                                           child: SizedBox(
                                             height: Bars.minTargetDp + 8,
                                             child: OutlinedButton(
-                                              onPressed: anchor == null ? null : () => _openOcs(anchor),
+                                              onPressed:
+                                                  anchor == null || running != null ? null : () => _openOcs(anchor),
                                               child: FitLabel(stillOver == 0 ? 'OCS' : 'OCS · $stillOver'),
                                             ),
                                           ),
@@ -437,8 +651,16 @@ class _SequenceScreenState extends State<SequenceScreen> {
                   width: double.infinity,
                   height: Bars.minTargetDp,
                   child: ElevatedButton(
-                    onPressed: undo == null ? null : () => _append(undo),
-                    child: FitLabel(undoLabel),
+                    onPressed: fixable != null
+                        ? () => _fixSequence(fixable, allFleets, fleet)
+                        : undo == null
+                            ? null
+                            : () => _append(undo),
+                    child: FitLabel(fixable == null
+                        ? undoLabel
+                        : fleetName == null
+                            ? 'UNDO SEQUENCE'
+                            : 'UNDO SEQUENCE ($fleetName)'),
                   ),
                 ),
               ),
@@ -470,16 +692,28 @@ class _SequenceScreenState extends State<SequenceScreen> {
 
 /// What the selected fleet's start stands at: the gun that anchors its
 /// elapsed time, or why there is none. With a gun, the card is the way to fix
-/// its time, so it is a button; without one there is nothing to fix.
+/// its time, so it is a button; without one there is nothing to fix. What
+/// race-timer sent can also be on the wrong fleet, so on a day with fleets its
+/// card opens the right-fleet picker, gun or not, and the time fix is a row
+/// there (#33).
 class _StartCard extends StatelessWidget {
   const _StartCard({
+    required this.height,
     required this.anchor,
     required this.anchorAt,
     required this.latest,
+    required this.running,
+    required this.sequenceName,
     required this.individualRecall,
     required this.onFix,
+    required this.onFleet,
   });
 
+  static const fullHeight = Bars.minTargetDp + 32;
+
+  /// [fullHeight], less what the link banner above it takes, so that the
+  /// buttons below stay where they are when the banner comes and goes.
+  final double height;
   final EventEnvelope? anchor;
 
   /// The anchor's gun time, corrected if it has been.
@@ -488,27 +722,67 @@ class _StartCard extends StatelessWidget {
   /// The fleet's latest sequence event, not undone.
   final EventEnvelope? latest;
 
+  /// race-timer's latest signal of a sequence with no gun yet, the fleet it is
+  /// counting down for (#33): the card's only sign, before the gun, that a
+  /// sequence landed on the wrong fleet.
+  final EventEnvelope? running;
+
+  /// [running]'s sequence, as race-timer named it.
+  final String? sequenceName;
+
   /// True once an individual recall of the anchor is logged (#29).
   final bool individualRecall;
   final VoidCallback? onFix;
 
+  /// Opens the right-fleet picker, when what the card shows came from
+  /// race-timer on a day with fleets. The picker holds the gun's time fix, so
+  /// the card is then not the `fix-gun-time` action itself.
+  final VoidCallback? onFleet;
+
+  /// Where [gun]'s time came from, and how it reached the phone. A gun's time
+  /// is its own: race-timer's or a tap's, unless typed over. Every race-timer
+  /// gun reaches the phone a little after it fired, so that is said only when
+  /// it was late, and the word `race-timer` is always there for a protest.
+  List<String> _gunOrigin(EventEnvelope gun) {
+    final fired = firedAt(gun);
+    if (gun.source != raceTimerSource) return [if (anchorAt != fired) 'tapped ${clockText(fired)}'];
+    final received = gun.payload[linkReceivedKey];
+    return [
+      anchorAt == fired ? 'race-timer' : 'race-timer ${clockText(fired)}',
+      if (received is int && received - fired >= _lateAfterMs) 'received ${clockText(received)}',
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final last = latest;
+    final signal = running;
+    // The headline and this line shrink together to fit, so a longer line
+    // makes the time a PRO reads in glare smaller. Only a gun's card says it
+    // fixes the fleet, in fewer words than it had: before the gun, after a
+    // recall and while postponed, UNDO names the fix too (#33's review).
     final (String headline, String detail) = switch (anchor) {
+      _ when signal != null => (
+          sequenceName == null ? 'SEQUENCE' : 'SEQUENCE $sequenceName',
+          [
+            'race-timer',
+            if ((signal.payload[linkFieldsKey] as Map)['signal'] case final String name) name,
+            clockText(firedAt(signal)),
+          ].join(' · '),
+        ),
       final EventEnvelope gun => (
           'GUN ${clockText(anchorAt!)}',
           [
-            if (anchorAt != gun.deviceTs) 'tapped ${clockText(gun.deviceTs)}',
-            if (last != null && last.kind == StartKinds.postponement) 'postponed ${clockText(last.deviceTs)}',
+            ..._gunOrigin(gun),
+            if (last != null && last.kind == StartKinds.postponement) 'postponed ${clockText(firedAt(last))}',
             if (individualRecall) 'individual recall',
-            'tap to fix the time',
+            onFleet != null ? 'fix fleet or time' : 'tap to fix the time',
           ].join(' · '),
         ),
       null when last == null => ('NO GUN', 'tap GUN at the start signal'),
-      null when last.kind == StartKinds.postponement => ('POSTPONED', 'at ${clockText(last.deviceTs)}'),
+      null when last.kind == StartKinds.postponement => ('POSTPONED', 'at ${clockText(firedAt(last))}'),
       // With no anchor, the latest event is a general recall.
-      null => ('GENERAL RECALL', 'at ${clockText(last.deviceTs)} · waiting for the next gun'),
+      null => ('GENERAL RECALL', 'at ${clockText(firedAt(last))} · waiting for the next gun'),
     };
     final text = FittedBox(
       fit: BoxFit.scaleDown,
@@ -521,13 +795,27 @@ class _StartCard extends StatelessWidget {
         ],
       ),
     );
-    const height = Bars.minTargetDp + 32;
+    // With the banner up the card has 64 dp, and its usual padding would shrink
+    // what it says, which is what a PRO reads in glare, by a third.
+    final vertical = height < fullHeight ? 2.0 : 8.0;
+    final style = ButtonStyle(
+      alignment: Alignment.centerLeft,
+      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: vertical)),
+    );
+    // Not a race-time action: it opens the picker, whose rows are.
+    if (onFleet != null) {
+      return SizedBox(
+        width: double.infinity,
+        height: height,
+        child: OutlinedButton(key: const ValueKey('start-card'), onPressed: onFleet, style: style, child: text),
+      );
+    }
     if (onFix == null) {
       return Container(
         key: const ValueKey('start-card'),
         width: double.infinity,
         height: height,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: vertical),
         alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
           border: Border.all(color: SunlightTokens.mutedText, width: 2),
@@ -541,15 +829,7 @@ class _StartCard extends StatelessWidget {
       child: SizedBox(
         width: double.infinity,
         height: height,
-        child: OutlinedButton(
-          key: const ValueKey('start-card'),
-          onPressed: onFix,
-          style: const ButtonStyle(
-            alignment: Alignment.centerLeft,
-            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-          ),
-          child: text,
-        ),
+        child: OutlinedButton(key: const ValueKey('start-card'), onPressed: onFix, style: style, child: text),
       ),
     );
   }

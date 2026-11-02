@@ -6,6 +6,7 @@
 - Enforced by: `android/app/build.gradle.kts` (the signing config and `checkReleaseSigning`),
   `scripts/check_release_signing.sh` (run by the CI job `release-signing`), and
   `test/no_secrets_in_tree_test.dart`, which fails if a keystore or `key.properties` is ever tracked.
+  The link's pins too (#33): `test/link_pins_doc_test.dart`, and the same script's `check_link`.
 
 ## Why a release build, and why one key
 
@@ -41,6 +42,11 @@ keystore (as `85:78:EB:…`). race-timer pins it to trust the companion: pro-com
 table "race-timer trusts the companion" carries the same value, and
 `test/field_key_doc_test.dart` fails if the two ever disagree. A new key changes both, and every
 phone then has to uninstall first.
+
+The reverse holds too (#33). A release build trusts only race-timer's Play app-signing key and its
+upload key, compiled in from `android/app/build.gradle.kts`, so a new race-timer key needs a new
+companion build. A debug build can take more with `-PlinkDebugCerts`, and a release build cannot:
+`scripts/check_release_signing.sh` holds its APK to exactly those two.
 
 ## Make the key (once)
 

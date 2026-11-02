@@ -469,6 +469,76 @@ void main() {
     });
   });
 
+  group("#33: a gun's time is race-timer's when race-timer sent it", () {
+    /// One event from race-timer, fired at [firedMs] and received now.
+    void linked(String kind, String id, int firedMs) {
+      final text = jsonEncode({'v': 1, 'id': id, 'kind': kind, 'at_ms': firedMs, 'sequence': 'seq-1'});
+      expect(store.receiveLink(text, receivedMs: now).stored, isTrue);
+      now += 1000;
+    }
+
+    EventEnvelope gun() => log().singleWhere((e) => e.kind == StartKinds.start);
+
+    test('gunTime reads at_ms, not the receipt', () {
+      final fired = now - 2500;
+      linked(LinkContract.start, 'evt-1', fired);
+      expect(gun().deviceTs, isNot(fired));
+      expect(firedAt(gun()), fired);
+      expect(gunTime(log(), gun()), fired);
+      expect(anchorTime(log(), null), fired);
+    });
+
+    test('a manual gun has no at_ms and reads its device time, as it always did', () {
+      final tapped = at(StartEvents.start(fleet: null, source: 'manual'));
+      expect(firedAt(tapped), tapped.deviceTs);
+      expect(gunTime(log(), tapped), tapped.deviceTs);
+    });
+
+    test('a time fix beats it, and undoing the fix goes back to race-timer\'s time, not the receipt', () {
+      final fired = now - 2500;
+      linked(LinkContract.start, 'evt-1', fired);
+      final fix = at(StartEvents.correctTime(gun().ulid, time: fired - 1000));
+      expect(gunTime(log(), gun()), fired - 1000);
+      expect(firedAt(gun()), fired, reason: 'the fix corrects the gun, and what race-timer said is kept');
+      at(StartEvents.undo(fix.ulid));
+      expect(gunTime(log(), gun()), fired);
+    });
+
+    test('a gun race-timer had to resend sorts before the recall that cancelled it', () {
+      final fired = now;
+      linked(LinkContract.generalRecall, 'evt-2', fired + 60000);
+      linked(LinkContract.start, 'evt-1', fired);
+
+      expect(sequenceOf(log(), null).map((e) => e.kind), [StartKinds.start, StartKinds.generalRecall]);
+      expect(elapsedAnchor(log(), null), isNull, reason: 'by arrival the gun would be anchoring a recalled start');
+      expect(raceState(log(), null).recalls, 1);
+    });
+
+    test('a race-timer event and a manual one sort by when each happened', () {
+      final fired = now + 3000;
+      final manual = at(StartEvents.postponement(fleet: null, source: 'manual'));
+      linked(LinkContract.start, 'evt-1', manual.deviceTs - 1);
+      linked(LinkContract.postponement, 'evt-2', fired + 60000);
+      expect(sequenceOf(log(), null).map((e) => (e.kind, e.source)), [
+        (StartKinds.start, 'race-timer'),
+        (StartKinds.postponement, 'manual'),
+        (StartKinds.postponement, 'race-timer'),
+      ]);
+    });
+
+    test('manual events keep their old order: device time, and within a millisecond the order they were tapped', () {
+      final ap = store.append(StartEvents.postponement(fleet: null, source: 'manual'));
+      final gun = store.append(StartEvents.start(fleet: null, source: 'manual'));
+      final recall = store.append(StartEvents.generalRecall(fleet: null, source: 'manual'));
+      now -= 5000; // a clock set back: the device time still decides
+      final earlier = store.append(StartEvents.postponement(fleet: null, source: 'manual'));
+      // Reversed: the log is read in tap order already, and a stable sort
+      // would keep it without the tie-break, so this could not fail
+      // (a-fixture-cannot-tell-a-sort-from-its-tie-break, #33's review).
+      expect(sequenceOf(log().reversed, null).map((e) => e.ulid), [earlier.ulid, ap.ulid, gun.ulid, recall.ulid]);
+    });
+  });
+
   group('#18 criterion 2, the start half: after a switch, start and sequence events carry that fleet', () {
     test('three fleets, switched between: each gun, postponement and recall carries the fleet selected then', () {
       final ids = [for (final n in ['Lasers', '420s', 'Optis']) fleet(n)];

@@ -1,0 +1,49 @@
+{
+  "format": "pro-companion-running-order-vector/1",
+  "name": "i-a-gun-time-from-race-timer",
+  "criterion": "#68 criterion 1, #33",
+  "now": 1792844400000,
+  "events": [
+    {"ulid": "01K09000000000000000000001", "device_id": "01K0PR0PH0NE00000000000000", "seq": 1, "device_ts": 1792843200000, "kind": "fleet.defined", "payload": {"name": "Lasers", "class": null}},
+    {"ulid": "01K09000000000000000000002", "device_id": "01K0PR0PH0NE00000000000000", "seq": 2, "device_ts": 1792843201000, "kind": "fleet.defined", "payload": {"name": "420s", "class": null}},
+    {"ulid": "01K09000000000000000000003", "device_id": "01K0MARK1PH0NE000000000001", "seq": 1, "device_ts": 1792843230000, "kind": "station.selected", "payload": {"mark": "mark_1"}},
+    {"ulid": "01K09000000000000000000004", "device_id": "01K0MARK1PH0NE000000000001", "seq": 2, "device_ts": 1792843290000, "kind": "rounding", "payload": {"fleet": "01K09000000000000000000002", "sail": "300", "mark": "mark_1", "race": null, "lap": 1}},
+    {"ulid": "01K09000000000000000000005", "device_id": "01K0PR0PH0NE00000000000000", "seq": 3, "device_ts": 1792843320180, "kind": "start", "payload": {"fleet": "01K09000000000000000000001", "at_ms": 1792843320000, "sequence": "seq-1"}},
+    {"ulid": "01K09000000000000000000006", "device_id": "01K0MARK1PH0NE000000000001", "seq": 3, "device_ts": 1792843500000, "kind": "rounding", "payload": {"fleet": "01K09000000000000000000002", "sail": "51", "mark": "mark_1", "race": null, "lap": 1}},
+    {"ulid": "01K09000000000000000000007", "device_id": "01K0PR0PH0NE00000000000000", "seq": 4, "device_ts": 1792843680000, "kind": "start.undo", "corrects_ulid": "01K09000000000000000000005", "payload": {}},
+    {"ulid": "01K09000000000000000000008", "device_id": "01K0PR0PH0NE00000000000000", "seq": 5, "device_ts": 1792843680000, "kind": "start", "payload": {"fleet": "01K09000000000000000000002", "at_ms": 1792843320000, "sequence": "seq-1", "relogged_from": "01K09000000000000000000005"}},
+    {"ulid": "01K09000000000000000000009", "device_id": "01K0MARK1PH0NE000000000001", "seq": 4, "device_ts": 1792843800000, "kind": "rounding", "payload": {"fleet": "01K09000000000000000000002", "sail": "9", "mark": "mark_1", "race": null, "lap": 1}}
+  ],
+  "expected": [
+    {
+      "fleet": "01K09000000000000000000001",
+      "race": null,
+      "order": [],
+      "unnamed": 0,
+      "waiting": ["mark_1"],
+      "clocks_unmatched": false
+    },
+    {
+      "fleet": "01K09000000000000000000002",
+      "race": "01K09000000000000000000008",
+      "order": [
+        {"sail": "51", "roundings": 1, "mark": "mark_1"},
+        {"sail": "9", "roundings": 1, "mark": "mark_1"}
+      ],
+      "unnamed": 0,
+      "waiting": [],
+      "clocks_unmatched": false
+    }
+  ],
+  "working": [
+    "Two fleets, in the order defined: Lasers (event 1), then 420s (event 2).",
+    "race-timer's gun (event 5) fired at 12:02:00.000 by its at_ms, and reached the PRO's phone at 12:02:00.180, its device_ts. It landed on Lasers, the wrong fleet.",
+    "At 12:08:00 the PRO moved it to the 420s: event 7 undoes event 5, and event 8 is its copy on the 420s. The copy's device_ts is 12:08:00, when the fix was made, and its at_ms is still 12:02:00.000.",
+    "Lasers: its only gun, event 5, is undone, so it has no race and reads the race of the day. No rounding names Lasers, so its order is empty.",
+    "Lasers: mark_1 is stationed today (event 3, the mark phone's latest station pick, not undone; its role picks are not in the log) and holds no Lasers rounding, so it is waiting.",
+    "420s: its latest gun not undone is event 8, today. Its time is its at_ms, 12:02:00.000: no time fix names it. Not its device_ts, 12:08:00.",
+    "420s: event 4 names no race and was tapped at 12:01:30, before 12:02:00, so it is out. Event 6 names none and was tapped at 12:05:00, after 12:02:00, so it is in. Event 9, at 12:10:00, is in.",
+    "An implementation that reads the copy's device_ts would put the gun at 12:08:00 and leave event 6 out. That is what this vector catches.",
+    "420s: 51 (seq 3) and 9 (seq 4), each with 1 rounding, on one phone, so in the order that phone logged them. mark_1 holds both, so the 420s are not waiting for it. No rounding names no fleet, so there is no third order."
+  ]
+}

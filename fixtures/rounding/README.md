@@ -29,6 +29,10 @@ Owner decisions at #68's pickup, 2026-10-27.
    day. A rounding stamped with a gun (`payload.race`) is in that gun's race only. One stamped with
    none was tapped on a phone that knew no gun. It is in the race of the day it was tapped on, and,
    once a gun is known, in that gun's race when its `device_ts` is at or after the gun's time.
+   A gun's time is its latest time fix not undone, else its `payload.at_ms`, which race-timer sets
+   to when it fired and a fix's copy keeps (#33), else its `device_ts`. A fix's copy is logged
+   when the fix is made, often minutes after the gun, so `i-a-gun-time-from-race-timer` holds a
+   rounding between the two.
 2. **The boat.** A rounding counts for the latest sail number a `rounding.sail` names for it
    (`corrects_ulid`), else the one it was tapped with. A rounding nobody has named counts for no
    boat, and is counted as `unnamed`. A rounding a `rounding.undo` names counts for nothing.
@@ -82,3 +86,4 @@ Owner decisions at #68's pickup, 2026-10-27.
 | `f-a-gate-in-satellite-time` | 1 | a gate's two phones put in order through their clock offsets, against their raw clocks |
 | `g-a-gate-on-unmatched-clocks` | 1 | one phone with no offset measured: raw clocks, and `clocks_unmatched` |
 | `h-a-clock-set-back-on-one-phone` | 1, 4 | one phone's tap order across its clock set back; yesterday's station is not waiting |
+| `i-a-gun-time-from-race-timer` | 1 | a race-timer gun moved to the right fleet: its time is its `at_ms`, not its copy's `device_ts`, so a rounding between the two is in the race |

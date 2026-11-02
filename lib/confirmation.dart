@@ -14,8 +14,8 @@ abstract interface class ConfirmationDevice {
   Future<void> tone(BeepStream stream);
 }
 
-/// The real buzzer and speaker, through MainActivity's `pro_companion/confirm`
-/// channel.
+/// The real buzzer and speaker, through the `pro_companion/confirm` channel:
+/// MainActivity's in the UI engine, CoreService's in the core host's (#33).
 class PlatformConfirmationDevice implements ConfirmationDevice {
   const PlatformConfirmationDevice();
 
@@ -41,11 +41,18 @@ class ConfirmationService {
   /// returns its result; when it fails, fires nothing and rethrows.
   Future<T> confirm<T>(Future<T> Function() append) async {
     final result = await append();
+    fire();
+    return result;
+  }
+
+  /// One vibration and one tone, for a caller that has worked out for itself
+  /// that something was committed: a retry from race-timer completes without
+  /// storing anything, and must not buzz (#33 criterion 8).
+  void fire() {
     // A buzzer that fails must not turn a logged finish into an error: the
     // event is committed, and that is what the screen shows.
     unawaited(_quietly(_device.vibrate));
     unawaited(_quietly(() => _device.tone(beepStream)));
-    return result;
   }
 
   static Future<void> _quietly(Future<void> Function() f) async {

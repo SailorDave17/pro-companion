@@ -306,6 +306,78 @@ void main() {
     }, skip: DateTime(2026, 10, 25).timeZoneOffset == Duration.zero ? 'local time is UTC here' : false);
   });
 
+  group('#33: a race-timer gun joins and times a race by its own time, not its receipt', () {
+    /// A race-timer gun on [phone], fired at [firedMs] and received at the phone's clock now.
+    EventEnvelope linkedGun(_Phone phone, int firedMs) {
+      final text = jsonEncode({'v': 1, 'id': 'evt-1', 'kind': 'start', 'at_ms': firedMs, 'sequence': 'seq-1'});
+      expect(phone.store.receiveLink(text, receivedMs: phone.clock).stored, isTrue);
+      return phone.store.readAll().singleWhere((e) => e.kind == StartKinds.start);
+    }
+
+    test('a gun fired before midnight and received after it is last night\'s: a finish now joins the new day', () {
+      final midnight = DateTime(2026, 10, 25).millisecondsSinceEpoch;
+      water.now = midnight + 3000;
+      final pro = _Phone(water, skewMs: 0)..fix();
+      final gun = linkedGun(pro, midnight - 2000);
+      expect(DateTime.fromMillisecondsSinceEpoch(gun.deviceTs).day, 25, reason: 'control: its receipt crossed midnight');
+      water.pass(60000);
+      pro.fix();
+      pro.store.append(FinishEvents.finish(fleet: null));
+      expect([for (final o in offsetsIn(pro.store)) o.payload['race']], [gun.ulid, null]);
+    });
+
+    test('a gun fired and received after midnight is that day\'s: a finish joins it, with no second offset', () {
+      final midnight = DateTime(2026, 10, 25).millisecondsSinceEpoch;
+      water.now = midnight + 3000;
+      final pro = _Phone(water, skewMs: 0)..fix();
+      final gun = linkedGun(pro, midnight + 1000);
+      water.pass(60000);
+      pro.fix();
+      pro.store.append(FinishEvents.finish(fleet: null));
+      expect([for (final o in offsetsIn(pro.store)) o.payload['race']], [gun.ulid]);
+    });
+
+    test('a typed time decides the day over at_ms', () {
+      final midnight = DateTime(2026, 10, 25).millisecondsSinceEpoch;
+      water.now = midnight + 3000;
+      final pro = _Phone(water, skewMs: 0)..fix();
+      final gun = linkedGun(pro, midnight - 2000);
+      pro.store.append(StartEvents.correctTime(gun.ulid, time: midnight + 1000));
+      water.pass(60000);
+      pro.fix();
+      pro.store.append(FinishEvents.finish(fleet: null));
+      expect([for (final o in offsetsIn(pro.store)) o.payload['race']], [gun.ulid]);
+    });
+
+    test('on one phone, elapsed time runs from at_ms where it differs from device_ts', () {
+      final pro = _Phone(water, skewMs: 0)..fix();
+      final fired = water.now - 4000;
+      final gun = linkedGun(pro, fired);
+      water.pass(9 * 60000);
+      final finish = pro.store.append(FinishEvents.finish(fleet: null));
+
+      expect(gun.deviceTs, fired + 4000, reason: 'control: the gun was received 4 s late');
+      expect(crossPhoneElapsed(pro.store.readAll(), gun: gun, finish: finish).elapsedMs, finish.deviceTs - fired);
+    });
+
+    test('across two phones, it does too, each reading moved by its own offset', () {
+      final pro = _Phone(water, skewMs: 1500)..fix();
+      final mark = _Phone(water, skewMs: -2500)..fix();
+      final truth = water.now - 4000;
+      // race-timer shares the PRO phone's clock, and its event came in 4 s after the gun.
+      final gun = linkedGun(pro, pro.clock - 4000);
+      water.pass(9 * 60000);
+      mark.pull(pro);
+      final finishAt = water.now;
+      final finish = mark.store.append(FinishEvents.atMark(fleet: null));
+
+      final events = mark.store.readAll();
+      final result = crossPhoneElapsed(events, gun: events.singleWhere((e) => e.ulid == gun.ulid), finish: finish);
+      expect(result.flagged, isFalse);
+      expect(result.elapsedMs, finishAt - truth, reason: 'by device_ts it would read 4 s short');
+    });
+  });
+
   group('criterion 3: two phones 4 s apart, each fed satellite time', () {
     test('a finish on the mark boat timed against the PRO phone\'s gun is within 1 s of the true elapsed time', () {
       final pro = _Phone(water, skewMs: 1500);

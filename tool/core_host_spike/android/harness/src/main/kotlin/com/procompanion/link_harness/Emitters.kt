@@ -18,10 +18,10 @@ interface Emitter : AutoCloseable {
     override fun close() {}
 }
 
-fun emitterFor(context: Context, mech: String): Emitter = when (mech) {
-    "broadcast" -> BroadcastEmitter(context)
-    "bound" -> BoundEmitter(context)
-    "provider" -> ProviderEmitter(context)
+fun emitterFor(context: Context, mech: String, companion: String): Emitter = when (mech) {
+    "broadcast" -> BroadcastEmitter(context, companion)
+    "bound" -> BoundEmitter(context, companion)
+    "provider" -> ProviderEmitter(context, companion)
     else -> throw IllegalArgumentException("unknown mechanism $mech")
 }
 
@@ -30,10 +30,10 @@ fun emitterFor(context: Context, mech: String): Emitter = when (mech) {
  * broadcasts no longer reach manifest receivers (Android 8), so the package is set.
  * There is no answer: "sent" means only that the system took it.
  */
-class BroadcastEmitter(private val context: Context) : Emitter {
+class BroadcastEmitter(private val context: Context, private val companion: String) : Emitter {
     override fun send(json: String): String {
         val intent = Intent(Link.ACTION_EVENT)
-            .setPackage(Link.COMPANION)
+            .setPackage(companion)
             .putExtra(Link.EXTRA_EVENT, json)
             .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
         if (Build.VERSION.SDK_INT >= 34) {
@@ -52,7 +52,7 @@ class BroadcastEmitter(private val context: Context) : Emitter {
  * Binds once for the run, as race-timer would for a sequence, and sends one
  * transaction per event. A lost binding is re-made on the next send.
  */
-class BoundEmitter(private val context: Context) : Emitter {
+class BoundEmitter(private val context: Context, private val companion: String) : Emitter {
     @Volatile private var binder: IBinder? = null
     @Volatile private var connected = CountDownLatch(1)
     private var bound = false
@@ -80,7 +80,7 @@ class BoundEmitter(private val context: Context) : Emitter {
     private fun bind(): IBinder? {
         if (!bound) {
             connected = CountDownLatch(1)
-            val intent = Intent().setComponent(ComponentName(Link.COMPANION, Link.SERVICE_CLASS))
+            val intent = Intent().setComponent(ComponentName(companion, Link.serviceClass(companion)))
             bound = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
             if (!bound) return null
         }
@@ -117,8 +117,8 @@ class BoundEmitter(private val context: Context) : Emitter {
 }
 
 /** `ContentResolver.call` on the companion's provider: synchronous, with an answer. */
-class ProviderEmitter(private val context: Context) : Emitter {
-    private val uri = Uri.parse("content://${Link.AUTHORITY}")
+class ProviderEmitter(private val context: Context, companion: String) : Emitter {
+    private val uri = Uri.parse("content://${Link.authority(companion)}")
 
     override fun send(json: String): String =
         context.contentResolver.call(uri, Link.METHOD_EVENT, json, null)?.getString(Link.KEY_STATUS) ?: "null"

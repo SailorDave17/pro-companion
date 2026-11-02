@@ -21,6 +21,21 @@ The key lives outside the repo, and a release build without it stops and names w
 How to make the key, point the build at it, check the signature and sideload the APK:
 `docs/field-builds.md` (#23).
 
+## The race-timer link
+
+race-timer runs the start sequence and the companion logs it, on the same phone, with nothing
+touched (#33). Each signal reaches `LinkService`, a bound service judged per call by package and
+pinned certificate, and is in the log with `source: race-timer`, race-timer's own time and the
+moment it arrived, even with the app closed and the screen off. It takes the fleet selected on the
+phone when the sequence begins. On a day with fleets, tapping the sequence card then a fleet moves a
+sequence to the right fleet in one commit, with whatever was tapped on it since, and NO FLEET · TAKE
+IT BACK removes one that should never have counted. The card says when nothing has come from
+race-timer for ten minutes, and its manual controls are always there.
+
+The contract and the pins are `docs/adr/004-race-timer-link.md`. The proof on a device is
+`integration_test/race_timer_link.sh` and `integration_test/link_kill.sh`, emulator only, because
+their stand-in carries race-timer's real package. The field check is #34.
+
 ## Server side
 
 The companion owns the server it syncs to — its own Supabase project, separate from burgee's

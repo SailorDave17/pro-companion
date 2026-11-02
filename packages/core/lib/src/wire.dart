@@ -28,6 +28,9 @@ abstract final class Wire {
   static const chainStatus = 'chainStatus';
   static const raceTimes = 'raceTimes';
   static const join = 'join';
+  static const receiveLink = 'receiveLink';
+  static const relogSequence = 'relogSequence';
+  static const takeBackSequence = 'takeBackSequence';
   static const close = 'close';
 
   /// Every command the core serves. There is no update and no delete, and a
@@ -43,6 +46,9 @@ abstract final class Wire {
   /// both write nothing. join (#71) hands a code to whatever the host wired
   /// the core to (sync, in the app), which admits the phone and stamps the
   /// admission; a core with nothing wired refuses it as `no_server`.
+  /// receiveLink stores one event from race-timer (#33), and relogSequence and
+  /// takeBackSequence correct a sequence by appending undos and copies, never
+  /// by changing what is stored.
   static const commands = {
     append,
     readAll,
@@ -58,6 +64,9 @@ abstract final class Wire {
     chainStatus,
     raceTimes,
     join,
+    receiveLink,
+    relogSequence,
+    takeBackSequence,
     close,
   };
 

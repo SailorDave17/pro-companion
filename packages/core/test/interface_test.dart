@@ -96,9 +96,13 @@ void main() {
       expect(await core.count(), 0);
     });
 
-    test('every interface call returns a Future', () {
+    test('every interface call returns a Future', () async {
       // Each would be a compile error if a method stopped being async; this
       // makes the claim visible in the test report as well.
+      final fleet = await core.append(FleetEvents.define('Lasers'));
+      expect(core.receiveLink('{}', receivedMs: 0), isA<Future<LinkAnswer>>());
+      expect(core.relogSequence('seq-1', fleet.ulid), isA<Future<List<EventEnvelope>>>());
+      expect(core.takeBackSequence('seq-1'), isA<Future<List<EventEnvelope>>>());
       expect(core.count(), isA<Future<int>>());
       expect(core.deviceId(), isA<Future<String>>());
       expect(core.admissionId(), isA<Future<String?>>());

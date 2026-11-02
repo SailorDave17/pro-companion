@@ -1,0 +1,42 @@
+# pro-companion #33: the kill probe's case on the real host, with the link service in place
+# Emulator pc47_api34 (google_apis, x86_64, API 34, 393 x 851 dp), debug build of the tree committed
+# with this file. integration_test/link_kill.sh, the port of link_kill_probe.sh:
+#   ADB=<adb> ANDROID_HOME=<sdk> sh integration_test/link_kill.sh emulator-5554     (2026-11-01)
+#
+# The core is started from the activity, the activity is closed, and the process is killed with
+# kill -9 as root. The stand-in, carrying race-timer's package and a pinned key, at once emits 20
+# events 1 s apart over the bound service, and retries every event not told accepted. The app is
+# reopened about 15 s in.
+#
+# Reading it: this is the case that crash-looped the spike. The link's bind started the process
+# 581 ms after the death, ahead of the sticky restart scheduled for 1000 ms. The restart then came
+# as a background start of a location service, Android refused it with a SecurityException, and the
+# real host caught it, stopped itself and left the process up (pid 6167). Every event until the app
+# was reopened was told no_core: 16 of 16. No crash, no 30-minute backoff. Reopening the app brought
+# the host back in that same process, and the retries were told accepted, 20 of 20. Each id is in
+# the log exactly once, read from core.db by LinkKillReadback (OK (1 test)).
+#
+# What it does not show: which branch runs is a race, which this run happened to lose to the bind.
+# The script prints the branch and does not fail for it (owner's decision on #33).
+
+link-kill: killed pid 6037, 15 s later pid 6167
+link-kill: branch: no_core answered (16 no_core, 0 accepted of 16 so far)
+link-kill: 20 of 20 events told accepted, 20 retries
+link-kill: passed
+
+From logcat (LINK, CoreService:W, ActivityManager:I, AndroidRuntime:E), the run's own lines:
+
+22:38:05.634 ActivityManager  Start proc 6037:com.procompanion.app for next-top-activity MainActivity
+22:38:20.614 ActivityManager  Process com.procompanion.app (pid 6037) has died: fg +50 FGS
+22:38:20.615 ActivityManager  Scheduling restart of crashed service com.procompanion.app/.CoreService in 1000ms for start-requested
+22:38:21.173 LINK             BEGIN run=kill-1793590661-1784 mech=bound count=20 interval_ms=1000 sdk=34 idle=false
+22:38:21.195 ActivityManager  Start proc 6167:com.procompanion.app for service LinkService
+22:38:21.510 CoreService      startForeground refused, so the core host stops and the process stays: java.lang.SecurityException: Starting FGS with type location callerApp=Process
+22:38:21.532 LINK             EMIT n=1 kind=sequence_start status=no_core
+22:38:36.179 LINK             EMIT n=16 kind=sequence_start status=no_core
+22:38:40.798 ActivityManager  Background started FGS: Allowed [callingPackage: com.procompanion.app; uidState: TOP]
+22:38:43.500 LINK             EMIT n=1 kind=sequence_start status=accepted resend=true
+22:38:45.532 LINK             DONE run=kill-1793590661-1784 mech=bound emitted=40 ok=20 refused=0 errors=20 idle=false
+
+No line in the run matched "Process: com.procompanion.app, PID", "crashed too many", or a restart
+scheduled 1800000ms.

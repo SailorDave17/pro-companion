@@ -7,9 +7,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <!-- Android 11+ package visibility: binding to the companion's service and
-         calling its provider both need the companion to be visible. -->
+         calling its provider both need the companion to be visible. The spike unless
+         the build says otherwise (#33, build.gradle.kts). -->
     <queries>
-        <package android:name="com.procompanion.core_host_spike"/>
+        <package android:name="${companionPackage}"/>
     </queries>
 
     <application android:label="Link harness (race-timer stand-in)">

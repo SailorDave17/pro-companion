@@ -8,6 +8,8 @@ import 'chain.dart';
 import 'chain_status.dart';
 import 'clock_offsets.dart';
 import 'envelope.dart';
+import 'fleets.dart';
+import 'link.dart';
 import 'location.dart';
 import 'pulls.dart';
 import 'roles.dart';
@@ -140,7 +142,9 @@ class EventStore {
   /// starts, recalls, time corrections and their undos, pulled ones included,
   /// since a finish or a rounding joins the race of a gun another phone fired;
   /// and this phone's own clock offsets and clock changes, and its own
-  /// roundings, their sail numbers and undos, which a rounding's lap counts.
+  /// roundings, their sail numbers and undos, which a rounding's lap counts;
+  /// and every event of this phone's race-timer sequences, which is how a
+  /// later event finds its sequence's fleet and gun (#33).
   /// Read from the log when it opens and kept as events arrive.
   final _raceEvents = <EventEnvelope>[];
 
@@ -149,7 +153,8 @@ class EventStore {
         e.kind == StartKinds.undo ||
         e.kind == StartKinds.timeCorrected ||
         (ClockKinds.all.contains(e.kind) && e.deviceId == deviceId) ||
-        (RoundingKinds.all.contains(e.kind) && e.deviceId == deviceId)) {
+        (RoundingKinds.all.contains(e.kind) && e.deviceId == deviceId) ||
+        (e.payload[linkSequenceKey] is String && e.deviceId == deviceId)) {
       _raceEvents.add(e);
     }
   }
@@ -191,6 +196,31 @@ class EventStore {
       ) STRICT''');
     _createUploadSchema(db);
     _createPullSchema(db);
+    _createLinkSchema(db);
+  }
+
+  /// One row per race-timer event ever stored (#33), by race-timer's own id.
+  /// A row outlives what it stored: a retry after an undo or a fix finds it
+  /// and stores nothing, so a late resend can never bring back what the PRO
+  /// took away. Not a unique index over the events, which a fix's copies of
+  /// one id must be able to share.
+  static void _createLinkSchema(sql.Database db) {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS link_event (
+        id TEXT PRIMARY KEY NOT NULL,
+        ulid TEXT NOT NULL,
+        at INTEGER NOT NULL
+      ) STRICT''');
+    db.execute('''
+      CREATE TRIGGER IF NOT EXISTS link_event_no_update BEFORE UPDATE ON link_event
+      BEGIN SELECT RAISE(ABORT, 'link_event is append-only: UPDATE refused'); END''');
+    db.execute('''
+      CREATE TRIGGER IF NOT EXISTS link_event_no_delete BEFORE DELETE ON link_event
+      BEGIN SELECT RAISE(ABORT, 'link_event is append-only: DELETE refused'); END''');
+    db.execute('''
+      CREATE TRIGGER IF NOT EXISTS link_event_no_replace BEFORE INSERT ON link_event
+      WHEN EXISTS (SELECT 1 FROM link_event WHERE id = NEW.id)
+      BEGIN SELECT RAISE(ABORT, 'link_event is append-only: an existing row cannot be replaced'); END''');
   }
 
   /// What sync (#64) keeps about other phones' events it pulled down: the race
@@ -388,7 +418,43 @@ class EventStore {
     final stamp = location.clockOffset(now);
     final join = raceToJoin(_raceEvents, event, deviceId: deviceId, now: now, measuredNow: stamp.offsetMs != null);
     if (join == null) return _appendOne(event, newUlid(now, _random), now, where);
+    return _inOneCommit(() => _appendJoining(event, join, now, where, stamp));
+  }
 
+  /// Runs [body] as one commit: everything it appends is stored, or nothing
+  /// is, and memory stays as it was.
+  T _inOneCommit<T>(T Function() body) {
+    final seq = _nextSeq;
+    final prevHash = _prevHash;
+    final raceEvents = _raceEvents.length;
+    final stateEvents = _stateEvents.length;
+    _db.execute('BEGIN IMMEDIATE');
+    try {
+      final result = body();
+      _db.execute('COMMIT');
+      return result;
+    } catch (_) {
+      // Put memory back first: SQLite rolls some failures back itself (a full
+      // disk at COMMIT), and then a ROLLBACK of ours would throw before it.
+      _nextSeq = seq;
+      _prevHash = prevHash;
+      _raceEvents.length = raceEvents;
+      _stateEvents.length = stateEvents;
+      if (!_db.autocommit) _db.execute('ROLLBACK');
+      rethrow;
+    }
+  }
+
+  /// Appends [event] inside a commit already open, with the clock offset that
+  /// [append] would give it.
+  EventEnvelope _appendInCommit(NewEvent event, int now, GpsStamp where, ClockOffsetStamp stamp) {
+    validateNewEvent(event);
+    final join = raceToJoin(_raceEvents, event, deviceId: deviceId, now: now, measuredNow: stamp.offsetMs != null);
+    if (join == null) return _appendOne(event, newUlid(now, _random), now, where);
+    return _appendJoining(event, join, now, where, stamp);
+  }
+
+  EventEnvelope _appendJoining(NewEvent event, RaceJoin join, int now, GpsStamp where, ClockOffsetStamp stamp) {
     // Two ULIDs from one millisecond sort by their random tails, so the
     // smaller goes to the offset: it then comes first in every read, as it
     // does by sequence number.
@@ -396,23 +462,104 @@ class EventStore {
     var eventUlid = newUlid(now, _random);
     if (offsetUlid.compareTo(eventUlid) > 0) (offsetUlid, eventUlid) = (eventUlid, offsetUlid);
     final offset = ClockEvents.offset(fleet: join.fleet, race: join.atOwnGun ? eventUlid : join.race, stamp: stamp);
-    final seq = _nextSeq;
-    final prevHash = _prevHash;
-    _db.execute('BEGIN IMMEDIATE');
+    _appendOne(offset, offsetUlid, now, where);
+    return _appendOne(event, eventUlid, now, where);
+  }
+
+  // The race-timer link (#33, ADR 004) ------------------------------------------
+
+  /// This device's events whose text matches any of [patterns], narrowed by
+  /// LIKE as the store's opening read is.
+  List<EventEnvelope> _ownLike(List<String> patterns) => [
+        for (final r in _db.select(
+            'SELECT body FROM events WHERE device_id = ? AND (${patterns.map((_) => 'body LIKE ?').join(' OR ')})',
+            [deviceId, ...patterns]))
+          EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map),
+      ];
+
+  List<EventEnvelope> _ownFleetEvents() => _ownLike(const ['%"kind":"fleet.%']);
+
+  /// Stores one event from race-timer, [text] as it arrived and [receivedMs]
+  /// when it did, and answers as ADR 004 says: `accepted` means it is
+  /// committed, so a retry of an id already held is accepted and stores
+  /// nothing, and text the log could not store is `malformed`. Anything else
+  /// that goes wrong throws, and the host answers `no_core`, so race-timer
+  /// keeps the event and resends it. The check comes first, because an insert
+  /// that clashed would be a refusal, and race-timer would resend it for ever.
+  ///
+  /// The event and its id's row land in one commit: with only the event, a
+  /// crash would store it twice on the retry, and with only the row, the retry
+  /// would be told it was stored when it was not.
+  LinkAnswer receiveLink(String text, {required int receivedMs}) {
+    final LinkEvent link;
     try {
-      _appendOne(offset, offsetUlid, now, where);
-      final envelope = _appendOne(event, eventUlid, now, where);
-      _db.execute('COMMIT');
-      return envelope;
-    } catch (_) {
-      // Put memory back first: SQLite rolls some failures back itself (a full
-      // disk at COMMIT), and then a ROLLBACK of ours would throw before it.
-      _nextSeq = seq;
-      _prevHash = prevHash;
-      _raceEvents.removeWhere((e) => e.ulid == offsetUlid || e.ulid == eventUlid);
-      if (!_db.autocommit) _db.execute('ROLLBACK');
-      rethrow;
+      link = LinkEvent.parse(text);
+    } on FormatException catch (e) {
+      return LinkAnswer(status: LinkContract.malformed, reason: e.message);
     }
+    if (_db.select('SELECT 1 FROM link_event WHERE id = ?', [link.id]).isNotEmpty) {
+      return const LinkAnswer(status: LinkContract.accepted);
+    }
+    final plan = planLink(link, _raceEvents,
+        deviceId: deviceId, receivedMs: receivedMs, armed: () => selectedFleet(_ownFleetEvents(), deviceId));
+    final now = _clock();
+    final where = location.current();
+    final stamp = location.clockOffset(now);
+    return _inOneCommit(() {
+      final event = _appendInCommit(plan.event, now, where, stamp);
+      if (plan.takenBack) _appendInCommit(takeBackUndo(event.ulid, link.sequence), now, where, stamp);
+      _db.execute('INSERT INTO link_event (id, ulid, at) VALUES (?, ?, ?)', [link.id, event.ulid, now]);
+      return const LinkAnswer(status: LinkContract.accepted, stored: true);
+    });
+  }
+
+  /// Moves race-timer [sequence] to [fleet], in one commit (#33 criterion 4,
+  /// owner decisions 2026-11-01): the phone switches to [fleet], everything
+  /// [sequenceEvents] finds is undone, and each is logged again under [fleet],
+  /// so no reader of a fleet has to know a fix happened. Returns what it
+  /// appended. A sequence already on [fleet], or with nothing standing,
+  /// appends nothing.
+  List<EventEnvelope> relogSequence(String sequence, String fleet) {
+    final own = _ownLike(const ['%"kind":"start%', '%"kind":"fleet.%']);
+    if (!fleets(own).any((f) => f.id == fleet)) {
+      throw ArgumentError.value(fleet, 'fleet', 'is not a fleet defined on this phone');
+    }
+    final moving = sequenceEvents(own, deviceId, sequence);
+    if (moving.isEmpty || sequenceStanding(own, deviceId, sequence)?.fleet == fleet) return const [];
+    return _inOneCommit(() {
+      final now = _clock();
+      final where = location.current();
+      final stamp = location.clockOffset(now);
+      final logged = <EventEnvelope>[];
+      if (selectedFleet(own, deviceId) != fleet) {
+        logged.add(_appendInCommit(FleetEvents.select(fleet), now, where, stamp));
+      }
+      for (final e in moving) {
+        logged.add(_appendInCommit(StartEvents.undo(e.ulid), now, where, stamp));
+      }
+      final moved = <String, String>{};
+      for (final e in moving) {
+        final copy = _appendInCommit(relogCopy(e, fleet, moved), now, where, stamp);
+        moved[e.ulid] = copy.ulid;
+        logged.add(copy);
+      }
+      return logged;
+    });
+  }
+
+  /// Takes race-timer [sequence] back, in one commit, for one that should
+  /// never have counted, such as a rehearsal (owner decision on #33). Returns
+  /// the undos. What arrives of it later is logged and undone at once
+  /// ([planLink]).
+  List<EventEnvelope> takeBackSequence(String sequence) {
+    final moving = sequenceEvents(_ownLike(const ['%"kind":"start%']), deviceId, sequence);
+    if (moving.isEmpty) return const [];
+    return _inOneCommit(() {
+      final now = _clock();
+      final where = location.current();
+      final stamp = location.clockOffset(now);
+      return [for (final e in moving) _appendInCommit(takeBackUndo(e.ulid, sequence), now, where, stamp)];
+    });
   }
 
   /// The phone's clock was set (#55, after its review): the offset [location]
