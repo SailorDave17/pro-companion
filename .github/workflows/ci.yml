@@ -139,12 +139,17 @@ jobs:
           # plain sweep. The core host (#32) needs an activity destroyed under it,
           # an intent and the notification shade, and one of its classes runs with
           # location revoked, so an instrumented test does that too. The
-          # volume-key script clears the app's log, so it runs last.
+          # race-timer link (#33) needs a second app, signed twice, in forced Doze,
+          # and a kill -9 with no instrumentation under it, so two scripts drive
+          # that, on throwaway keys they make themselves. The volume-key script
+          # clears the app's log, so it runs last.
           script: |
             flutter test integration_test -d emulator-5554
             sh integration_test/force_kill.sh emulator-5554
             sh integration_test/offline_results.sh emulator-5554
             sh integration_test/core_host.sh emulator-5554
+            sh integration_test/race_timer_link.sh emulator-5554
+            sh integration_test/link_kill.sh emulator-5554
             sh integration_test/volume_key.sh emulator-5554
 
   # burgee is private (#17). Its default branch is read here with a read-only

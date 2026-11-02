@@ -39,10 +39,27 @@ val releaseSigningProblems: List<String> = buildList {
     }
 }
 
+// Who the race-timer link trusts (#33, ADR 004 "Who trusts whom"): race-timer's package and the
+// SHA-256 of its certificates, Play's app-signing key and its upload key, as compiled-in resources.
+// test/link_pins_doc_test.dart holds these two to ADR 004's table, and
+// scripts/check_release_signing.sh holds a release APK to exactly them. A digest is public, so it
+// may be written here. Only a debug build reads -PlinkDebugCerts, which is how a developer's own
+// race-timer and integration_test/race_timer_link.sh's stand-in get in. A release build must not be
+// widened by anything in its environment, so the read is inside the debug block and nowhere else.
+val linkTrustedPackage = "io.github.sailordave17.racetimer"
+val linkFieldCerts = listOf(
+    "3ec6dcb6a362106d30db30fce8475d14aec714a0ed338e8c00a3553de8c6f17f",
+    "918a82574c74bc3a96707994604a535d77e31018545a9b83c5c008abfe2dc8f6",
+).joinToString(",")
+
 android {
     namespace = "com.procompanion.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    buildFeatures {
+        resValues = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -62,6 +79,8 @@ android {
         // input system reaches MainActivity the way a hardware press does, which no test
         // inside Flutter can do. integration_test/volume_key.sh runs it.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        resValue("string", "link_trusted_package", linkTrustedPackage)
+        resValue("string", "link_trusted_certs", linkFieldCerts)
     }
 
     signingConfigs {
@@ -76,6 +95,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            val extra = providers.gradleProperty("linkDebugCerts").orNull?.takeIf { it.isNotBlank() }
+            resValue("string", "link_trusted_certs", listOfNotNull(linkFieldCerts, extra).joinToString(","))
+        }
         release {
             // Null when the upload key is missing, and checkReleaseSigning then stops the build.
             // There is deliberately no fallback to the debug keys.

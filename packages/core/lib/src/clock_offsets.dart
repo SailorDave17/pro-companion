@@ -99,7 +99,7 @@ bool sameLocalDay(int a, int b) {
 /// reads it.
 String? raceGun(Iterable<EventEnvelope> events, String? fleet, {required int now}) {
   final anchor = elapsedAnchor(events, fleet);
-  return anchor != null && sameLocalDay(anchor.deviceTs, now) ? anchor.ulid : null;
+  return anchor != null && sameLocalDay(gunTime(events, anchor), now) ? anchor.ulid : null;
 }
 
 /// The race [event] joins when it is appended as [deviceId]'s next event at

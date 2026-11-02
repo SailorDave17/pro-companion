@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pro_companion_core/core.dart';
 import 'package:pro_companion_core/host.dart';
 
+import 'confirmation.dart';
 import 'location/location_feed.dart';
 
 /// What CoreService (android/app/src/main/kotlin/.../CoreService.kt) and this
@@ -41,7 +42,8 @@ Future<void> coreMain() async {
   IsolateNameServer.registerPortWithName(port, corePortName);
   final core = PortCoreClient(port, closesCore: false);
   forwardLocation(const PlatformLocationFeed(), core);
-  coreHostChannel.setMethodCallHandler((call) => handleHostCall(core, call));
+  final confirmation = ConfirmationService(const PlatformConfirmationDevice());
+  coreHostChannel.setMethodCallHandler((call) => handleHostCall(core, call, confirmation: confirmation));
   await coreHostChannel.invokeMethod<void>('ready');
 }
 
@@ -50,7 +52,20 @@ Future<void> coreMain() async {
 /// JSON, once the core has committed it. An argument that is not such an event
 /// is a PlatformException coded `malformed`; a refusal by the core carries the
 /// core's own code.
-Future<Object?> handleHostCall(CoreClient core, MethodCall call) async {
+///
+/// `link` carries one event from race-timer as it arrived, with the moment it
+/// did, and answers with the core's status (#33, ADR 004). [confirmation] fires
+/// here, once the event is committed, and only when this call stored it, so a
+/// PRO with the phone in a pocket feels each signal and never a retry's echo.
+/// A failure throws, and CoreService tells race-timer `no_core`.
+Future<Object?> handleHostCall(CoreClient core, MethodCall call, {ConfirmationService? confirmation}) async {
+  if (call.method == 'link') {
+    final arguments = call.arguments as Map;
+    final answer =
+        await core.receiveLink(arguments['event'] as String, receivedMs: arguments['received_ms'] as int);
+    if (answer.stored) confirmation?.fire();
+    return answer.status;
+  }
   if (call.method != 'append') throw MissingPluginException('the core host has no method ${call.method}');
   final NewEvent event;
   try {

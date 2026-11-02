@@ -50,6 +50,14 @@
             android:name=".CoreService"
             android:exported="false"
             android:foregroundServiceType="location"/>
+        <!-- The race-timer link (#33, ADR 004): race-timer binds it by name. Exported with no
+             permission on purpose: a signature permission would refuse race-timer on a real phone,
+             where the two apps carry different keys, so LinkTrust judges every call instead.
+             In the core's process, which is how it reaches the core. test/main_manifest_test.dart
+             and scripts/check_release_signing.sh hold all of this here. -->
+        <service
+            android:name=".LinkService"
+            android:exported="true"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -66,5 +74,8 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- LinkTrust reads race-timer's signer. Whether a caller is visible without this was not
+             measured (ADR 004), so it stays. -->
+        <package android:name="io.github.sailordave17.racetimer"/>
     </queries>
 </manifest>

@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'admissions.dart';
 import 'chain_status.dart';
 import 'envelope.dart';
+import 'link.dart';
 import 'location.dart';
 import 'pulls.dart';
 import 'race_times.dart';
@@ -101,6 +102,21 @@ abstract interface class CoreClient {
   /// time it is asked, so scoring and export read the flags rather than work
   /// them out again.
   Future<List<FleetRaceTimes>> raceTimes();
+
+  /// One event from race-timer (#33, ADR 004), [event] as it arrived and
+  /// [receivedMs] when it did on this phone's clock. Completes once it is
+  /// committed. A retry of an id already held is accepted and stores nothing.
+  Future<LinkAnswer> receiveLink(String event, {required int receivedMs});
+
+  /// Moves race-timer [sequence] to [fleet] in one commit, and the phone with
+  /// it (#33 criterion 4): its events and what the PRO hung off its guns are
+  /// undone and logged again under [fleet], keeping race-timer's times.
+  /// Completes with what it appended, nothing when it is already there.
+  Future<List<EventEnvelope>> relogSequence(String sequence, String fleet);
+
+  /// Takes race-timer [sequence] back in one commit, for one that should never
+  /// have counted, such as a rehearsal. Completes with the undos.
+  Future<List<EventEnvelope>> takeBackSequence(String sequence);
 
   /// Closes the store and stops the core.
   Future<void> close();
@@ -205,6 +221,22 @@ class PortCoreClient implements CoreClient {
   @override
   Future<List<FleetRaceTimes>> raceTimes() async => [
         for (final w in await _call(Wire.raceTimes, const {}) as List) FleetRaceTimes.fromWire(w as Map),
+      ];
+
+  @override
+  Future<LinkAnswer> receiveLink(String event, {required int receivedMs}) async => LinkAnswer.fromWire(
+      await _call(Wire.receiveLink, {'event': event, 'received_ms': receivedMs}) as Map);
+
+  @override
+  Future<List<EventEnvelope>> relogSequence(String sequence, String fleet) async => [
+        for (final w in await _call(Wire.relogSequence, {'sequence': sequence, 'fleet': fleet}) as List)
+          EventEnvelope.fromWire(w as Map),
+      ];
+
+  @override
+  Future<List<EventEnvelope>> takeBackSequence(String sequence) async => [
+        for (final w in await _call(Wire.takeBackSequence, {'sequence': sequence}) as List)
+          EventEnvelope.fromWire(w as Map),
       ];
 
   @override

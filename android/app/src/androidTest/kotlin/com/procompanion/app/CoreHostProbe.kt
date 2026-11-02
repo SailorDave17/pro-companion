@@ -9,9 +9,21 @@ import android.database.sqlite.SQLiteDatabase
 import android.os.Bundle
 import android.os.ResultReceiver
 import android.os.SystemClock
+import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+
+/** One row of the log with race-timer's contract object in it: [atMs] from the payload, [sentAtMs] from that object. */
+class LinkRow(
+    val ulid: String,
+    val id: String,
+    val kind: String,
+    val source: String,
+    val atMs: Long,
+    val sentAtMs: Long,
+    val receivedMs: Long?,
+)
 
 /**
  * What CoreHostTest and CoreHostRefusedTest (#32) read and do: the app's own view of its core
@@ -93,6 +105,38 @@ class CoreHostProbe(private val instrumentation: Instrumentation) {
                 c.getInt(0)
             }
         }
+
+    /**
+     * Every event in the log that carries race-timer's contract object (#33), read from the same
+     * file. `events` has no source column, so this reads each row's body, the event's canonical
+     * text. It finds them by that object and not by their source, which is a thing to assert.
+     */
+    fun linkEvents(): List<LinkRow> {
+        val file = File(context.filesDir, "core.db")
+        if (!file.exists()) return emptyList()
+        return SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+            db.rawQuery("SELECT ulid, body FROM events", null).use { c ->
+                buildList {
+                    while (c.moveToNext()) {
+                        val body = JSONObject(c.getString(1))
+                        val payload = body.getJSONObject("payload")
+                        val link = payload.optJSONObject("link") ?: continue
+                        add(
+                            LinkRow(
+                                ulid = c.getString(0),
+                                id = link.getString("id"),
+                                kind = body.getString("kind"),
+                                source = body.getString("source"),
+                                atMs = payload.getLong("at_ms"),
+                                sentAtMs = link.getLong("at_ms"),
+                                receivedMs = if (payload.has("received_ms")) payload.getLong("received_ms") else null,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
 
     fun await(what: String, timeoutMs: Long = 30_000, check: () -> Boolean) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs

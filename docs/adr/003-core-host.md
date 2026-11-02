@@ -41,10 +41,11 @@ lives, and how the UI reaches it, is fixed first.
    interface is a small wire protocol (`[replyPort, command, args…]` of primitives), with typed
    Dart wrappers on each side. Event envelopes cross as their JSON-ready maps (ADR 001's envelope
    already is one).
-4. **Platform → core: a method channel on the service's engine** (`core_host/intents`). Intents
-   delivered to the service are forwarded to Dart. They are **queued in the service until Dart
-   reports ready**, because a message sent before the Dart handler exists is dropped. The
-   race-timer link (#15) arrives this way.
+4. **Platform → core: a method channel on the service's engine** (`pro_companion/core_host`).
+   Intents delivered to the service are forwarded to Dart. They are **queued in the service until
+   Dart reports ready**, because a message sent before the Dart handler exists is dropped. The
+   race-timer link (#33) reaches the same channel from `LinkService`, in the same process, and waits
+   in a queue of its own.
 5. **Start sequence.** While the app is visible, the activity asks for **POST_NOTIFICATIONS**
    (Android 13+) and **ACCESS_FINE_LOCATION** ("While using the app"), then calls
    `startForegroundService`. The service posts an ongoing notification ("PRO Companion is
@@ -222,10 +223,13 @@ The host is in the app: `android/app/src/main/kotlin/com/procompanion/app/CoreSe
   reached the process is answered `no_core`. *Measured* by `CoreHostRefusedTest` on the API 34
   emulator, with location revoked: three refusals, all caught, one pid throughout, and a second
   refused start was answered the same way. #15's own case, the sticky restart refused because a
-  link event started the process first, cannot happen in the app yet: it has no exported component
-  other than the launcher activity, and an activity start puts the app in the foreground. **#33
-  adds one, so #33 re-runs `link_kill_probe.sh`'s case against this host**: the catch is the same
-  code, but that it stops the crash loop there is still *reasoned*.
+  link event started the process first, needs an exported component, which #33 added. **Measured
+  on the real host by `integration_test/link_kill.sh` on the API 34 emulator**
+  (`tool/core_host_spike/results/2026-11-01-link-kill-real-host.txt`): the link's bind started the
+  process 581 ms after a `kill -9`, ahead of the restart, which was refused with a
+  `SecurityException`, caught, and followed by no crash and no 30-minute backoff. Every event was
+  told `no_core` until the app was reopened, and then all 20 were stored. CI runs that line, judged
+  on what must hold, since which branch runs is a race.
 - **The entry point is found by library as well as name**:
   `DartEntrypoint(bundle, "package:pro_companion/core_host.dart", "coreMain")`, as ADR 006
   decision 4 proposed. In an integration test the root library is the test's own file, so a lookup

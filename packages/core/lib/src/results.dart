@@ -66,8 +66,8 @@ List<List<FinishEntry>> racesOf(Iterable<EventEnvelope> events, {required String
 /// cannot say which race she sailed.
 ({List<List<FinishEntry>> races, Set<String> betweenRaces}) _races(Iterable<EventEnvelope> events,
     {required String? fleet}) {
-  // Which gun a recall cancels is read in the order they were tapped; where
-  // a race starts is the gun's own time, corrected if it was.
+  // Which gun a recall cancels is read in the order they happened on the
+  // water; where a race starts is the gun's own time, corrected if it was.
   final guns = [for (final s in raceStarts(events, fleet: fleet)) (start: s, time: gunTime(events, s))];
   // 0 before the first race's gun, then 1 after it, and so on.
   int raceAfter(EventEnvelope e) =>

@@ -24,3 +24,10 @@ plugins {
 }
 
 include(":app")
+
+// #33: the race-timer stand-in from the core host spike, a plain Android app in this build so that
+// it can drive the real app. Behind a property so that a plain flutter build never configures it.
+if (providers.gradleProperty("linkHarness").isPresent) {
+    include(":harness")
+    project(":harness").projectDir = file("../tool/core_host_spike/android/harness")
+}

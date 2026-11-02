@@ -426,6 +426,16 @@ class _HeldCore implements CoreClient {
   Future<void> setAdmissionId(String admissionId) => _inner.setAdmissionId(admissionId);
 
   @override
+  Future<LinkAnswer> receiveLink(String event, {required int receivedMs}) =>
+      _inner.receiveLink(event, receivedMs: receivedMs);
+
+  @override
+  Future<List<EventEnvelope>> relogSequence(String sequence, String fleet) => _inner.relogSequence(sequence, fleet);
+
+  @override
+  Future<List<EventEnvelope>> takeBackSequence(String sequence) => _inner.takeBackSequence(sequence);
+
+  @override
   Future<Admission> join(String code) => _inner.join(code);
 
   @override

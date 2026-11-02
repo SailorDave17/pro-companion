@@ -1,15 +1,19 @@
 # ADR 004 — The race-timer link: a bound service answering every event, with the caller judged by package and certificate
 
-- Status: proposed 2026-10-06, on measurement (#15); accepted when its PR merges
+- Status: accepted 2026-10-06, on measurement (#15). The companion's half built by #33, 2026-11-01:
+  see "Built (#33)"
 - Builds on: pro-companion ADR 001 ("The race-timer link": race-timer signals and the companion
   logs, the mechanism is picked by a spike, manual gun-time entry is the fallback, and the link
   carries a kill condition) and ADR 003 (the core host: a `location` foreground service owning a
   headless engine, which platform code reaches over the service's method channel)
 - Evidence: `tool/core_host_spike/`, its race-timer stand-in in `android/harness/`, the runs in
   `results/2026-10-06-link-run.txt` and `results/2026-10-06-link-kill-probe.txt`, and the
-  instrumented `LinkTrustTest`
+  instrumented `LinkTrustTest`. For the real app: `RaceTimerLinkTest`, run by
+  `integration_test/race_timer_link.sh`, and `integration_test/link_kill.sh`
 - Built by: race-timer#294 (the emitter) and pro-companion #33 (the receiver). Field-checked by #21
-  (the harness on the club phone) and #34 (the real race-timer on the club phone)
+  (the harness on the owner's phone) and #34 (the real race-timer on a personal phone). There is no
+  dedicated club phone (G50): "the club phone" below is the owner's own, which every measurement
+  here was taken on
 - **Held on the club phone 2026-10-07 (#21)**: 50 of 50 events delivered unplugged with the screen
   off. See "Kill condition".
 
@@ -21,11 +25,11 @@ launcher activity (race-timer#294's filing note). So the link is new work on bot
 to deliver while the companion is in the background with the screen off: the phone is in a pocket,
 and Doze is the normal state.
 
-**The two apps will not share a signing key.** race-timer reaches the club phone through Google
+**The two apps will not share a signing key.** race-timer reaches a personal phone through Google
 Play, which re-signs it with Play's app-signing key; its phone app is on Play's internal track
 today. The companion is sideloaded, signed with the owner's upload key (groom decision G20, #27).
 A `signature`-level permission needs one signer on both sides, so it would refuse race-timer on
-the club phone with no error anywhere, while passing every test run on a development machine,
+a real phone with no error anywhere, while passing every test run on a development machine,
 where both apps carry the same debug key.
 
 ## Options measured
@@ -171,41 +175,55 @@ the moment it fires it.
 | `seconds_to_start` | int | `signal` | seconds from this signal to the start it counts down to |
 
 - **No fleet, class or race id** (criterion 5). Fleet attribution follows groom decision G25: the
-  companion attaches each incoming sequence to the fleet the PRO has armed as next start, one tap per
-  start, and a wrong attribution is fixed by undo. The unit it attaches is the `sequence`: every event
-  naming that `sequence` takes the fleet that was armed when its `sequence_start` arrived. race-timer
-  knows nothing about fleets and never will need to.
-- **The companion keeps fields it does not know** rather than refusing them, so race-timer can add a
-  field without a coordinated release. The spike's harness adds `x_`-prefixed measurement fields,
-  which are not part of the contract.
+  companion attaches each incoming sequence to the fleet the PRO has armed as next start, and a wrong
+  attribution is fixed by undo. Armed means the fleet selected on the phone, with no control of its
+  own (owner decision on #33). The unit it attaches is the `sequence`: the first event of a sequence
+  to arrive takes the selected fleet, normally its `sequence_start`, or a signal resent ahead of it,
+  and every later event takes the sequence's fleet. race-timer knows nothing about fleets and never
+  will need to.
+- **The companion keeps what it does not know** rather than refusing it, so race-timer can add to
+  the contract without a coordinated release. A field it does not know is kept under `payload.link`,
+  and a `kind` it does not know is logged as a signal with its own `kind` kept there, since signals
+  move no anchor and race-timer never resends a `malformed` (owner decision on #33). The spike's
+  harness adds `x_`-prefixed measurement fields, which are not part of the contract.
 - **How #33 logs each kind**: `start`, `postponement` and `general_recall` map to the existing
   `start`, `start.postponement` and `start.general_recall` (#25), each with `source: race-timer`.
   `individual_recall` maps to `start.individual_recall` (#29), whose `payload.start` names the
-  companion's start event, so #33 finds it through `sequence`. `sequence_start` and `signal` have no
-  manual equivalent, and #33 adds kinds for them. How `at_ms` feeds `gunTime` is #33's (its
-  criterion 5: a race-timer gun anchors exactly as a manual one does).
+  companion's start event, found through `sequence`. `sequence_start` and `signal` have no manual
+  equivalent, and are logged as `start.sequence_start` and `start.signal`. Neither is among a fleet's
+  starts, so neither moves an anchor. `packages/core/lib/src/link.dart` holds the map.
 
 **The answer.** Every transaction returns one status:
 
 | status | meaning | race-timer does |
 |---|---|---|
-| `accepted` | the companion's core has the event | nothing more |
-| `no_core` | the companion is installed, but its core host is not running | keeps the event and retries it, same `id` |
+| `accepted` | the companion's core has committed the event, or held that `id` already | nothing more |
+| `no_core` | nothing committed it: the core host is not running, is failing, or did not answer in time | keeps the event and retries it, same `id` |
 | `refused` | the caller is not race-timer's package signed by a pinned certificate | logs it. A retry cannot help: the pins are out of date. |
-| `malformed` | not a JSON object with a string `id`, or a `v` the companion does not know | logs it: a race-timer bug |
+| `malformed` | not a JSON object with a string `id`, a string `kind`, an integer `at_ms` and a string `sequence`, a `v` the companion does not know, or JSON the log could not store | logs it: a race-timer bug |
 | no binding (`bindService` returns false) | the companion is not installed, or race-timer cannot see it | behaves exactly as before (race-timer#294 criterion 3) |
 | `DeadObjectException` | the companion's process died under the binding | as `no_core`: keeps the event, rebinds |
 
 So delivery is **at least once**: race-timer retries anything not answered, and the companion
-stores one event per `id`. **In the spike, `accepted` means handed to the core host, not yet
-written.** #33 must answer `accepted` only once the core's append has returned, within a bounded
-wait, so that `accepted` means stored.
+stores one event per `id`. Only the binder thread waits, for at most 2 s, and the main thread never
+does. A call that outlives the wait is told `no_core` and stays queued, so if it does commit, the
+retry is accepted and stores nothing. Text is judged only by the core, and the host-down check comes
+before it, so a malformed event with the host down is told `no_core` until the host is back.
+
+**A stated limit: an escaped NUL.** "Could not store" means this phone's log. A string carrying
+`\u0000`, which only a race-timer bug would send, is stored, buzzed and told `accepted`, but the
+shore refuses it for good (`inconsistent_canonical`, since Postgres text holds no NUL). The gun
+then counts on the PRO's phone, which shows the refusal in its log, and no other phone gets it. The
+owner chose this over refusing it as `malformed`, which would lose the gun on the phone too with no
+buzz, and over replacing the NUL, which breaks "verbatim" (owner decision at #33's review).
 
 ## Who trusts whom: the certificate digests
 
 Each side pins the other's package **and** signing certificate (SHA-256), as compiled-in build
-inputs per build type. A release build pins only the field keys, and a debug build adds the
-developer's own debug key. Nothing on the phone can widen either list.
+inputs per build type. A release build pins only the field keys, and a debug build adds whatever
+`-PlinkDebugCerts` names: a developer's own key, or `race_timer_link.sh`'s throwaway stand-in key.
+Only the debug build type reads that property, and `scripts/check_release_signing.sh` holds a release
+APK to the two field keys with it set. Nothing on the phone can widen either list.
 
 **The companion trusts race-timer**, package `io.github.sailordave17.racetimer`:
 
@@ -227,8 +245,9 @@ Play Console also lists a **previous** app-signing key: first used 3 Aug 2026, m
 base on 2026-10-08. A Play install signed before the key change would carry the previous key.
 `hasSigningCertificate` searches every certificate a package "has proven to have been signed" with
 (its documentation), rotation history included, so whether a Play install also matches the previous
-key depends on the lineage Play ships, which was not measured. #34 settles it on a real Play
-install.
+key depends on the lineage Play ships, which was not measured. The previous key is not pinned. #167
+settles it on a real Play install. This said #34 until 2026-11-01, when the owner kept the sideload
+for #34's run, so the Play row stays unproven on a real phone until #167.
 
 **race-timer trusts the companion**, package `com.procompanion.app`. Before it binds, it checks
 that package's signing certificate (`hasSigningCertificate` again) and binds by explicit component,
@@ -244,7 +263,7 @@ The spike pinned a key of its own making. It proves the check, not these values.
 ### Rejected: a signature-level permission
 
 - **`signature`** needs both apps signed by one key. race-timer from Play and the companion
-  sideloaded never are, so race-timer would be refused on the club phone and nowhere else. A
+  sideloaded never are, so race-timer would be refused on a real phone and nowhere else. A
   broadcast to a receiver guarded by it is dropped without a word, and a bind refused by it fails
   only on the phone.
 - **`signature|knownSigner`** (Android 12+, `android:knownCerts`) grants by a list of digests,
@@ -252,6 +271,60 @@ The spike pinned a key of its own making. It proves the check, not these values.
   installed, and race-timer will be on the phone before the companion defines the permission.
   Whether the grant follows a later install was not measured. A runtime check depends on neither
   install order nor API level, and it names its reason when it refuses.
+
+## Built (#33)
+
+`packages/core/lib/src/link.dart` holds the rules, shared by the store and `FakeCore`.
+`android/.../LinkService.kt`, `LinkInbox.kt` and `LinkTrust.kt` are the transport and the trust
+check, in the core's process, and judge the caller before the payload is read. The owner's decisions
+at pickup and at the review, 2026-11-01:
+
+- **What an event holds.** `payload.link` is the contract object verbatim, nested so that a field
+  race-timer adds later can never read as one of ours. `payload.at_ms` is race-timer's time and
+  `payload.received_ms` the phone's, stamped first in the transaction, so an event held while the
+  engine started keeps its real receipt. `device_ts` is when it was committed.
+- **Dedupe.** `link_event`, one append-only row per `id`, in one commit with the event. A row
+  outlives what it stored, so a late retry can never bring back what the PRO took away.
+- **A gun's time** is its latest time fix, else `at_ms`, else `device_ts` (`firedAt`, `gunTime`), and
+  a fleet's starts and recalls read in that order, so a resent gun still comes before the recall
+  that cancelled it. So race-timer need not resend in order. The card reads that order too
+  (`onTheWater`): the fleet's last race-timer event is the last to fire, not the last to arrive, so
+  a backlog resent out of order cannot put an earlier race back on it (#33's review). A race-timer
+  recall that arrives before its own gun names the fleet's anchor only if that fired during its
+  sequence. An earlier race's gun is not its start.
+- **A wrong fleet.** The card of anything race-timer sent opens a list of fleets and writes
+  nothing, and Back is a true cancel. Picking a fleet undoes and re-logs in one commit: the
+  sequence, what the PRO tapped on that fleet's card while it ran (a manual gun, postponement or
+  general recall), what names a gun that moved (a typed time, an individual recall, OCS boats and
+  clearances), and the phone's own fleet. A copy keeps its original's time. So the fix is 2 taps on
+  that fleet whatever was tapped since, and 3 from another fleet, its row first. On a race-timer gun
+  the list also offers FIX THE GUN TIME, since the card is where a time is fixed, so that fix takes a
+  tap more than on a manual gun (owner decision at #33's review: UNDO alone reached the sequence
+  only while nothing was tapped after it, and after two OCS boats cost 4 taps and lost them). UNDO
+  still offers the fix while nothing was tapped after the sequence, and reaches it right after a
+  switch to its fleet, because a wrong fleet is often noticed after the phone has moved on; there it
+  replaces UNDO SWITCH. With no fleets defined, nothing can be misattributed: the card fixes the
+  time, and UNDO stays one event at a time.
+- **Take-back.** NO FLEET · TAKE IT BACK undoes the same set, for a sequence that should never have
+  counted, such as a rehearsal, and is recorded on the undos rather than inferred. What arrives of
+  it later is logged and undone at once. So **a mistaken take-back cannot be reversed**: the gun must
+  then be tapped by hand.
+- **The banner** shows unless something from race-timer arrived in the last 10 minutes. race-timer
+  binds only while a sequence runs, so it shows on most opens before the first start. It takes its
+  32 dp from the card, so no button moves when it comes or goes. A countdown the card shows ends
+  when the banner comes up: one race-timer stopped sending partway through would otherwise hold the
+  card, and the last race's recall, OCS and time fix with it, and on a day with no fleets nothing
+  could undo it (#33's review).
+- **Confirmation.** One buzz and one tone from the core host's engine when a call stored the event,
+  and none for a retry. *Measured* on the API 34 emulator with the activity gone and the screen off:
+  6 events, 6 finished vibrations, and 6 stream-5 tracks in `dumpsys media.audio_flinger`, each
+  within 21 ms of its vibration. Measured again after the review, with the raw output kept
+  (`tool/core_host_spike/results/2026-11-02-link-tone.txt`: 6 of 6, within 39 ms). The device
+  test asserts the buzz only, since API 34 keeps about 16 s of tracks. Whether either is felt over
+  race-timer's own cue, which it lands on within tens of milliseconds, is #34's to read on a phone.
+
+Not moved by a fix: finishes already logged under the wrong fleet, and any sequence on the fleet
+older than its newest.
 
 ## Consequences and limits
 
@@ -267,23 +340,26 @@ The spike pinned a key of its own making. It proves the check, not these values.
 - **Package visibility.** race-timer must declare the companion's package in `<queries>` to bind
   to it at all. A binding caller is made visible to the companion by the binding. The spike also
   declared race-timer's package in the companion's `<queries>`, so whether the certificate check
-  needs that declaration was not measured. Keep it.
-- **`hasSigningCertificate` is API 28**, and the companion's `minSdk` is Flutter's default, 24.
-  The spike refuses below 28 rather than crash. #33 either raises `minSdk` to 28 or reads
-  `GET_SIGNATURES` there.
-- **The link can take the core host down, and #32 must fix that before #33 ships.** The link
-  service lives in the core host's process. When that process has died and ADR 003's sticky restart
-  is pending, the first event to arrive starts the process for the link. The pending restart then
-  runs as a background start of a `location` foreground service, and Android refuses it.
-  `CoreService.onCreate` does not catch the refusal, so the host crashes. After quick repeat
-  crashes, the system either gave up on the service or scheduled its next restart 30 minutes out,
-  and every restart in between was refused the same way. Every mechanism did this in the kill
-  probe. With no link traffic the same restart succeeded in 1.4 s. So **the real host (#32) must
-  survive a refused
-  `startForeground`**: catch it, stop itself, and leave the process alive so the link can answer
-  `no_core`. ADR 003 is amended with the measurement. The host then stays down until the PRO opens
-  the app. Provided race-timer keeps every unanswered event, as decision 4 requires, nothing is lost
-  in that time, only the log's timeliness.
+  needs that declaration was not measured. The app keeps it.
+- **`hasSigningCertificate` is API 28**, and the companion's `minSdk` stays Flutter's default, 24, so
+  an old personal phone can still log by hand. Below 28 the link is refused, `api_below_28`, with no
+  `GET_SIGNATURES` path (owner decision on #33): raising `minSdk` would cost those phones the whole
+  app, and reading the old signatures is a second, weaker way in. No real caller is affected, since
+  race-timer's own `minSdk` is 30 (read 2026-11-01).
+- **The link could take the core host down, and #32 and #33 closed that.** The link service lives
+  in the core host's process. When that process has died and ADR 003's sticky restart is pending,
+  the first event to arrive starts the process for the link. The pending restart then runs as a
+  background start of a `location` foreground service, and Android refuses it. In the spike
+  `CoreService.onCreate` did not catch the refusal, so the host crashed. After quick repeat crashes,
+  the system either gave up on the service or scheduled its next restart 30 minutes out, and every
+  restart in between was refused the same way. Every mechanism did this in the kill probe. With no
+  link traffic the same restart succeeded in 1.4 s. The real host (#32) catches the refusal, stops
+  itself and leaves the process alive, so the link answers `no_core`. *Measured on it* by #33,
+  `results/2026-11-01-link-kill-real-host.txt`: 16 of 16 told `no_core`, no crash, and 20 of 20
+  stored once the app was reopened and race-timer's stand-in retried. The host stays down until the
+  PRO opens the app. Provided race-timer keeps every unanswered event, as decision 4 requires,
+  nothing is lost in that time, only the log's timeliness. With location refused the host is only
+  ever bound, so it goes with the activity and the link answers `no_core` from then on.
 - **Nothing leaves the phone.** race-timer hands events to another app on the same device, so its
   no-INTERNET stance holds, though its privacy policy may still want a sentence saying so
   (race-timer#294's note).
@@ -300,7 +376,7 @@ forced Doze. All three did, the bound service among them (see "Options measured"
 link kill condition is not invoked and scope decision 3 stays on the horizon.
 
 **It moves to the field.** The emulator cannot sleep its CPU, so the evidence that can still kill
-the link comes from the club phone: #21 (this harness) and #34 (the real race-timer). If either
+the link comes from a real phone: #21 (this harness) and #34 (the real race-timer). If either
 loses one event with the companion backgrounded and the screen off, ADR 001's kill condition fires.
 Manual gun-time entry (#25) becomes the fallback, scope decision 3 (absorbing race-timer's cue path)
 moves up from horizon, and the result goes to the owner at once. The first thing to try before

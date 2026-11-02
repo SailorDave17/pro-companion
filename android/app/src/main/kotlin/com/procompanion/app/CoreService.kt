@@ -18,6 +18,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.CompletableFuture
 
 /**
  * The core host (ADR 003, #32): a `location` foreground service that owns a FlutterEngine of its
@@ -35,23 +36,30 @@ import io.flutter.plugin.common.MethodChannel
  * A start whose startForeground is refused stops itself and leaves the process running (ADR 003,
  * amended 2026-10-06). The sticky restart is refused that way when another component reaches the
  * process first, and an uncaught refusal crashed the process, then every restart after it. Unbound,
- * the engine never starts then, so whatever reached the process answers for itself, as the
- * race-timer link answers `no_core` (#33, ADR 004).
+ * the engine never starts then, so whatever reached the process answers for itself, as
+ * [LinkService] answers `no_core` (#33, ADR 004).
  *
  * An intent with [ACTION_APPEND] carries an event's wire form as JSON in [EXTRA_EVENT], and may
  * carry a [ResultReceiver] in [EXTRA_REPLY], which hears [RESULT_ACCEPTED] with the stored event,
  * [RESULT_REFUSED] with the core's code, or [RESULT_NO_CORE]. The service is not exported, so only
- * this app's own process can send one.
+ * this app's own process can send one. The exported [LinkService] reaches the core through [link],
+ * in the same process, once it has judged its caller.
  */
 class CoreService : Service() {
     private var engine: FlutterEngine? = null
     private var channel: MethodChannel? = null
     private var location: LocationFeed? = null
+    private var confirmation: Confirmation? = null
     private var dartReady = false
     private var foreground = false
 
     /** Appends that arrived while the engine started, held until Dart says it is ready. */
     private val pending = ArrayDeque<Intent>()
+
+    /** The same for race-timer's events, each with the answer its binder thread waits on. */
+    private val pendingLinks = ArrayDeque<HeldLink>()
+
+    private class HeldLink(val event: String, val receivedMs: Long, val answer: CompletableFuture<String>)
 
     override fun onBind(intent: Intent?): IBinder {
         startEngine()
@@ -74,15 +82,19 @@ class CoreService : Service() {
     }
 
     override fun onDestroy() {
+        live = null
         location?.stop()
         location = null
         channel?.setMethodCallHandler(null)
         channel = null
         engine?.destroy()
         engine = null
+        confirmation?.release()
+        confirmation = null
         dartReady = false
         foreground = false
         while (pending.isNotEmpty()) reply(pending.removeFirst(), RESULT_NO_CORE, Bundle())
+        while (pendingLinks.isNotEmpty()) pendingLinks.removeFirst().answer.complete(LinkContract.NO_CORE)
         super.onDestroy()
     }
 
@@ -94,12 +106,16 @@ class CoreService : Service() {
         val e = FlutterEngine(applicationContext)
         val feed = LocationFeed(this)
         EventChannel(e.dartExecutor.binaryMessenger, LOCATION_CHANNEL).setStreamHandler(feed)
+        // This engine confirms race-timer's events, with no activity to do it (#33).
+        val buzz = Confirmation(this)
+        buzz.attach(e.dartExecutor.binaryMessenger)
         val ch = MethodChannel(e.dartExecutor.binaryMessenger, CHANNEL)
         ch.setMethodCallHandler { call, result ->
             if (call.method == "ready") {
                 result.success(null)
                 dartReady = true
                 while (pending.isNotEmpty()) send(pending.removeFirst())
+                while (pendingLinks.isNotEmpty()) sendLink(pendingLinks.removeFirst())
             } else {
                 result.notImplemented()
             }
@@ -111,6 +127,60 @@ class CoreService : Service() {
         engine = e
         channel = ch
         location = feed
+        confirmation = buzz
+        live = this
+    }
+
+    /**
+     * One event from race-timer, past [LinkInbox]'s trust check, its answer completed once the core
+     * has one. Main thread only, as [append] is. A core that never says ready must not grow this
+     * queue on every retry, so past [MAX_HELD_LINKS] it answers `no_core` at once.
+     */
+    fun link(event: String, receivedMs: Long, answer: CompletableFuture<String>) {
+        val held = HeldLink(event, receivedMs, answer)
+        when {
+            dartReady -> sendLink(held)
+            pendingLinks.size < MAX_HELD_LINKS -> {
+                linksHeld++
+                pendingLinks.addLast(held)
+            }
+            else -> answer.complete(LinkContract.NO_CORE)
+        }
+    }
+
+    /**
+     * The contract's `refused` is the caller's and race-timer does not resend it, so a core that
+     * failed, which [send] calls a refusal, must reach race-timer as `no_core`: that keeps the event.
+     */
+    private fun sendLink(held: HeldLink) {
+        val ch = channel
+        if (ch == null) {
+            held.answer.complete(LinkContract.NO_CORE)
+            return
+        }
+        ch.invokeMethod(
+            "link",
+            mapOf("event" to held.event, "received_ms" to held.receivedMs),
+            object : MethodChannel.Result {
+                override fun success(result: Any?) {
+                    held.answer.complete(
+                        when (result) {
+                            LinkContract.ACCEPTED, LinkContract.MALFORMED -> result as String
+                            else -> LinkContract.NO_CORE
+                        },
+                    )
+                }
+
+                override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {
+                    Log.w(TAG, "the core could not take a link event: $errorCode $errorMessage")
+                    held.answer.complete(LinkContract.NO_CORE)
+                }
+
+                override fun notImplemented() {
+                    held.answer.complete(LinkContract.NO_CORE)
+                }
+            },
+        )
     }
 
     /** Main thread only: the channel belongs to the platform thread. */
@@ -202,6 +272,17 @@ class CoreService : Service() {
     }
 
     companion object {
+        /** The host while its engine exists, for [LinkService] in this process. Null means `no_core`. */
+        @Volatile
+        var live: CoreService? = null
+            private set
+
+        /** How many link calls have had to wait for the engine, which nothing else can show a test. */
+        @Volatile
+        var linksHeld = 0
+            private set
+
+        private const val MAX_HELD_LINKS = 64
         const val ACTION_APPEND = "com.procompanion.app.action.APPEND"
         const val EXTRA_EVENT = "event"
         const val EXTRA_REPLY = "reply"

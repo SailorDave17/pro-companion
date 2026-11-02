@@ -141,6 +141,14 @@ class CoreServer {
         return store.chainStatus().toWire();
       case Wire.raceTimes:
         return [for (final r in raceTimesOf(store.readAll())) r.toWire()];
+      case Wire.receiveLink:
+        return store.receiveLink(args['event'] as String, receivedMs: args['received_ms'] as int).toWire();
+      case Wire.relogSequence:
+        return [
+          for (final e in store.relogSequence(args['sequence'] as String, args['fleet'] as String)) e.toWire(),
+        ];
+      case Wire.takeBackSequence:
+        return [for (final e in store.takeBackSequence(args['sequence'] as String)) e.toWire()];
       case Wire.close:
         store.close();
         return null;

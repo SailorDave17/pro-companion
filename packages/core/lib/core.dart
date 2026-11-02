@@ -17,6 +17,19 @@ export 'src/finishes.dart'
 export 'src/fleets.dart'
     show Fleet, FleetEvents, FleetKinds, fleetOf, fleetPayloadKey, fleets, lastFleetSwitch, recentFleets, selectedFleet;
 export 'src/kinds.dart' show EventKinds;
+export 'src/link.dart'
+    show
+        LinkAnswer,
+        LinkContract,
+        lastRaceTimerEvent,
+        linkActive,
+        linkAtKey,
+        linkFieldsKey,
+        linkQuietMs,
+        linkReceivedKey,
+        linkSequenceKey,
+        raceTimerSource,
+        reloggedFromKey;
 export 'src/location.dart' show ClockOffsetReasons, GpsReasons, GpsTimeSample;
 export 'src/mark_finishes.dart'
     show CourseEvents, CourseKinds, lastMarkFleet, lastUndoableMarkFinish, markFinishOrder, shortenedAt;
@@ -52,11 +65,13 @@ export 'src/starts.dart'
         StartKinds,
         anchorTime,
         elapsedAnchor,
+        firedAt,
         gunTime,
         individualRecallsOf,
         knownSails,
         lastUndoableStart,
         ocsAt,
+        onTheWater,
         raceState,
         sequenceOf;
 export 'src/stations.dart'

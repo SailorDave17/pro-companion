@@ -31,7 +31,13 @@ class RaceTimeAction extends StatelessWidget {
 /// these cannot be reached within the tap limit from the role home. A new
 /// race-time action is added to its role's set below, or it is not held to
 /// the bar.
-const raceTimeActionIds = {...proRaceTimeActionIds, ...markBoatRaceTimeActionIds};
+const raceTimeActionIds = {...proRaceTimeActionIds, ...raceTimerActionIds, ...markBoatRaceTimeActionIds};
+
+/// The PRO's actions that only race-timer can bring on: moving a sequence to
+/// its right fleet (#33). No tap creates a race-timer event, so a fixture
+/// cannot reach this by exploring, and it stays out of [proRaceTimeActionIds],
+/// which the whole-app checks hold. A check that seeds a sequence holds it.
+const raceTimerActionIds = {'sequence-fleet'};
 
 /// The mark boat's: a station pick, and its undo on the home (#26); on the
 /// rounding screen (#54), a known boat, an unidentified one, a boat typed in,

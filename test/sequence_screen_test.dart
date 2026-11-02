@@ -4,11 +4,13 @@ import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/main.dart';
 import 'package:pro_companion/ui/bars.dart';
 import 'package:pro_companion/ui/clock.dart';
+import 'package:pro_companion/ui/race_time.dart';
 import 'package:pro_companion_core/core.dart';
 import 'package:pro_companion_core/testing.dart';
 
 import 'support/bar_check.dart';
 import 'support/fake_confirmation.dart';
+import 'support/race_timer.dart';
 import 'support/roles.dart';
 
 /// #25 on the app, driven against the fake core: the sequence card logs a
@@ -300,6 +302,21 @@ void main() {
         );
         expect(violations, isEmpty, reason: violations.join('\n'));
       });
+
+      // No tap creates a race-timer event, so only a seeded day can reach the
+      // right-fleet picker, and this is the check that holds it (#33). Both
+      // sides of the banner, since it takes the card's room.
+      for (final linkUp in [true, false]) {
+        testWidgets('a race-timer day, the link ${linkUp ? 'up' : 'quiet'}, at ${(scale * 100).round()}% text',
+            (tester) async {
+          final violations = await barCheck(
+            tester,
+            (observer) => app(textScale: scale, on: raceTimerDay(now: now, linkUp: linkUp), observer: observer),
+            actionIds: {...proRaceTimeActionIds, ...raceTimerActionIds},
+          );
+          expect(violations, isEmpty, reason: violations.join('\n'));
+        });
+      }
 
       // After a recall no gun anchors, so there is nothing to fix until the
       // next GUN, and the whole-app check above cannot hold this state: it
