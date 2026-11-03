@@ -248,6 +248,19 @@ class LocalStack {
     return [for (final row in jsonDecode(out) as List) Map<String, Object?>.from(row as Map)];
   }
 
+  /// The server's critical-kind map (#75), read as the table owner, since no client role can read
+  /// it: `kind`, `role` and `reach` of every `critical_kind` row, and `kind` and `target` of every
+  /// `critical_correction` row.
+  Future<({List<Map<String, Object?>> kinds, List<Map<String, Object?>> corrections})> criticalKindMap() async {
+    final kinds = await _psql("select coalesce(json_agg(json_build_object('kind', kind, 'role', role, "
+        "'reach', reach) order by kind, role), '[]') from public.critical_kind;");
+    final corrections = await _psql("select coalesce(json_agg(json_build_object('kind', kind, "
+        "'target', target) order by kind), '[]') from public.critical_correction;");
+    List<Map<String, Object?>> rows(String out) =>
+        [for (final row in jsonDecode(out) as List) Map<String, Object?>.from(row as Map)];
+    return (kinds: rows(kinds), corrections: rows(corrections));
+  }
+
   /// The race day [ulid] is stored under, read as the table owner; null when there is no row.
   Future<String?> eventOf(String ulid) async {
     final out = await _psql("select event_id from public.event_log where ulid = '$ulid';");

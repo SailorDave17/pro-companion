@@ -6,7 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:pro_companion_core/core.dart' show EventKinds, RoleEvents;
+import 'package:pro_companion_core/core.dart' show EventKinds, FleetEvents, RoleEvents;
 import 'package:pro_companion_core/store.dart' hide newUlid;
 import 'package:pro_companion_sync/sync.dart';
 import 'package:supabase/supabase.dart' show PostgrestException;
@@ -16,11 +16,11 @@ import 'support/local_stack.dart';
 
 /// #6: the sync engine against the local stack, as a phone meets the companion's server. Each
 /// phone signs in and is admitted through the engine itself; the owner's reads (psql as the table
-/// owner) are the instrument, since no phone can read the log before #50. The last case is #64's
-/// pull, the other direction.
+/// owner) are the instrument, since no phone can read the log before #50. #64's case is the pull,
+/// the other direction, and the last is #75's: a critical event for a fleet not on shore yet.
 ///
 /// Spend per run of this file: 3 anonymous sign-ins (the device-handoff case and #71's join) of the stack's 30 an
-/// hour, and 15 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 22
+/// hour, and 17 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 24
 /// verifications (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than
 /// on what they test. Prove a mutation with --plain-name on one case.
 ///
@@ -81,7 +81,8 @@ void main() {
       // re-serialised would become a ulid_conflict here rather than a duplicate.
       final ulids = [
         ...scorer.log(2),
-        scorer.store.append(const NewEvent(kind: 'finish', source: 'tap', role: 'scorer', payload: {'big': 1e20})).ulid,
+        // A note: since #75 a scorer may not write a finish.
+        scorer.store.append(const NewEvent(kind: 'note', source: 'tap', role: 'scorer', payload: {'big': 1e20})).ulid,
         ...scorer.log(3),
       ];
       // Each fault on a different event's first send. A fault ends its run, so faults keyed by
@@ -141,28 +142,55 @@ void main() {
 
     test('criteria 6 and 8: one event of every kind the core writes, and a new kind at a new payload '
         'version, upload as their stored bytes, admission included', () async {
+      // Since #75 the critical kinds are only some roles' to write, so every kind comes from the one
+      // role that may write them all, the overall PRO, with a real pick as the scorer's. Each
+      // correction names an event before it, as the core's do: #75 judges a correction as the
+      // event it names, and one naming none waits for it.
+      final pro = await StackPhone.open(stack);
+      addTearDown(pro.close);
+      await pro.signInNamed();
+      await pro.admitTo(day, role: 'overall_pro');
+      pro.store.append(RoleEvents.assign('overall_pro'));
       final kinds = [...EventKinds.all, 'test.synthetic'];
-      final ulids = <String, String>{
-        for (final k in kinds)
-          k: scorer.store
-              .append(NewEvent(kind: k, source: 'tap', role: 'scorer', payloadVersion: k == 'test.synthetic' ? 99 : 1, payload: {'probe': k}))
-              .ulid,
+      const corrects = {
+        'finish.sail': 'finish',
+        'finish.undo': 'finish',
+        'start.undo': 'start',
+        'start.time_corrected': 'start',
+        'start.ocs_cleared': 'start.ocs',
+        'course.undo': 'course.shortened',
       };
+      for (final MapEntry(key: correction, value: target) in corrects.entries) {
+        expect(kinds.indexOf(target), allOf(isNot(-1), lessThan(kinds.indexOf(correction))), reason: correction);
+      }
+      final ulids = <String, String>{};
+      for (final k in kinds) {
+        final target = ulids[corrects[k]];
+        ulids[k] = pro.store
+            .append(NewEvent(
+                kind: k,
+                source: 'tap',
+                role: 'overall_pro',
+                payloadVersion: k == 'test.synthetic' ? 99 : 1,
+                correctsUlid: corrects.containsKey(k) && k != 'finish.sail' ? target : null,
+                payload: {'probe': k, if (k == 'finish.sail') 'finish': target}))
+            .ulid;
+      }
       expect(kinds.length, greaterThanOrEqualTo(14));
-      await scorer.engine.syncOnce();
+      await pro.engine.syncOnce();
 
       final rows = await shore(day.eventId);
-      final stored = scorer.storedByUlid();
+      final stored = pro.storedByUlid();
       for (final MapEntry(key: kind, value: u) in ulids.entries) {
         expect(rows[u]?['canonical'], stored[u], reason: kind);
         expect(rows[u]?['hash'], chainHash(stored[u]!), reason: kind);
-        expect((jsonDecode(rows[u]!['canonical'] as String) as Map)['admission_id'], scorer.admission, reason: kind);
+        expect((jsonDecode(rows[u]!['canonical'] as String) as Map)['admission_id'], pro.admission, reason: kind);
       }
     });
 
     test('criterion 7: keys out of order and decimals arrive as the phone\'s bytes, and the hash '
         'recomputes on shore to the phone\'s value', () async {
-      final u = scorer.store.append(const NewEvent(kind: 'finish', source: 'tap', role: 'scorer', payload: {
+      final u = scorer.store.append(const NewEvent(kind: 'note', source: 'tap', role: 'scorer', payload: {
         'z': 1e20,
         'm': 12.0,
         'a': 0.1,
@@ -713,6 +741,42 @@ void main() {
       expect(paged.pull?.rejected, 1, reason: 'the crafted row was read, and refused by the store');
       expect(scorer.store.readCanonical(), containsAll([crafted[0], crafted[2]]),
           reason: 'the page after the crafted row was read: PostgREST took the quoted keyset');
+    });
+
+    test('#75 criterion 10: a critical event for a fleet the server does not hold yet stays pending, '
+        'never refused, and uploads once the fleet lands', () async {
+      // The scorer defines the fleet, so this costs one sign-in: the PRO's.
+      final pro = await StackPhone.open(stack);
+      addTearDown(pro.close);
+      await pro.signInNamed();
+      await pro.admitTo(day, role: 'overall_pro');
+      // A real pick, as the scorer's in setUpAll: the core stamps it on the clock.offset it writes
+      // before a start (#55), which #73 would otherwise refuse for its missing role.
+      pro.store.append(RoleEvents.assign('overall_pro'));
+      // Defined on the scorer's phone and held there, as a fleet another phone has not uploaded yet.
+      final fleet = scorer.store.append(FleetEvents.define('Lasers (#75)')).ulid;
+      final start = pro.store
+          .append(NewEvent(kind: 'start', source: 'tap', role: 'overall_pro', payload: {'fleet': fleet}))
+          .ulid;
+
+      final waiting = await pro.engine.syncOnce();
+      expect([waiting.state, waiting.refused, waiting.remaining], [UploadRunState.retrying, 0, 1],
+          reason: '$waiting');
+      expect(pro.store.uploadStatus().refused, isEmpty, reason: 'never kept as refused');
+      final answer = pro.transport.appends.lastWhere((s) => s.body.contains(start));
+      final error = jsonDecode(answer.answer!) as Map;
+      expect(error['code'], 'PCW01', reason: 'the retryable error: ${answer.status} ${answer.answer}');
+      expect(error['code'], isNot('append_event_refused'));
+      expect(await stack.eventLogCanonical(start), isNull, reason: 'not on shore');
+
+      await scorer.engine.syncOnce();
+      expect(await stack.eventLogCanonical(fleet), isNotNull, reason: "control: the fleet's fleet.defined is on shore");
+
+      final uploaded = await pro.engine.syncOnce();
+      expect([uploaded.state, uploaded.refused, uploaded.remaining], [UploadRunState.done, 0, 0],
+          reason: '$uploaded');
+      expect(await stack.eventLogCanonical(start), pro.storedByUlid()[start], reason: 'on shore, as the phone wrote it');
+      expect(pro.transport.appendsOf(start), 2, reason: 'sent once while waiting, once after the fleet landed');
     });
   }, skip: localStackRequested ? false : localStackSkip);
 }
