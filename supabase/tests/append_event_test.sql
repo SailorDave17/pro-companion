@@ -21,6 +21,8 @@ select plan(59);
 --          as …ad04; …aa05 signed in, never admitted. Since #73 every text an admitted phone sends
 --          names its admission and role, which append_event now checks (admission_check_test.sql);
 --          the rows are inserted with fixed ids so the texts and their hashes can stay literal.
+--          The stored event is a note: since #75 a scorer may not write a finish, and the kinds
+--          each role may write are critical_kinds_test.sql's subject, not this file's.
 -- log:     01J8…0481 is the one event stored; 01J8…0482 to 01J8…0489 are each refused or failed
 
 -- 1–5. Criterion 1: append_event is the only client path into the log.
@@ -95,17 +97,17 @@ select public.revoke_device('00000000-0000-0000-0000-00000000ad03');
 -- refusal by this table would show.
 create temp table fx (name text primary key, canonical text not null);
 insert into fx values
-  ('ok', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"finish","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12345"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
-  ('ok-altered', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"finish","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12346"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
+  ('ok', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"note","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12345"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
+  ('ok-altered', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190001000,"gps":{"accuracy_m":5,"lat":33.4012,"lon":-86.8123},"kind":"note","payload":{"fleet":"01J8Z0E0000000000000000001","sail":"12346"},"payload_version":1,"person":"Dana (fixture)","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000481"}'),
   ('revoked', '{"admission_id":"00000000-0000-0000-0000-00000000ad03","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000003","device_ts":1727190002000,"gps":null,"kind":"note","payload":{"text":"Mark 2 — hold"},"payload_version":1,"person":null,"prev_hash":"93322f023cbc83656fe652883020940402d8508b2e6fcaa0835251db33f56e95","role":"scorer","seq":4,"source":"tap","ulid":"01J80000000000000000000482"}'),
   ('other-day', '{"admission_id":"00000000-0000-0000-0000-00000000ad04","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000004","device_ts":1727190003000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000483"}'),
-  ('no-kind', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"payload":{},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000484"}'),
-  ('seq-not-integer', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":"three","source":"tap","ulid":"01J80000000000000000000485"}'),
-  ('nul', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{"text":"a\u0000b"},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000486"}'),
+  ('no-kind', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"payload":{},"payload_version":1,"person":null,"prev_hash":"44ee08ee9c45e38cfa603779ce3e32650de2c68056b31d2eeca8dc98125ab09b","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000484"}'),
+  ('seq-not-integer', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"44ee08ee9c45e38cfa603779ce3e32650de2c68056b31d2eeca8dc98125ab09b","role":"scorer","seq":"three","source":"tap","ulid":"01J80000000000000000000485"}'),
+  ('nul', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190004000,"gps":null,"kind":"note","payload":{"text":"a\u0000b"},"payload_version":1,"person":null,"prev_hash":"44ee08ee9c45e38cfa603779ce3e32650de2c68056b31d2eeca8dc98125ab09b","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000486"}'),
   ('not-json', 'not json'),
   ('array', '["01J80000000000000000000481"]'),
   ('stranger', '{"corrects_ulid":null,"device_id":"01J8Z0D0000000000000000002","device_ts":1727190005000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","role":"scorer","seq":1,"source":"tap","ulid":"01J80000000000000000000487"}'),
-  ('transient', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190006000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000489"}');
+  ('transient', '{"admission_id":"00000000-0000-0000-0000-00000000ad01","corrects_ulid":null,"device_id":"01J8Z0D0000000000000000001","device_ts":1727190006000,"gps":null,"kind":"note","payload":{},"payload_version":1,"person":null,"prev_hash":"44ee08ee9c45e38cfa603779ce3e32650de2c68056b31d2eeca8dc98125ab09b","role":"scorer","seq":2,"source":"tap","ulid":"01J80000000000000000000489"}');
 grant select on fx to authenticated;
 
 -- 11–15. Criteria 1 and 5: an admitted phone's event is stored exactly as #40 defines it, and a
@@ -115,19 +117,19 @@ select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-00000000aa01","role":"authenticated","is_anonymous":true}', true);
 select is(public.append_event('00000000-0000-0000-0000-000000000e01', (select canonical from fx where name = 'ok')),
           '{"outcome": "accepted", "duplicate": false,
-            "hash": "f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181"}'::jsonb,
+            "hash": "44ee08ee9c45e38cfa603779ce3e32650de2c68056b31d2eeca8dc98125ab09b"}'::jsonb,
           'an admitted phone''s event is accepted, with the hash of its bytes');
 select is(current_setting('response.status', true), null,
           'and answered with no error status');
 reset role;
 select ok((select l.canonical = f.canonical and l.event_id = '00000000-0000-0000-0000-000000000e01'
-                  and l.kind = 'finish' and l.seq = 1 and l.person = 'Dana (fixture)' and l.received_at = now()
+                  and l.kind = 'note' and l.seq = 1 and l.person = 'Dana (fixture)' and l.received_at = now()
            from public.event_log l, fx f where l.ulid = '01J80000000000000000000481' and f.name = 'ok'),
           'it is stored as #40 defines it: the bytes as sent, typed columns from them, the server''s time');
 set local role authenticated;
 select is(public.append_event('00000000-0000-0000-0000-000000000e01', (select canonical from fx where name = 'ok')),
           '{"outcome": "accepted", "duplicate": true,
-            "hash": "f2a92a8478f450dc436a67745128a4360e1ed6dc3519a448fff0f80120ea5181"}'::jsonb,
+            "hash": "44ee08ee9c45e38cfa603779ce3e32650de2c68056b31d2eeca8dc98125ab09b"}'::jsonb,
           'a re-send of a stored event is accepted as a duplicate');
 reset role;
 select is((select count(*) from public.event_log where ulid = '01J80000000000000000000481')

@@ -175,8 +175,9 @@ void main() {
         UploadRunState.unreachable,
         true,
       ),
-      'a raised 400, standing in for #75\'s unknown-fleet error': (
-        () => postgrestError(400, 'P0001', 'unknown fleet'),
+      // As the local stack's PostgREST answers it (measured on #75): a 400 carrying PCW01.
+      '#75\'s retryable error for a fleet not on the server yet (PCW01)': (
+        () => postgrestError(400, 'PCW01', 'append_event: fleet 01J8Z0F000000000000000FU01 is not on the server yet'),
         UploadRunState.retrying,
         false,
       ),

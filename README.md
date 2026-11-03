@@ -93,6 +93,23 @@ insert, and never rewrites the text, which would break the hash the phone comput
 
 The three refusals are kept like the others, and a phone reads each as a stub.
 
+**The server holds a critical kind to the writer's role and race area** (#75; groom decisions G24,
+G29 and G30). Line finishes, start and sequence events, a shortened course, a finish at a mark, an
+abandonment and the release of results are each some roles' alone, and a bound role's only for a
+fleet on its race area. `append_event` judges them after the admission, through
+`critical_kind_refusal`, from the map in `public.critical_kind`. `docs/roles.md` holds the same map
+kind by kind, and says which race area a fleet races on.
+
+- **A kind the role may not write** is refused as `kind_not_permitted`.
+- **A fleet on another race area**, or a whole-day postponement or abandonment from a course PRO,
+  is refused as `race_area_mismatch`.
+- **A correction** (a sail number, an undo, a time correction, an OCS clearance) carries no fleet,
+  and is judged as the event it names.
+- **A critical event naming a fleet another phone has not uploaded yet**, or a correction naming an
+  event the server does not hold yet, is held, not refused. It raises `PCW01` (an HTTP 400), which
+  keeps no record, so sync sends it again on its next run. A correction of an event the server
+  refused is refused with that event's reason.
+
 **Why a live `committee_device` lookup, not a JWT claim.** A role claim would need the access-token
 hook, and it changes only when the token is refreshed, so a role change or a revocation would hold
 until the next refresh. It also cannot differ per event for one anonymous user, where a phone may
@@ -248,8 +265,8 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
   device-handoff phone is one. A full run signs in 20 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 22,
-  15 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 24,
+  17 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 
 ### Applying a migration to the live project
 
