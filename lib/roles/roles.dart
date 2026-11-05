@@ -18,7 +18,7 @@ String roleName(String role) => switch (role) {
     };
 
 /// The screens a role home opens.
-enum HomeAction { fleets, sequence, finishes, results, log, station, roundings, finishAtMark, runningOrder }
+enum HomeAction { fleets, marks, sequence, finishes, results, log, station, roundings, finishAtMark, runningOrder }
 
 /// What [role]'s home offers: that role's job and nothing else (#20
 /// criterion 3, groom decision G29).
@@ -27,7 +27,9 @@ enum HomeAction { fleets, sequence, finishes, results, log, station, roundings, 
 ///   and the committee log, where the other phones' logs are checked (#67;
 ///   on the PRO's home only, owner decision at its pickup).
 /// - The course PRO has the PRO's home, on its own race area (owner decision
-///   at #74's pickup). A home of its own can follow.
+///   at #74's pickup). A home of its own can follow. Both PROs send their
+///   race area's custom marks from MARKS (#78), shown only on an admitted
+///   phone, since a phone never admitted has no race area to send to.
 /// - The recorder writes line finishes, and names its own fleets when its
 ///   phone works alone (owner decision 2026-10-06).
 /// - The mark boat sets its station (#26), taps each boat rounding it (#54),
@@ -41,6 +43,7 @@ enum HomeAction { fleets, sequence, finishes, results, log, station, roundings, 
 List<HomeAction> homeActions(String role) => switch (role) {
       Roles.overallPro || Roles.coursePro => const [
           HomeAction.fleets,
+          HomeAction.marks,
           HomeAction.sequence,
           HomeAction.finishes,
           HomeAction.results,

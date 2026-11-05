@@ -7,8 +7,8 @@
 - **Defined in code** as `StandardMarks` in `packages/core/lib/src/stations.dart`.
   `packages/core/test/stations_test.dart` pins each id, and `test/marks_doc_test.dart` fails if this
   table and the code disagree.
-- **Not yet:** the custom mark list a PRO sends for an unusual course (G11's second half), which is
-  its own story.
+- **The custom mark list (G11's second half) is #78.** A PRO sends marks the set does not have to its
+  race area's mark boats. See "Custom marks" below.
 
 ## The set
 
@@ -28,6 +28,34 @@ In the order the station picker shows them, two to a row.
 
 `mark_1` to `mark_4` carry a `mark_` prefix, so no id reads as a number or a place (owner's choice,
 2026-10-08).
+
+## Custom marks (#78)
+
+For an unusual course, a PRO names marks the standard set does not have and sends them to the mark
+boats on its race area by cloud pull (scope decision 9). Owner's choices at pickup, 2026-11-05.
+
+- **Who sends.** MARKS sits on the overall PRO's and the course PRO's homes, on an admitted phone
+  only, and is off until the phone works on a race area. A course PRO sends for its own race area,
+  and an overall PRO for the one it picked (#74).
+- **What is sent.** A `mark_list.sent` event carries `payload.course` (the race area's course id) and
+  `payload.marks`, the whole list, each mark `{id, name, colour, shape}`. A colour is one of yellow,
+  orange, red, green or white, and a shape one of cylinder, ball, cone or flag. Both are optional.
+  `MarkListKinds`, `MarkListEvents` and `CustomMark` are in `packages/core/lib/src/mark_lists.dart`.
+- **Ids never collide with the set.** A custom id is `custom_` followed by ten random Crockford
+  characters, and no standard id starts with `custom_`.
+- **A new list supersedes the race area's last one.** The editor opens on the list in force, so a mark
+  left as it was keeps its id, and a boat stationed there stays valid. Only a new mark gets a new id.
+  UNDO LIST appends a `mark_list.undo` naming the list in force, and the race area returns to the one
+  before it.
+- **Every id stays readable.** A custom mark is named by the latest list that ever named it, undone or
+  superseded ones included. A screen that holds no lists, such as the committee log, says "Custom
+  mark".
+- **The mark boat's picker** offers the standard set, then its own race area's custom marks in force,
+  in the order sent. A phone on another race area, one never admitted, and one that has not pulled a
+  list offer the standard set alone, which needs no signal.
+- **Not a critical kind.** G24 and G29 list the critical kinds, and a mark list is not among them. The
+  server accepts one from any admitted phone, as any set-up event. The phone offers the editor to a
+  PRO only.
 
 ## How a phone's events carry its mark
 

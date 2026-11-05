@@ -3,6 +3,7 @@ import 'clock_offsets.dart';
 import 'finishes.dart';
 import 'fleets.dart';
 import 'mark_finishes.dart';
+import 'mark_lists.dart';
 import 'race_areas.dart';
 import 'results.dart';
 import 'roles.dart';
@@ -28,5 +29,6 @@ abstract final class EventKinds {
     ...RoundingKinds.all,
     ...AdmissionKinds.all,
     ...RaceAreaKinds.all,
+    ...MarkListKinds.all,
   };
 }

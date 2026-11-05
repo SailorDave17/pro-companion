@@ -44,6 +44,7 @@ class RoundingScreen extends StatefulWidget {
     required this.core,
     required this.confirmation,
     required this.mark,
+    this.markLabel,
     this.clock = systemClock,
   });
 
@@ -52,6 +53,10 @@ class RoundingScreen extends StatefulWidget {
 
   /// The phone's station. The core stamps it into every rounding.
   final String mark;
+
+  /// What the station is called, a custom mark by its list (#78). Defaults
+  /// to the standard name.
+  final String? markLabel;
 
   /// The phone's clock: today is its local date.
   final int Function() clock;
@@ -286,7 +291,7 @@ class _RoundingScreenState extends State<RoundingScreen> {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              ['Roundings at ${markName(widget.mark)}', ?fleetName, '${list.length}'].join(' · '),
+              ['Roundings at ${widget.markLabel ?? markName(widget.mark)}', ?fleetName, '${list.length}'].join(' · '),
               style: Theme.of(context).textTheme.titleLarge,
             ),
           ),
