@@ -33,6 +33,20 @@ export 'src/link.dart'
 export 'src/location.dart' show ClockOffsetReasons, GpsReasons, GpsTimeSample;
 export 'src/mark_finishes.dart'
     show CourseEvents, CourseKinds, lastMarkFleet, lastUndoableMarkFinish, markFinishOrder, shortenedAt;
+export 'src/mark_lists.dart'
+    show
+        CustomMark,
+        MarkColours,
+        MarkListEvents,
+        MarkListKinds,
+        MarkShapes,
+        currentMarkList,
+        currentMarkListEvent,
+        customMarkPrefix,
+        customMarksEver,
+        isCustomMarkId,
+        isStationMark,
+        newCustomMarkId;
 export 'src/order.dart' show happened;
 export 'src/pulls.dart' show PullRun, PullRunState, PullStatus;
 export 'src/race_areas.dart'

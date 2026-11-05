@@ -1,4 +1,5 @@
 import 'envelope.dart';
+import 'mark_lists.dart';
 import 'order.dart';
 import 'roles.dart';
 
@@ -19,7 +20,7 @@ abstract final class StationKinds {
 /// Groom decision G11's first half: the fixed standard mark set, which works
 /// offline on one phone. Rounding (#54), finish-here (#30) and the course
 /// module key on these ids, so they are fixed once, here, and documented in
-/// docs/marks.md. The PRO-sent custom list is its own story.
+/// docs/marks.md. The PRO-sent custom list is `mark_lists.dart` (#78).
 abstract final class StandardMarks {
   static const mark1 = 'mark_1';
   static const mark2 = 'mark_2';
@@ -48,10 +49,11 @@ String? markOf(EventEnvelope e) {
 
 /// Builds the events a station pick appends.
 abstract final class StationEvents {
-  /// A pick of [mark], one of the standard set.
+  /// A pick of [mark], one of the standard set or a custom mark a PRO sent
+  /// (#78).
   static NewEvent select(String mark) {
-    if (!StandardMarks.all.contains(mark)) {
-      throw ArgumentError.value(mark, 'mark', 'is not one of the standard marks');
+    if (!isStationMark(mark)) {
+      throw ArgumentError.value(mark, 'mark', 'is neither a standard mark nor a custom mark id');
     }
     return NewEvent(kind: StationKinds.selected, source: 'tap', payload: {markPayloadKey: mark});
   }

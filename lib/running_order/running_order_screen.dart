@@ -121,6 +121,7 @@ class _RunningOrderScreenState extends State<RunningOrderScreen> {
               _FleetOrder(
                 key: ValueKey('running-${o.fleet ?? 'none'}'),
                 order: o,
+                marks: customMarksEver(events ?? const []),
                 // A day of one fleet needs no heading; roundings that name no
                 // fleet on a day of several do.
                 title: o.fleet == null ? (names.isEmpty ? null : 'No fleet named') : names[o.fleet] ?? 'Fleet',
@@ -133,10 +134,13 @@ class _RunningOrderScreenState extends State<RunningOrderScreen> {
 }
 
 class _FleetOrder extends StatelessWidget {
-  const _FleetOrder({super.key, required this.order, required this.title});
+  const _FleetOrder({super.key, required this.order, required this.title, required this.marks});
 
   final FleetRunningOrder order;
   final String? title;
+
+  /// Every custom mark ever sent (#78), so a custom station reads by name.
+  final Map<String, CustomMark> marks;
 
   @override
   Widget build(BuildContext context) {
@@ -156,9 +160,11 @@ class _FleetOrder extends StatelessWidget {
           // Above the order it qualifies, and short: at 200% text a sentence
           // per mark filled the first screen and hid the order (emulator).
           if (order.waiting.isNotEmpty)
-            _Note('Waiting for ${order.waiting.map(markName).join(', ')}', key: const ValueKey('waiting')),
+            _Note('Waiting for ${order.waiting.map((m) => markName(m, marks)).join(', ')}',
+                key: const ValueKey('waiting')),
           if (order.entries.isEmpty) Text('No roundings yet', style: theme.bodyLarge),
-          for (var i = 0; i < order.entries.length; i++) _EntryRow(place: i + 1, entry: order.entries[i]),
+          for (var i = 0; i < order.entries.length; i++)
+            _EntryRow(place: i + 1, entry: order.entries[i], marks: marks),
           // Below the rows: it qualifies places, not whether the order is current.
           if (order.clocksUnmatched)
             const Padding(
@@ -183,15 +189,16 @@ class _FleetOrder extends StatelessWidget {
 }
 
 class _EntryRow extends StatelessWidget {
-  const _EntryRow({required this.place, required this.entry});
+  const _EntryRow({required this.place, required this.entry, required this.marks});
 
   final int place;
   final RunningEntry entry;
+  final Map<String, CustomMark> marks;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme.bodyLarge;
-    final mark = entry.mark == null ? 'a mark' : markName(entry.mark!);
+    final mark = entry.mark == null ? 'a mark' : markName(entry.mark!, marks);
     final time = clockText(entry.last.deviceTs);
     final rounded = '${entry.roundings} ${entry.roundings == 1 ? 'mark' : 'marks'}';
     // Each row its own screen-reader node, as the results rows are (#7): left

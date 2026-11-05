@@ -12,6 +12,7 @@ import '../rounding/rounding_screen.dart';
 import '../running_order/running_order_screen.dart';
 import '../sequence/sequence_screen.dart';
 import '../shore/shore_status.dart';
+import '../stations/mark_list_screen.dart';
 import '../stations/station_screen.dart';
 import '../ui/bars.dart';
 import '../ui/clock.dart';
@@ -75,6 +76,26 @@ class _RoleHomeState extends State<RoleHome> {
 
   String? get _course => _deviceId == null ? null : currentCourse(_raceAreas, _stationEvents, _deviceId!);
 
+  // Every phone's mark lists (#78), read on a home with a station only: a
+  // custom station is named by the list that sent it, which arrives by pull.
+  final _markLists = <EventEnvelope>[];
+
+  /// What [mark] is called, a custom one by the latest list naming it.
+  String _markName(String mark) => markName(mark, customMarksEver(_markLists));
+
+  Future<void> _readMarkLists() async {
+    if (!homeActions(widget.role).contains(HomeAction.station)) return;
+    try {
+      final events = await widget.core.readAll();
+      if (!mounted) return;
+      setState(() => _markLists
+        ..clear()
+        ..addAll(events.where((e) => MarkListKinds.all.contains(e.kind))));
+    } catch (_) {
+      // A custom station then reads "Custom mark"; nothing else needs them.
+    }
+  }
+
   /// The race area in force, named, or null: never admitted, grant not known
   /// yet, nothing picked, or a race area sync has not named on this phone.
   RaceArea? get _area => _raceAreas.byId(_course);
@@ -113,6 +134,7 @@ class _RoleHomeState extends State<RoleHome> {
     }, onError: (Object _) {
       if (mounted) setState(() => _stationUnreadable = true);
     });
+    _readMarkLists();
   }
 
   EventEnvelope? get _stationPick => _deviceId == null ? null : currentStationPick(_stationEvents, _deviceId!);
@@ -128,6 +150,7 @@ class _RoleHomeState extends State<RoleHome> {
           _stationNotLogged = false;
         }
       });
+      _readMarkLists();
     }
   }
 
@@ -217,7 +240,7 @@ class _RoleHomeState extends State<RoleHome> {
             ? 'Reading the log…'
             : mark == null
                 ? 'No station yet'
-                : 'Station: ${markName(mark)}';
+                : 'Station: ${_markName(mark)}';
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -226,7 +249,8 @@ class _RoleHomeState extends State<RoleHome> {
           child: Text(status, key: const ValueKey('station-status'), style: Theme.of(context).textTheme.titleLarge),
         ),
         const SizedBox(height: 12),
-        _big('STATION', () => StationScreen(core: widget.core, confirmation: widget.confirmation, current: mark)),
+        _big('STATION',
+            () => StationScreen(core: widget.core, confirmation: widget.confirmation, current: mark, course: _course)),
         const SizedBox(height: 16),
         RaceTimeAction(
           id: 'station-undo',
@@ -272,6 +296,7 @@ class _RoleHomeState extends State<RoleHome> {
                   core: widget.core,
                   confirmation: widget.confirmation,
                   mark: mark,
+                  markLabel: _markName(mark),
                   clock: widget.clock,
                 )),
         child: const FitLabel('ROUNDINGS'),
@@ -292,7 +317,8 @@ class _RoleHomeState extends State<RoleHome> {
         key: const ValueKey('finish-at-mark'),
         onPressed: mark == null
             ? null
-            : () => _open(() => MarkFinishScreen(core: widget.core, confirmation: widget.confirmation, mark: mark)),
+            : () => _open(() => MarkFinishScreen(
+                core: widget.core, confirmation: widget.confirmation, mark: mark, markLabel: _markName(mark))),
         child: const FitLabel('FINISH AT MARK'),
       ),
     );
@@ -302,6 +328,22 @@ class _RoleHomeState extends State<RoleHome> {
         // Naming the day's fleets is set-up, done before racing (#18).
         HomeAction.fleets => _outlined(
             'FLEETS', () => FleetsScreen(core: widget.core, confirmation: widget.confirmation, course: _course)),
+        // The race area's custom marks (#78): set-up too, and off until the
+        // phone works on a race area, since a list is sent to one.
+        HomeAction.marks => SizedBox(
+            width: double.infinity,
+            height: Bars.minTargetDp + 8,
+            child: OutlinedButton(
+              key: const ValueKey('marks'),
+              onPressed: _course == null
+                  ? null
+                  : () {
+                      final course = _course!;
+                      _open(() => MarkListScreen(core: widget.core, confirmation: widget.confirmation, course: course));
+                    },
+              child: const FitLabel('MARKS'),
+            ),
+          ),
         // The start, then the finishes: the order a race runs in (#25).
         HomeAction.sequence => _big('SEQUENCE', () => SequenceScreen(
               core: widget.core,
@@ -341,7 +383,12 @@ class _RoleHomeState extends State<RoleHome> {
 
   @override
   Widget build(BuildContext context) {
-    final actions = homeActions(widget.role);
+    // MARKS only on an admitted phone (#78): a phone never admitted has one
+    // implicit race area, and no mark boat elsewhere to send a list to.
+    final actions = [
+      for (final a in homeActions(widget.role))
+        if (a != HomeAction.marks || _raceAreas.granted) a,
+    ];
     // What this phone has sent, and what waits (#66): below the role's own
     // buttons, so none of them moves. Above them it pushed LOG below the fold
     // at 100% text on the 320 x 640 phone, and RESULTS at 200% (owner's

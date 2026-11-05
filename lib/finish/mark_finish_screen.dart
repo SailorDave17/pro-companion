@@ -31,13 +31,18 @@ import '../ui/sunlight.dart';
 /// another phone logs, and a clock reference across phones (groom decision
 /// G10). So the screen says it is pending reconciliation.
 class MarkFinishScreen extends StatefulWidget {
-  const MarkFinishScreen({super.key, required this.core, required this.confirmation, required this.mark});
+  const MarkFinishScreen(
+      {super.key, required this.core, required this.confirmation, required this.mark, this.markLabel});
 
   final CoreClient core;
   final ConfirmationService confirmation;
 
   /// The phone's station. The core stamps it into every event logged here.
   final String mark;
+
+  /// What the station is called, a custom mark by its list (#78). Defaults
+  /// to the standard name.
+  final String? markLabel;
 
   @override
   State<MarkFinishScreen> createState() => _MarkFinishScreenState();
@@ -196,7 +201,7 @@ class _MarkFinishScreenState extends State<MarkFinishScreen> {
             ? 'Nothing to undo'
             : 'UNDO LAST (#$lastPlace)';
 
-    final where = 'Finish at ${markName(widget.mark)}';
+    final where = 'Finish at ${widget.markLabel ?? markName(widget.mark)}';
     final status = shown != null
         ? 'Elapsed: pending reconciliation'
         : allFleets.isEmpty
