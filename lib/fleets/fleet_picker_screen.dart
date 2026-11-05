@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
+import '../roles/race_area.dart';
 import '../ui/bars.dart';
 import '../ui/race_time.dart';
 
@@ -105,7 +106,7 @@ class FleetPickerScreen extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: Text(title, style: Theme.of(context).textTheme.titleLarge),
+        title: RaceAreaTitle(title: Text(title, style: Theme.of(context).textTheme.titleLarge)),
       ),
       body: SafeArea(
         top: false,

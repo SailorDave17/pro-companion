@@ -35,6 +35,16 @@ export 'src/mark_finishes.dart'
     show CourseEvents, CourseKinds, lastMarkFleet, lastUndoableMarkFinish, markFinishOrder, shortenedAt;
 export 'src/order.dart' show happened;
 export 'src/pulls.dart' show PullRun, PullRunState, PullStatus;
+export 'src/race_areas.dart'
+    show
+        RaceArea,
+        RaceAreaEvents,
+        RaceAreaKinds,
+        RaceAreas,
+        coursePayloadKey,
+        currentCourse,
+        currentRaceAreaPick,
+        onCourse;
 export 'src/race_times.dart'
     show FinishTime, FinishTimeFlags, FleetRaceFlags, FleetRaceTimes, fleetRaceTimes, raceTimesOf;
 export 'src/results.dart'

@@ -412,11 +412,19 @@ class SyncEngine {
       // race day is refused here, by the phone, without reading its log: the
       // server's RLS would answer it with no rows rather than an error (owner
       // decision on #64).
-      final rows = await _read(() => _client.rest.from('committee_device').select('event_id, revoked_at, superseded_by'));
+      final rows = await _read(() =>
+          _client.rest.from('committee_device').select('id, event_id, role, course_id, revoked_at, superseded_by'));
       final revoked = <String>{}, active = <String>{};
       for (final row in rows) {
         final r = row as Map;
         final day = r['event_id'] as String;
+        // What each admission granted (#74), kept so the phone knows its
+        // race area offline, an admission made before #74 included.
+        final (id, role) = (r['id'], r['role']);
+        if (id is String && role is String && Roles.all.contains(role)) {
+          _store.recordAdmissionEvent(id, day);
+          _store.recordAdmissionGrant(id, role, r['course_id'] as String?);
+        }
         if (r['revoked_at'] != null) {
           revoked.add(day);
         } else if (r['superseded_by'] == null) {
@@ -437,6 +445,12 @@ class SyncEngine {
           final (id, name) = ((row as Map)['id'], row['name']);
           if (id == day && name is String && name.trim().isNotEmpty) _store.recordRaceDayName(day, name);
         }
+      }
+
+      // And each race day's race areas (#74), once: they are fetched with
+      // signal and kept offline. A day with none kept is read again.
+      for (final day in readable) {
+        if (_store.raceAreasOf(day).isEmpty) await _readRaceAreas(day);
       }
 
       for (final day in readable) {
@@ -585,6 +599,19 @@ class SyncEngine {
   /// [value] in PostgREST's double-quoted form, which reads reserved
   /// characters as text: a backslash and a double quote are escaped.
   static String _quoted(String value) => '"${value.replaceAll(r'\', r'\\').replaceAll('"', r'\"')}"';
+
+  /// Reads race day [day]'s race areas (#74) and keeps them. course_select_admitted
+  /// shows them to a phone admitted to the day. A failure is the pull's, as
+  /// any of its reads is.
+  Future<void> _readRaceAreas(String day) async {
+    final rows = await _read(() => _client.rest.from('course').select('id, event_id, name').eq('event_id', day));
+    _store.recordRaceAreas(day, [
+      for (final row in rows)
+        if (row case {'id': final String id, 'event_id': final String event, 'name': final String name}
+            when event == day && name.trim().isNotEmpty)
+          RaceArea(id: id, name: name),
+    ]);
+  }
 
   /// Runs one read of the pull, turning a failure into the [_PullStop] that
   /// says what it proves, as the upload half does.
@@ -1040,8 +1067,16 @@ class SyncEngine {
             raceArea = course?['name'] is String ? course!['name'] as String : null;
           }
           _store.recordAdmissionEvent(id, eventId);
+          _store.recordAdmissionGrant(id, role, courseId);
+          if (courseId != null && raceArea != null) {
+            _store.recordRaceAreas(eventId, [RaceArea(id: courseId, name: raceArea)]);
+          }
           _store.setAdmissionId(id);
           _persistIfStale();
+          // The race day's race areas (#74), while there is signal: an
+          // event-wide phone picks from them. The admission stands without
+          // them, so a failed read is left to the next pull.
+          await _readRaceAreas(eventId).catchError((Object _) {});
           return Admission(admissionId: id, eventId: eventId, role: role, courseId: courseId, raceArea: raceArea);
         } on CoreException {
           rethrow;

@@ -16,6 +16,7 @@ import 'src/link.dart';
 import 'src/location.dart';
 import 'src/order.dart';
 import 'src/pulls.dart';
+import 'src/race_areas.dart';
 import 'src/race_times.dart';
 import 'src/roles.dart';
 import 'src/roundings.dart';
@@ -70,6 +71,13 @@ class FakeCore implements CoreClient {
   /// sync (#64), which [readAll] returns and [readOwn] does not.
   void seed(Iterable<EventEnvelope> events) => _events.addAll(events);
 
+  /// Sets the admission the phone holds as though it was admitted before the
+  /// test began (#74): no marker, and no call counted, as [seed] adds events.
+  void seedAdmission(String admissionId) {
+    validateAdmissionId(admissionId);
+    _admissionId = admissionId;
+  }
+
   /// What [uploadStatus] answers. The fake runs no sync, so a test sets it.
   UploadStatus uploadStatusValue = UploadStatus.empty;
 
@@ -94,6 +102,30 @@ class FakeCore implements CoreClient {
 
   /// Every code [join] was given, in order.
   final joins = <String>[];
+
+  /// What each admission granted (#74), as the real core keeps what sync
+  /// read: a [join] records its answer here, and a test may add one, as a
+  /// pull would for an admission made before #74.
+  final grants = <String, ({String role, String? course})>{};
+
+  /// The race day's race areas as sync would have kept them (#74). The fake
+  /// runs no sync, so a test sets them; a [join] adds the one it granted.
+  final raceAreaList = <RaceArea>[];
+
+  RaceAreas _raceAreas() {
+    final admission = _admissionId;
+    if (admission == null) return RaceAreas.none;
+    final grant = grants[admission];
+    return RaceAreas(
+      admissionId: admission,
+      grantedRole: grant?.role,
+      boundCourse: grant?.course,
+      areas: [...raceAreaList]..sort((a, b) => a.name == b.name ? a.id.compareTo(b.id) : a.name.compareTo(b.name)),
+    );
+  }
+
+  @override
+  Future<RaceAreas> raceAreas() => _call(Wire.raceAreas, _raceAreas);
 
   // The store's read order: device time, device, then the device's sequence
   // number (#145).
@@ -148,8 +180,12 @@ class FakeCore implements CoreClient {
       kind: event.kind,
       payloadVersion: event.payloadVersion,
       correctsUlid: event.correctsUlid,
-      // And the phone's station (#26), unless the event names a mark.
-      payload: withStation(event.payload, currentStation(_events, deviceIdValue)),
+      // And the phone's station (#26), unless the event names a mark, and a
+      // fleet's race area (#74), unless it names one.
+      payload: event.kind == FleetKinds.defined
+          ? withCourse(withStation(event.payload, currentStation(_events, deviceIdValue)),
+              currentCourse(_raceAreas(), _events, deviceIdValue))
+          : withStation(event.payload, currentStation(_events, deviceIdValue)),
     );
     _events.add(e);
     return e;
@@ -204,6 +240,12 @@ class FakeCore implements CoreClient {
         final admission = Admission.fromWire(wire);
         validateAdmissionId(admission.admissionId);
         _stampAdmission(admission.admissionId);
+        // As the real core keeps what the join read (#74).
+        grants[admission.admissionId] = (role: admission.role, course: admission.courseId);
+        final (course, name) = (admission.courseId, admission.raceArea);
+        if (course != null && name != null && !raceAreaList.any((a) => a.id == course)) {
+          raceAreaList.add(RaceArea(id: course, name: name));
+        }
         return admission;
       });
 

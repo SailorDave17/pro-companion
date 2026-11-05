@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
+import '../roles/race_area.dart';
 import '../shore/shore_status.dart';
 import '../stations/station_screen.dart';
 import '../ui/bars.dart';
@@ -101,10 +102,12 @@ class _RunningOrderScreenState extends State<RunningOrderScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text('Running order', style: theme.titleLarge),
+        title: RaceAreaTitle(
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text('Running order', style: theme.titleLarge),
+          ),
         ),
       ),
       body: SafeArea(

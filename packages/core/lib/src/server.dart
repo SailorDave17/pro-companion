@@ -139,6 +139,8 @@ class CoreServer {
         return store.pullStatus().toWire();
       case Wire.chainStatus:
         return store.chainStatus().toWire();
+      case Wire.raceAreas:
+        return store.raceAreas().toWire();
       case Wire.raceTimes:
         return [for (final r in raceTimesOf(store.readAll())) r.toWire()];
       case Wire.receiveLink:

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
 import '../log/log_screen.dart' show refusalReasonText;
+import '../roles/race_area.dart';
 import '../ui/bars.dart';
 import '../ui/clock.dart';
 import '../ui/sunlight.dart';
@@ -416,10 +417,12 @@ class _ShoreStatusScreenState extends State<ShoreStatusScreen> with _ReadsShore 
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text('Sent to shore', style: theme.titleLarge),
+        title: RaceAreaTitle(
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text('Sent to shore', style: theme.titleLarge),
+          ),
         ),
       ),
       body: SafeArea(

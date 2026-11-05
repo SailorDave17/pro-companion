@@ -432,6 +432,9 @@ class _HeldCore implements CoreClient {
   Future<String?> admissionId() => _inner.admissionId();
 
   @override
+  Future<RaceAreas> raceAreas() => _inner.raceAreas();
+
+  @override
   Future<void> setAdmissionId(String admissionId) => _inner.setAdmissionId(admissionId);
 
   @override

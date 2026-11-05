@@ -1,10 +1,9 @@
 import 'package:pro_companion_core/core.dart';
 
-/// The roles the picker offers on one phone (#20). Course PRO arrives with
-/// #74's race areas and the scorer with its own home (held), so each joins
-/// the picker with that story. #77 later narrows the pick to the role a phone
-/// was admitted as.
-const pickableRoles = [Roles.overallPro, Roles.recorder, Roles.markBoat, Roles.safety];
+/// The roles the picker offers on one phone (#20). Course PRO joined with
+/// #74's race areas, and the scorer joins with its own home (held). #77 later
+/// narrows the pick to the role a phone was admitted as.
+const pickableRoles = [Roles.overallPro, Roles.coursePro, Roles.recorder, Roles.markBoat, Roles.safety];
 
 /// What [role] is called on screen. On one phone the PRO is the overall PRO
 /// (#20's amendment, groom decision G28).
@@ -27,6 +26,8 @@ enum HomeAction { fleets, sequence, finishes, results, log, station, roundings, 
 /// - The PRO runs the day: fleets, the start sequence, finishes and results,
 ///   and the committee log, where the other phones' logs are checked (#67;
 ///   on the PRO's home only, owner decision at its pickup).
+/// - The course PRO has the PRO's home, on its own race area (owner decision
+///   at #74's pickup). A home of its own can follow.
 /// - The recorder writes line finishes, and names its own fleets when its
 ///   phone works alone (owner decision 2026-10-06).
 /// - The mark boat sets its station (#26), taps each boat rounding it (#54),
@@ -38,7 +39,7 @@ enum HomeAction { fleets, sequence, finishes, results, log, station, roundings, 
 /// (#68), which follows the race from every phone's roundings (owner decision
 /// at #68's pickup: on every role's home, not the PRO's alone).
 List<HomeAction> homeActions(String role) => switch (role) {
-      Roles.overallPro => const [
+      Roles.overallPro || Roles.coursePro => const [
           HomeAction.fleets,
           HomeAction.sequence,
           HomeAction.finishes,

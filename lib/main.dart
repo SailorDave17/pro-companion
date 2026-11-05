@@ -5,6 +5,7 @@ import 'confirmation.dart';
 import 'core_bootstrap.dart';
 import 'finish/volume_key.dart';
 import 'revocation/revoked_banner.dart';
+import 'roles/race_area.dart';
 import 'roles/role_gate.dart';
 import 'ui/clock.dart';
 import 'ui/sunlight.dart';
@@ -51,7 +52,9 @@ class ProCompanionApp extends StatelessWidget {
       theme: sunlightTheme(),
       navigatorObservers: navigatorObservers,
       // The revoked banner, above every screen once the phone's admission is revoked (#53).
-      builder: (context, navigator) => RevokedFrame(core: core, child: navigator ?? const SizedBox.shrink()),
+      // And the race area every header names (#74), which the role home sets.
+      builder: (context, navigator) =>
+          RaceAreaFrame(child: RevokedFrame(core: core, child: navigator ?? const SizedBox.shrink())),
       // The role picker, or the home of the role this phone runs as (#20).
       home: RoleGate(core: core, confirmation: confirmation, clock: clock, volumeKeys: volumeKeys),
     );

@@ -27,10 +27,12 @@ void main() {
     expect(find.text('Reading the log…'), findsOneWidget, reason: 'the call is async');
     await tester.pumpAndSettle();
     expect(find.text('3 events on this phone'), findsOneWidget, reason: 'the pick and two notes');
-    expect(core.calls, {'readOwn': 2, 'deviceId': 1, 'revocation': 1, 'uploadStatus': 1, 'pullStatus': 1},
+    expect(core.calls,
+        {'readOwn': 3, 'deviceId': 2, 'raceAreas': 1, 'revocation': 1, 'uploadStatus': 1, 'pullStatus': 1},
         reason: "the role from the log, then the count, both of this phone's own events (#64), the "
-            "revoked banner's first read (#53), and the shore row's first read (#66): async calls, and "
-            'nothing but the interface');
+            "home's picks and the race area they and the admission give (#74), the revoked banner's "
+            "first read (#53), and the shore row's first read (#66): async calls, and nothing but the "
+            'interface');
   });
 
   testWidgets('says "1 event", not "1 events"', (tester) async {

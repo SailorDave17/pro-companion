@@ -74,16 +74,16 @@ void main() {
   group('criterion 1: a phone with no role opens on the picker, and one tap picks', () {
     // Named here, not read from pickableRoles: a role dropped from that list
     // would drop its own test with it (measured, mutation M15 on #20).
-    const offered = [Roles.overallPro, Roles.recorder, Roles.markBoat, Roles.safety];
+    const offered = [Roles.overallPro, Roles.coursePro, Roles.recorder, Roles.markBoat, Roles.safety];
 
-    testWidgets('the picker offers PRO, recorder, mark boat and safety, in that order', (tester) async {
+    testWidgets('the picker offers PRO, course PRO, recorder, mark boat and safety, in that order', (tester) async {
       await openApp(tester);
       expect(picker, findsOneWidget);
       // And, below them, the join screen for a phone handed a code (#71).
-      expect(buttons(tester), {'PRO', 'RECORDER', 'MARK BOAT', 'SAFETY', 'JOIN WITH CODE'});
+      expect(buttons(tester), {'PRO', 'COURSE PRO', 'RECORDER', 'MARK BOAT', 'SAFETY', 'JOIN WITH CODE'});
       final tops = [for (final r in offered) tester.getTopLeft(pick(r)).dy];
       expect(tops, [...tops]..sort(), reason: 'top to bottom in the order listed');
-      expect(pickableRoles, offered, reason: 'course PRO arrives with #74, the scorer with its own home');
+      expect(pickableRoles, offered, reason: 'course PRO joined with #74; the scorer joins with its own home');
     });
 
     for (final role in offered) {
@@ -426,6 +426,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<String?> admissionId() => _inner.admissionId();
+
+  @override
+  Future<RaceAreas> raceAreas() => _inner.raceAreas();
 
   @override
   Future<void> setAdmissionId(String admissionId) => _inner.setAdmissionId(admissionId);

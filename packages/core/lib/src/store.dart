@@ -12,6 +12,7 @@ import 'fleets.dart';
 import 'link.dart';
 import 'location.dart';
 import 'pulls.dart';
+import 'race_areas.dart';
 import 'roles.dart';
 import 'roundings.dart';
 import 'starts.dart';
@@ -118,8 +119,9 @@ class EventStore {
   /// the phone is admitted.
   String? get admissionId => _admissionId;
 
-  /// This device's own role picks (#20) and station picks (#26), and their
-  /// undos, read from the log when it opens and kept as they are appended.
+  /// This device's own role picks (#20), station picks (#26) and race-area
+  /// picks (#74), and their undos, read from the log when it opens and kept as
+  /// they are appended.
   final _stateEvents = <EventEnvelope>[];
 
   /// The role this phone runs as (#20), from its latest role pick not undone.
@@ -132,8 +134,15 @@ class EventStore {
   /// mark of its own carries it. Null until a station is picked.
   String? get station => currentStation(_stateEvents, deviceId);
 
+  /// The course id of the race area this phone works on (#74): its bound
+  /// role's, or its event-wide pick in force. Null for a phone never
+  /// admitted, one whose grant sync has not learned, and one that has picked
+  /// none. A `fleet.defined` appended without a course of its own carries it.
+  String? get course => currentCourse(raceAreas(), _stateEvents, deviceId);
+
   void _noteStateEvent(EventEnvelope e) {
-    if (e.deviceId == deviceId && (RoleKinds.all.contains(e.kind) || StationKinds.all.contains(e.kind))) {
+    if (e.deviceId == deviceId &&
+        (RoleKinds.all.contains(e.kind) || StationKinds.all.contains(e.kind) || RaceAreaKinds.all.contains(e.kind))) {
       _stateEvents.add(e);
     }
   }
@@ -197,6 +206,41 @@ class EventStore {
     _createUploadSchema(db);
     _createPullSchema(db);
     _createLinkSchema(db);
+    _createRaceAreaSchema(db);
+  }
+
+  /// What sync reads about race areas (#74), kept so the phone knows them
+  /// offline: what each admission granted, which never changes, and each race
+  /// day's race areas, fetched once with signal. Append-only like the rest.
+  static void _createRaceAreaSchema(sql.Database db) {
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS admission_grant (
+        admission_id TEXT PRIMARY KEY NOT NULL,
+        role TEXT NOT NULL,
+        course_id TEXT
+      ) STRICT''');
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS race_area (
+        event_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        PRIMARY KEY (event_id, id)
+      ) STRICT''');
+    for (final (table, key) in const [
+      ('admission_grant', 'admission_id = NEW.admission_id'),
+      ('race_area', 'event_id = NEW.event_id AND id = NEW.id'),
+    ]) {
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_update BEFORE UPDATE ON $table
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: UPDATE refused'); END''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_delete BEFORE DELETE ON $table
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: DELETE refused'); END''');
+      db.execute('''
+        CREATE TRIGGER IF NOT EXISTS ${table}_no_replace BEFORE INSERT ON $table
+        WHEN EXISTS (SELECT 1 FROM $table WHERE $key)
+        BEGIN SELECT RAISE(ABORT, '$table is append-only: an existing row cannot be replaced'); END''');
+    }
   }
 
   /// One row per race-timer event ever stored (#33), by race-timer's own id.
@@ -588,7 +632,9 @@ class EventStore {
       payloadVersion: event.payloadVersion,
       correctsUlid: event.correctsUlid,
       prevHash: _prevHash,
-      payload: withStation(event.payload, station),
+      payload: event.kind == FleetKinds.defined
+          ? withCourse(withStation(event.payload, station), course)
+          : withStation(event.payload, station),
     );
     final text = _store(envelope);
     _nextSeq++;
@@ -784,6 +830,61 @@ class EventStore {
   String? raceDayName(String eventId) {
     final rows = _db.select('SELECT name FROM race_day_name WHERE event_id = ?', [eventId]);
     return rows.isEmpty ? null : rows.first['name'] as String;
+  }
+
+  // Race areas (#74) ----------------------------------------------------------
+
+  /// Records what [admissionId] granted: [role], and for a bound role the
+  /// race area [courseId]. A grant never changes: recording it again is a
+  /// no-op, and recording another is refused.
+  void recordAdmissionGrant(String admissionId, String role, String? courseId) {
+    validateAdmissionId(admissionId);
+    if (!Roles.all.contains(role)) throw ArgumentError.value(role, 'role', 'is not one of the six roles');
+    final known = _db.select('SELECT role, course_id FROM admission_grant WHERE admission_id = ?', [admissionId]);
+    if (known.isNotEmpty) {
+      final (r, c) = (known.first['role'] as String, known.first['course_id'] as String?);
+      if (r == role && c == courseId) return;
+      throw StateError('admission $admissionId granted $r${c == null ? '' : ' on $c'}, not $role on $courseId');
+    }
+    _db.execute(
+        'INSERT INTO admission_grant (admission_id, role, course_id) VALUES (?, ?, ?)', [admissionId, role, courseId]);
+  }
+
+  /// Keeps [areas] as race day [eventId]'s race areas, and returns how many
+  /// were new. One already kept stays as it is.
+  int recordRaceAreas(String eventId, Iterable<RaceArea> areas) {
+    if (!isAdmissionId(eventId)) {
+      throw ArgumentError.value(eventId, 'eventId', 'is not a UUID in the form Postgres prints');
+    }
+    var added = 0;
+    for (final a in areas) {
+      if (a.name.trim().isEmpty) continue;
+      if (_db.select('SELECT 1 FROM race_area WHERE event_id = ? AND id = ?', [eventId, a.id]).isNotEmpty) continue;
+      _db.execute('INSERT INTO race_area (event_id, id, name) VALUES (?, ?, ?)', [eventId, a.id, a.name]);
+      added++;
+    }
+    return added;
+  }
+
+  /// Race day [eventId]'s race areas as kept, by name.
+  List<RaceArea> raceAreasOf(String eventId) => [
+        for (final r in _db.select('SELECT id, name FROM race_area WHERE event_id = ? ORDER BY name, id', [eventId]))
+          RaceArea(id: r['id'] as String, name: r['name'] as String),
+      ];
+
+  /// What this phone knows about race areas (#74): the admission it holds,
+  /// that admission's grant, and its race day's race areas.
+  RaceAreas raceAreas() {
+    final admission = _admissionId;
+    if (admission == null) return RaceAreas.none;
+    final grant = _db.select('SELECT role, course_id FROM admission_grant WHERE admission_id = ?', [admission]);
+    final day = admissionEvent(admission);
+    return RaceAreas(
+      admissionId: admission,
+      grantedRole: grant.isEmpty ? null : grant.first['role'] as String,
+      boundCourse: grant.isEmpty ? null : grant.first['course_id'] as String?,
+      areas: day == null ? const [] : raceAreasOf(day),
+    );
   }
 
   /// The revocation of the admission this phone's taps go under (#53), or

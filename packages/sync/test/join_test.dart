@@ -63,7 +63,12 @@ void main() {
       final (_, engine) = fresh(s);
       final granted = await engine.join('SCOR-D1');
       expect([granted.role, granted.courseId, granted.raceArea], ['scorer', null, null]);
-      expect(paths(s), isNot(contains('/rest/v1/course')), reason: 'nothing to read');
+      // Since #74 the join reads the race day's race areas, which an event-wide phone picks from,
+      // and never one race area by id, since none was granted.
+      final courseReads = s.requests.where((r) => r.path == '/rest/v1/course').toList();
+      expect([for (final r in courseReads) r.query.keys.toSet()], [
+        {'select', 'event_id'}
+      ]);
     });
 
     test('a phone already signed in keeps its user: no second sign-in', () async {

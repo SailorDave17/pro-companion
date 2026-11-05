@@ -19,6 +19,7 @@ import '../ui/fill_or_scroll.dart';
 import '../ui/fit_label.dart';
 import '../ui/race_time.dart';
 import '../ui/sunlight.dart';
+import 'race_area.dart';
 import 'roles.dart';
 
 /// A role's home (#20): the role's name, UNDO ROLE, and the screens that
@@ -58,26 +59,57 @@ class _RoleHomeState extends State<RoleHome> {
   /// events pulled down by sync (#64) never change the count.
   Future<int> _ownCount() => widget.core.readOwn().then((events) => events.length);
 
-  // The mark boat's station (#26), read only on a home that offers it. This
-  // phone's role and station events: the station in force is the latest pick
-  // under the role pick this home is for.
+  // This phone's role, station (#26) and race-area (#74) picks, and their
+  // undos: the station and the race area in force are each the latest pick
+  // under the role pick this home is for. One read serves both.
   final _stationEvents = <EventEnvelope>[];
   String? _deviceId;
   bool _stationUnreadable = false;
   bool _stationNotLogged = false;
   bool _busy = false;
 
+  // The race area (#74): what the phone's admission granted and the race
+  // day's race areas, as sync kept them.
+  RaceAreas _raceAreas = RaceAreas.none;
+  ValueNotifier<RaceArea?>? _frame;
+
+  String? get _course => _deviceId == null ? null : currentCourse(_raceAreas, _stationEvents, _deviceId!);
+
+  /// The race area in force, named, or null: never admitted, grant not known
+  /// yet, nothing picked, or a race area sync has not named on this phone.
+  RaceArea? get _area => _raceAreas.byId(_course);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _frame = RaceAreaFrame.notifierOf(context);
+  }
+
+  /// Tells the frame which race area every header shows. Every home sets it
+  /// once it has read its own, null included, so a role's home never shows
+  /// the last one's. Never cleared in dispose: a notifier fired while the tree
+  /// is locked is an error (measured on #74's first run).
+  void _publish() => _frame?.value = _area;
+
   @override
   void initState() {
     super.initState();
-    if (!homeActions(widget.role).contains(HomeAction.station)) return;
+    widget.core.raceAreas().then((info) {
+      if (!mounted) return;
+      setState(() => _raceAreas = info);
+      _publish();
+    }, onError: (Object _) {
+      // The home still works without it: the phone shows no race area, as a
+      // phone never admitted does.
+    });
     Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
       setState(() {
-        _stationEvents.addAll((r[0] as List<EventEnvelope>)
-            .where((e) => RoleKinds.all.contains(e.kind) || StationKinds.all.contains(e.kind)));
+        _stationEvents.addAll((r[0] as List<EventEnvelope>).where((e) =>
+            RoleKinds.all.contains(e.kind) || StationKinds.all.contains(e.kind) || RaceAreaKinds.all.contains(e.kind)));
         _deviceId = r[1] as String;
       });
+      _publish();
     }, onError: (Object _) {
       if (mounted) setState(() => _stationUnreadable = true);
     });
@@ -118,6 +150,59 @@ class _RoleHomeState extends State<RoleHome> {
     } finally {
       _busy = false;
     }
+  }
+
+  /// RACE AREA (#74 criterion 2): the picker, for a phone admitted with an
+  /// event-wide role. It pops with the pick it logged.
+  Future<void> _pickRaceArea() async {
+    final result = await Navigator.of(context).push(MaterialPageRoute<Object?>(
+      builder: (_) => RaceAreaScreen(
+        core: widget.core,
+        confirmation: widget.confirmation,
+        areas: _raceAreas.areas,
+        current: _course,
+      ),
+    ));
+    if (!mounted) return;
+    setState(() {
+      _count = _ownCount();
+      if (result is EventEnvelope) _stationEvents.add(result);
+    });
+    _publish();
+  }
+
+  /// Where this phone works (#74): its race area, and RACE AREA where the
+  /// phone picks one. Nothing on a phone never admitted, which has one
+  /// implicit race area (criterion 4), and nothing while its grant is not
+  /// known, since a bound phone must never be offered the picker.
+  List<Widget> _raceArea() {
+    if (!_raceAreas.granted) return const [];
+    final area = _area;
+    final course = _course;
+    final status = area != null
+        ? raceAreaLine(area)
+        : course != null
+            ? 'Race area · not named on this phone yet'
+            : 'Race area · none picked';
+    return [
+      const SizedBox(height: 8),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(status, key: const ValueKey('race-area-status'), style: Theme.of(context).textTheme.titleLarge),
+      ),
+      if (_raceAreas.picks) ...[
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: Bars.minTargetDp + 8,
+          child: OutlinedButton(
+            key: const ValueKey('race-area'),
+            onPressed: _pickRaceArea,
+            child: const FitLabel('RACE AREA'),
+          ),
+        ),
+      ],
+    ];
   }
 
   /// The mark boat's station: where the phone is, STATION to pick it, and
@@ -215,7 +300,8 @@ class _RoleHomeState extends State<RoleHome> {
 
   Widget _button(HomeAction action) => switch (action) {
         // Naming the day's fleets is set-up, done before racing (#18).
-        HomeAction.fleets => _outlined('FLEETS', () => FleetsScreen(core: widget.core, confirmation: widget.confirmation)),
+        HomeAction.fleets => _outlined(
+            'FLEETS', () => FleetsScreen(core: widget.core, confirmation: widget.confirmation, course: _course)),
         // The start, then the finishes: the order a race runs in (#25).
         HomeAction.sequence => _big('SEQUENCE', () => SequenceScreen(
               core: widget.core,
@@ -295,6 +381,7 @@ class _RoleHomeState extends State<RoleHome> {
                     },
                   ),
                 ),
+                ..._raceArea(),
                 const SizedBox(height: 16),
                 // Away from the thumb's path to the role's own buttons below,
                 // and undone at once, with no confirm dialog (#20 criterion 6).

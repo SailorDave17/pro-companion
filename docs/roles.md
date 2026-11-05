@@ -104,9 +104,24 @@ event again on its next run. The fleet's race area is the first of:
 
 1. the race area its `fleet.defined` names in `payload.course` (#74 puts it there);
 2. the race area of the admission that defined it, when that role is bound to one;
-3. none. Then only the role is checked. That is the one gap: a fleet an event-wide phone defined, on
-   a day with several race areas, before #74. On a day with one race area it is no gap, since every
-   bound phone is on that race area.
+3. none. Then only the role is checked. Since #74 that leaves two cases: a fleet defined before #74,
+   and one an event-wide phone defined before picking a race area. On a day with one race area
+   neither is a gap, since every bound phone is on that race area.
+
+### Which race area a phone works on (#74)
+
+- **A bound role** (course PRO, recorder, mark boat) works on the race area its admission names. Its
+  phone shows that race area under every screen's title and offers no picker.
+- **An event-wide role** (overall PRO, scorer, safety) picks one. RACE AREA on its home opens a
+  picker of the race day's race areas, which sync reads once with signal (`course`, by `event_id`)
+  and the phone keeps offline. A pick is a `race_area.selected` event naming the course id in
+  `payload.course`, undone by `race_area.undo`. It holds under the admission and the role pick it
+  was made under, as a station pick does. Neither kind is critical: a pick is set-up.
+- **A phone never admitted** (single-phone use, milestone 1) has one implicit race area. It shows
+  none and offers no picker, and its fleets name none.
+- **The core stamps the course id** into every `fleet.defined` the phone appends while it works on a
+  race area. A fleet naming a course of its own keeps it. FLEETS lists that race area's fleets and
+  those that name none.
 
 An event with no fleet belongs to a single-fleet day and is checked by role only. A postponement or
 abandonment with no fleet is the exception: it is for the whole race day, and only the overall PRO

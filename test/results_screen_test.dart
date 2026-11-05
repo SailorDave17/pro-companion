@@ -100,9 +100,9 @@ void main() {
       // The shore chip and row (#66) read the upload and pull statuses on the same terms, and
       // test/shore_status_test.dart holds them.
       expect({...core.calls}..remove('revocation')..remove('uploadStatus')..remove('pullStatus'),
-          {'readOwn': 3, 'deviceId': 1},
-          reason: "the role from the log (#20), home's count, then the results screen's one read, each of "
-              "this phone's own events (#64)");
+          {'readOwn': 4, 'deviceId': 2, 'raceAreas': 1},
+          reason: "the role from the log (#20), home's count, home's picks and race area (#74), then the "
+              "results screen's one read, each of this phone's own events (#64)");
     });
 
     testWidgets('a day with nothing finished says so', (tester) async {
@@ -421,6 +421,9 @@ class _HeldCore implements CoreClient {
 
   @override
   Future<String?> admissionId() => _inner.admissionId();
+
+  @override
+  Future<RaceAreas> raceAreas() => _inner.raceAreas();
 
   @override
   Future<void> setAdmissionId(String admissionId) => _inner.setAdmissionId(admissionId);
