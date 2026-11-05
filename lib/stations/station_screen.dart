@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
+import '../roles/race_area.dart';
 import '../shore/shore_status.dart';
 import '../ui/bars.dart';
 import '../ui/fit_label.dart';
@@ -109,11 +110,13 @@ class _StationScreenState extends State<StationScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(current == null ? 'Station · none yet' : 'Station · ${markName(current)}',
-              style: Theme.of(context).textTheme.titleLarge),
+        title: RaceAreaTitle(
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(current == null ? 'Station · none yet' : 'Station · ${markName(current)}',
+                style: Theme.of(context).textTheme.titleLarge),
+          ),
         ),
       ),
       body: SafeArea(

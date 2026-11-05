@@ -4,6 +4,7 @@ import 'package:pro_companion_core/core.dart';
 import '../confirmation.dart';
 import '../fleets/fleet_picker_screen.dart';
 import '../fleets/fleet_row.dart';
+import '../roles/race_area.dart';
 import '../shore/shore_status.dart';
 import '../stations/station_screen.dart';
 import '../ui/bars.dart';
@@ -280,12 +281,14 @@ class _RoundingScreenState extends State<RoundingScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            ['Roundings at ${markName(widget.mark)}', ?fleetName, '${list.length}'].join(' · '),
-            style: Theme.of(context).textTheme.titleLarge,
+        title: RaceAreaTitle(
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              ['Roundings at ${markName(widget.mark)}', ?fleetName, '${list.length}'].join(' · '),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
           ),
         ),
       ),

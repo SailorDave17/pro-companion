@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
+import '../roles/race_area.dart';
 import '../shore/shore_status.dart';
 import '../ui/bars.dart';
 import '../ui/sunlight.dart';
@@ -107,10 +108,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text('Provisional results', style: Theme.of(context).textTheme.titleLarge),
+        title: RaceAreaTitle(
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text('Provisional results', style: Theme.of(context).textTheme.titleLarge),
+          ),
         ),
       ),
       body: SafeArea(

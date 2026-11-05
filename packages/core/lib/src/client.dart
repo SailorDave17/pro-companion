@@ -7,6 +7,7 @@ import 'envelope.dart';
 import 'link.dart';
 import 'location.dart';
 import 'pulls.dart';
+import 'race_areas.dart';
 import 'race_times.dart';
 import 'uploads.dart';
 import 'wire.dart';
@@ -51,6 +52,11 @@ abstract interface class CoreClient {
   /// granted. A refusal, no signal and a core with no server wired to it each
   /// come back as a [CoreException] coded from `JoinCodes`.
   Future<Admission> join(String code);
+
+  /// What this phone knows about race areas (#74): its admission, what that
+  /// admission granted, and its race day's race areas as sync last read them.
+  /// Writes nothing.
+  Future<RaceAreas> raceAreas();
 
   /// Tells the core the phone's latest fix, [fix]'s `ageMs` old as of now
   /// (#31). Every event appended from now on carries it, with its age grown
@@ -180,6 +186,9 @@ class PortCoreClient implements CoreClient {
 
   @override
   Future<Admission> join(String code) async => Admission.fromWire(await _call(Wire.join, {'code': code}) as Map);
+
+  @override
+  Future<RaceAreas> raceAreas() async => RaceAreas.fromWire(await _call(Wire.raceAreas, const {}) as Map);
 
   @override
   Future<void> reportFix(GpsFix fix) async {

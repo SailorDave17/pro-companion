@@ -119,6 +119,16 @@ class FakeServer extends http.BaseClient {
   /// Each race area's name, as the course table holds it (#71 reads the one granted).
   final courses = <String, String>{};
 
+  /// Each race area's race day, as the course table holds it (#74 reads a day's race areas). A
+  /// race area with none here answers a null event_id, which no read by race day matches.
+  final courseDays = <String, String>{};
+
+  /// Adds race area [id], named [name], to race day [event].
+  void addCourse(String id, String name, {required String event}) {
+    courses[id] = name;
+    courseDays[id] = event;
+  }
+
   /// What each admission granted, by admission id: role and race area, as committee_device holds them.
   final slots = <String, ({String role, String? course})>{};
 
@@ -261,7 +271,8 @@ class FakeServer extends http.BaseClient {
         // a read the stack answers, this answers too.
         if (r.caller == null) return _denied('table course');
         return _json(200, _filtered(r, [
-          for (final MapEntry(key: id, value: name) in courses.entries) {'id': id, 'name': name},
+          for (final MapEntry(key: id, value: name) in courses.entries)
+            {'id': id, 'event_id': courseDays[id], 'name': name},
         ]));
       case ('POST', '/rest/v1/rpc/race_day_for_code'):
         if (r.caller == null) return _denied('function race_day_for_code');

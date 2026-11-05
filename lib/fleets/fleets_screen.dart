@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
+import '../roles/race_area.dart';
 import '../shore/shore_status.dart';
 import '../ui/bars.dart';
 import '../ui/sunlight.dart';
@@ -12,11 +13,18 @@ import '../ui/sunlight.dart';
 ///
 /// This is set-up, done before racing, so it is not a race-time route. It is
 /// still held to the bar, because it is reachable from the role home.
+///
+/// On a phone working on a race area (#74), the core stamps each new fleet
+/// with it, and this lists that race area's fleets and those that name none.
 class FleetsScreen extends StatefulWidget {
-  const FleetsScreen({super.key, required this.core, required this.confirmation});
+  const FleetsScreen({super.key, required this.core, required this.confirmation, this.course});
 
   final CoreClient core;
   final ConfirmationService confirmation;
+
+  /// The course id of the race area this phone works on, or null for one
+  /// implicit race area, which lists every fleet as before #74.
+  final String? course;
 
   @override
   State<FleetsScreen> createState() => _FleetsScreenState();
@@ -46,6 +54,15 @@ class _FleetsScreenState extends State<FleetsScreen> {
     });
   }
 
+  /// The fleets this screen lists: those on the phone's race area (#74).
+  List<Fleet> get _listed {
+    final here = {
+      for (final e in _events)
+        if (e.kind == FleetKinds.defined && onCourse(e, widget.course)) e.ulid,
+    };
+    return [for (final f in fleets(_events)) if (here.contains(f.id)) f];
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -56,7 +73,7 @@ class _FleetsScreenState extends State<FleetsScreen> {
   Future<void> _add() async {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    if (fleets(_events).any((f) => f.name.toLowerCase() == name.toLowerCase())) {
+    if (_listed.any((f) => f.name.toLowerCase() == name.toLowerCase())) {
       setState(() => _problem = '$name is already a fleet');
       return;
     }
@@ -99,7 +116,7 @@ class _FleetsScreenState extends State<FleetsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final all = fleets(_events);
+    final all = _listed;
     final current = _deviceId == null ? null : selectedFleet(_events, _deviceId!);
     final text = Theme.of(context).textTheme.bodyLarge;
 
@@ -124,7 +141,7 @@ class _FleetsScreenState extends State<FleetsScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        title: Text('Fleets', style: Theme.of(context).textTheme.titleLarge),
+        title: RaceAreaTitle(title: Text('Fleets', style: Theme.of(context).textTheme.titleLarge)),
       ),
       body: SafeArea(
         top: false,
