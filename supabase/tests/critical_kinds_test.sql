@@ -30,7 +30,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(82);
+select plan(89);
 
 -- 1–6. The map, who can reach it, and the reasons.
 select ok(not exists (select 1 from unnest(array['public.critical_kind', 'public.critical_correction']) t,
@@ -433,6 +433,33 @@ select is((select count(*) from public.event_log l
              and l.device_id = '01J8Z0D000000000000000b001'
              and l.payload ->> 'fleet' = pg_temp.fid('fb')), 0::bigint,
           'the Alpha course PRO''s start for the Bravo fleet was not stored (control on 7)');
+
+-- 83–89. #76: two phones each name "Lasers" on Alpha, and a third names one on Bravo. The server
+-- keeps every definition and merges nothing: the phones read same-named fleets on one race area as
+-- one (packages/core FleetMerge). What #76 needs of the server is that each id still resolves to its
+-- own race area here, so a recorder's finish under either Alpha Lasers is accepted, one under the
+-- Bravo Lasers is refused, and the fleet a stored event names is the one its phone gave. Seqs from
+-- 9601, clear of the fixtures above (9001-9105).
+set local role authenticated;
+select is(pg_temp.verdict('cpA', 'fleet.defined', '{"class":null,"course":"00000000-0000-0000-0000-00000000ca01","name":"Lasers"}',
+                          null, 9601), 'accepted', '#76: the Alpha course PRO''s Lasers is stored');
+select is(pg_temp.verdict('opro', 'fleet.defined', '{"class":null,"course":"00000000-0000-0000-0000-00000000ca01","name":"Lasers"}',
+                          null, 9602), 'accepted', '#76: and the overall PRO''s Lasers on Alpha too: a second id, no refusal');
+select is(pg_temp.verdict('cpB', 'fleet.defined', '{"class":null,"name":"Lasers"}', null, 9603), 'accepted',
+          '#76: and the Bravo course PRO''s Lasers, on Bravo by its admission');
+select is(pg_temp.verdict('recA', 'finish', format('{"fleet":"%s"}', pg_temp.ulid(9602)), null, 9604), 'accepted',
+          '#76: the Alpha recorder''s finish under the overall PRO''s Lasers is accepted: that id is on Alpha');
+select is(pg_temp.verdict('recA', 'finish', format('{"fleet":"%s"}', pg_temp.ulid(9601)), null, 9605), 'accepted',
+          '#76: and under the course PRO''s Lasers, the other Alpha id');
+select is(pg_temp.verdict('recA', 'finish', format('{"fleet":"%s"}', pg_temp.ulid(9603)), null, 9606),
+          'race_area_mismatch', '#76: but under the Bravo Lasers it is refused: a name never moves a fleet between race areas');
+reset role;
+select is((select array[l.payload ->> 'fleet', (select count(*) from public.event_log d
+                                                 where d.event_id = l.event_id and d.kind = 'fleet.defined'
+                                                   and d.payload ->> 'name' = 'Lasers')::text]
+           from public.event_log l where l.ulid = pg_temp.ulid(9604)),
+          array[pg_temp.ulid(9602), '3'],
+          '#76: the stored finish names the fleet its phone gave, verbatim, and all three Lasers are kept');
 
 select * from finish();
 rollback;

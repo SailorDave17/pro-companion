@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'envelope.dart';
 import 'finishes.dart';
+import 'fleet_merge.dart';
 import 'fleets.dart';
 import 'location.dart';
 import 'roundings.dart';
@@ -120,7 +121,10 @@ String? raceGun(Iterable<EventEnvelope> events, String? fleet, {required int now
 /// says the phone has satellite time, so its later finishes are not left
 /// unmeasured for the rest of the race. Both after #55's review.
 ///
-/// [events] is everything the phone holds, every phone's guns included.
+/// [events] is everything the phone holds, every phone's guns included, and
+/// every phone's fleet definitions: a fleet another phone named the same, on
+/// the same race area, is the same fleet's race (#76, [FleetMerge]). The
+/// join keeps [event]'s own fleet id.
 RaceJoin? raceToJoin(Iterable<EventEnvelope> events, NewEvent event,
     {required String deviceId, required int now, required bool measuredNow}) {
   if (!_joining.contains(event.kind)) return null;
@@ -129,14 +133,17 @@ RaceJoin? raceToJoin(Iterable<EventEnvelope> events, NewEvent event,
 
   bool sameDay(EventEnvelope e) => sameLocalDay(e.deviceTs, now);
 
-  final race = raceGun(events, fleet, now: now);
-  final own = [for (final e in events) if (e.deviceId == deviceId && ClockKinds.all.contains(e.kind)) e];
+  final merge = FleetMerge.of(events);
+  final view = merge.apply(events);
+  final read = merge.resolve(fleet);
+  final race = raceGun(view, read, now: now);
+  final own = [for (final e in view) if (e.deviceId == deviceId && ClockKinds.all.contains(e.kind)) e];
   final lastChange = [for (final e in own) if (e.kind == ClockKinds.changed) e.seq].fold(0, max);
   final joins = [
     for (final e in own)
       if (e.kind == ClockKinds.offset &&
           e.seq > lastChange &&
-          fleetOf(e) == fleet &&
+          fleetOf(e) == read &&
           e.payload['race'] == race &&
           (race != null || sameDay(e)))
         e,

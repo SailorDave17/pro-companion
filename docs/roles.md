@@ -108,6 +108,30 @@ event again on its next run. The fleet's race area is the first of:
    and one an event-wide phone defined before picking a race area. On a day with one race area
    neither is a gap, since every bound phone is on that race area.
 
+### Fleets two phones named the same (#76)
+
+Two phones that each name a fleet before they have signal hold two fleets, each its own
+`fleet.defined` with its own ULID. The server keeps both and merges nothing: each id resolves to its
+own race area by the rule above, so a recorder's finish under either "Lasers" on its race area is
+accepted, and one under another race area's "Lasers" is refused (`critical_kinds_test.sql`, 83–89).
+
+The phones read them as one (`FleetMerge`, `packages/core/lib/src/fleet_merge.dart`; owner decision
+at #76's pickup, 2026-11-05):
+
+- **Same name, same race area: one fleet.** Names are compared trimmed and ignoring case, as FLEETS
+  compares them on one phone. The fleet's id is the first of them defined, by device time, then
+  device id, then sequence number, so every phone holding the same definitions reads the same id. A
+  fleet naming no race area joins the one race area its name is defined on.
+- **Nothing is rewritten.** Every event keeps the fleet id its phone gave it, and each view resolves
+  it as it reads. No event records a merge.
+- **Where it applies:** wherever more than one phone is read. Cross-phone race times (#69), the
+  running order (#68), the rounding grid (#54), and, at append, the race a finish or a rounding
+  joins (#55). Screens that read only this phone's events (#64) are unchanged: one phone never
+  holds two fleets of one name, since FLEETS refuses the second.
+- **One name on two race areas stays two fleets**, and a fleet naming no race area then joins
+  neither. FLEETS and the running order mark each such fleet ("Bravo also has a fleet named
+  Lasers"). A fleet cannot be renamed yet.
+
 ### Which race area a phone works on (#74)
 
 - **A bound role** (course PRO, recorder, mark boat) works on the race area its admission names. Its

@@ -327,7 +327,9 @@ class _RoleHomeState extends State<RoleHome> {
   Widget _button(HomeAction action) => switch (action) {
         // Naming the day's fleets is set-up, done before racing (#18).
         HomeAction.fleets => _outlined(
-            'FLEETS', () => FleetsScreen(core: widget.core, confirmation: widget.confirmation, course: _course)),
+            'FLEETS',
+            () => FleetsScreen(
+                core: widget.core, confirmation: widget.confirmation, course: _course, areas: _raceAreas.areas)),
         // The race area's custom marks (#78): set-up too, and off until the
         // phone works on a race area, since a list is sent to one.
         HomeAction.marks => SizedBox(
@@ -365,7 +367,8 @@ class _RoleHomeState extends State<RoleHome> {
         HomeAction.finishAtMark => _finishAtMark(),
         // Every phone's roundings, followed live (#68).
         HomeAction.runningOrder =>
-          _outlined('RUNNING ORDER', () => RunningOrderScreen(core: widget.core, clock: widget.clock)),
+          _outlined('RUNNING ORDER',
+              () => RunningOrderScreen(core: widget.core, clock: widget.clock, areas: _raceAreas.areas)),
       };
 
   Widget _big(String label, Widget Function() screen) => SizedBox(

@@ -217,6 +217,10 @@ has revoked the phone (#53, above).
   phones' clock offsets (#55), and one on the gun's own phone on that phone's clock. The race is
   flagged `unreconciled` or `two_finish_sources`. It is there for scoring and export to read;
   nothing reads it yet, and no screen shows it. `docs/marks.md` states the rules.
+- **Fleets two phones named the same, on one race area, are one fleet (#76)** wherever more than
+  one phone is read: race times, the running order, the rounding grid, and the race a finish joins.
+  Every event keeps the fleet id its phone gave it. One name on two race areas stays two fleets,
+  marked on FLEETS and in the running order. `docs/roles.md` states the rule.
 - **Neither half is in the app yet.** Starting it from the core host, with the project's URL and key, is
   #113's. The host itself is #32's (ADR 003, `lib/core_host.dart`), the foreground service that
   keeps the core running with the app closed. Since #46 a release build may use the network: the main
@@ -265,8 +269,8 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
   device-handoff phone is one. A full run signs in 20 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 24,
-  17 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 26,
+  19 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 
 ### Applying a migration to the live project
 
