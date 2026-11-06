@@ -231,4 +231,22 @@ void main() {
     expect(runningOrder(events, fleet: null, now: now + 24 * 60 * minute).entries, isEmpty,
         reason: "read the next day, yesterday's rounding is in no race");
   });
+
+  group('#76: a fleet two phones each named "Lasers" on one race area', () {
+    test("is one order, under the first defined, from both phones' roundings", () {
+      final mine = ev(pro, noon - 30 * minute, FleetKinds.defined, payload: {'name': 'Lasers', 'class': null});
+      final theirs = ev(mark1, noon - 20 * minute, FleetKinds.defined, payload: {'name': 'Lasers', 'class': null});
+      final gun = ev(pro, noon, StartKinds.start, payload: {'fleet': mine.ulid});
+      final events = [
+        mine,
+        theirs,
+        gun,
+        round(mark1, '887', noon + 10 * minute, fleet: theirs.ulid, race: gun.ulid),
+        round(mark2, '412', noon + 11 * minute, fleet: mine.ulid, race: gun.ulid),
+      ];
+      final all = runningOrders(events, now: now);
+      expect([for (final o in all) o.fleet], [mine.ulid], reason: 'one fleet, no second Lasers section');
+      expect([for (final e in all.single.entries) e.sail], ['887', '412']);
+    });
+  });
 }

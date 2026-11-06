@@ -517,6 +517,110 @@ void main() {
       expect([for (final r in raceTimesOf(pro.store.readAll())) r.fleet], [alpha, bravo, undefined, null]);
     });
   });
+
+  group('#76: one fleet that two phones each named before they had signal', () {
+    const alphaArea = '00000000-0000-0000-0000-00000000ca01';
+    const bravoArea = '00000000-0000-0000-0000-00000000ca02';
+
+    NewEvent defineOn(String name, String course) =>
+        NewEvent(kind: FleetKinds.defined, source: 'tap', payload: {'name': name, 'class': null, 'course': course});
+
+    /// The PRO names Lasers and fires its gun; the recorder named its own [recorderFleet] first,
+    /// offline, pulls the PRO's events, restarts, then finishes a boat under its own fleet.
+    ({_Phone pro, EventStore recorder, String proFleet, String recorderFleet, EventEnvelope gun, int gunAt,
+        EventEnvelope finish, int finishAt}) race(NewEvent proDefines, NewEvent recorderDefines) {
+      final pro = _Phone(water, skewMs: 1500)..fix();
+      final recorder = _Phone(water, skewMs: -2500)..fix();
+      final proFleet = pro.store.append(proDefines).ulid;
+      water.pass(1000);
+      final recorderFleet = recorder.store.append(recorderDefines).ulid;
+      water.pass(60000);
+      final gunAt = water.now;
+      final gun = pro.store.append(StartEvents.start(fleet: proFleet, source: 'manual'));
+      recorder.pull(pro);
+      // A restart: the store reads what a finish joins from the log, the fleet definitions included.
+      recorder.store.close();
+      final reopened = EventStore.open(recorder.path, clock: () => recorder.clock, location: recorder.location);
+      addTearDown(reopened.close);
+      water.pass(600000);
+      final finishAt = water.now;
+      final finish = reopened.append(FinishEvents.finish(fleet: recorderFleet));
+      return (
+        pro: pro,
+        recorder: reopened,
+        proFleet: proFleet,
+        recorderFleet: recorderFleet,
+        gun: gun,
+        gunAt: gunAt,
+        finish: finish,
+        finishAt: finishAt,
+      );
+    }
+
+    EventEnvelope offsetBefore(EventStore store, EventEnvelope event) =>
+        store.readAll().lastWhere((e) => e.kind == ClockKinds.offset && e.deviceId == event.deviceId && e.seq < event.seq);
+
+    test("criteria 1 to 3: the recorder's finish under its own Lasers is timed from the PRO's gun under the "
+        "PRO's, and keeps its own fleet id", () {
+      final r = race(defineOn('Lasers', alphaArea), defineOn('Lasers', alphaArea));
+      expect(r.recorderFleet, isNot(r.proFleet), reason: 'control: two fleets, two ids');
+
+      final times = raceTimesOf(r.recorder.readAll()).single;
+      // The recorder named its fleet 1 s after the PRO in true time, but its clock is 4 s behind, so
+      // its definition is the first by device time, which is the order every phone reads the merge in.
+      expect([times.fleet, times.gun], [r.recorderFleet, r.gun.ulid],
+          reason: 'one fleet race, under the first defined by device time, timed from the gun');
+      expect(elapsedOf(times), [r.finishAt - r.gunAt]);
+
+      final offset = offsetBefore(r.recorder, r.finish);
+      expect([offset.payload['race'], offset.payload['fleet']], [r.gun.ulid, r.recorderFleet],
+          reason: "the finish joined the PRO's race, and its offset names the recorder's own fleet");
+      final stored = r.recorder.readCanonical().singleWhere((t) => t.contains('"ulid":"${r.finish.ulid}"'));
+      expect((jsonDecode(stored) as Map)['payload']['fleet'], r.recorderFleet, reason: 'criterion 3: kept verbatim');
+
+      for (final text in r.recorder.readCanonical()) {
+        if ((jsonDecode(text) as Map)['device_id'] == r.recorder.deviceId) {
+          r.pro.store.insertPulled('3f6c1a52-8d0e-4b7a-9c21-5e4f0a9b7d13', text);
+        }
+      }
+      expect(raceTimesOf(r.pro.store.readAll()), [times], reason: 'criterion 2: the PRO phone reads the same one fleet');
+    });
+
+    test('criterion 4: the same name on another race area is another fleet, so the finish has no gun', () {
+      final r = race(defineOn('Lasers', alphaArea), defineOn('Lasers', bravoArea));
+      final times = raceTimesOf(r.recorder.readAll()).single;
+      expect([times.fleet, times.gun], [r.recorderFleet, null]);
+      expect(times.finishes.single.flags, contains(FinishTimeFlags.noGun));
+      expect(offsetBefore(r.recorder, r.finish).payload['race'], isNull, reason: 'it joined no gun at append either');
+    });
+
+    test("a mark phone's rounding under its own Lasers is stamped with the PRO's gun under the PRO's", () {
+      final pro = _Phone(water, skewMs: 0)..fix();
+      final proFleet = pro.store.append(defineOn('Lasers', alphaArea)).ulid;
+      final gun = pro.store.append(StartEvents.start(fleet: proFleet, source: 'manual'));
+      // A second later, so the PRO's Lasers is the first defined. On the same millisecond the two
+      // phones' random device ids decided it, and this test failed one run in a few (the #76
+      // mutation round: an extra red in three rounds, one of which touched no core file).
+      water.pass(1000);
+      final mark = _Phone(water, skewMs: 0)..fix();
+      mark.store.append(RoleEvents.assign(Roles.markBoat));
+      mark.store.append(StationEvents.select(StandardMarks.windward));
+      final markFleet = mark.store.append(defineOn('Lasers', alphaArea)).ulid;
+      mark.pull(pro);
+      water.pass(300000);
+      final rounding = mark.store.append(RoundingEvents.rounding(fleet: markFleet, sail: '887'));
+      expect([rounding.payload['race'], rounding.payload['lap'], rounding.payload['fleet']], [gun.ulid, 1, markFleet],
+          reason: "stamped with the PRO's race, keeping its own fleet id");
+      expect(runningOrders(mark.store.readAll(), now: mark.clock).single.fleet, proFleet,
+          reason: 'and the running order shows one Lasers, the first defined');
+    });
+
+    test('criterion 5: two different names stay two fleets', () {
+      final r = race(defineOn('Lasers', alphaArea), defineOn('Lasers 2', alphaArea));
+      final times = raceTimesOf(r.recorder.readAll()).single;
+      expect([times.fleet, times.gun], [r.recorderFleet, null]);
+    });
+  });
 }
 
 /// True time on the water, which every phone's clock reads with its own error. As in clock_offsets_test.

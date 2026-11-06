@@ -52,9 +52,10 @@ class EventStore {
       _noteStateEvent(EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map));
     }
     // Every phone's guns, and this phone's clock offsets and changes and its
-    // roundings (#54), the same way.
-    for (final r in _db.select('SELECT body FROM events WHERE body LIKE ? OR body LIKE ? OR body LIKE ?',
-        ['%"kind":"start%', '%"kind":"clock.%', '%"kind":"rounding%'])) {
+    // roundings (#54), the same way; and every phone's fleet definitions
+    // (#76), which say which fleets are one.
+    for (final r in _db.select('SELECT body FROM events WHERE body LIKE ? OR body LIKE ? OR body LIKE ? OR body LIKE ?',
+        ['%"kind":"start%', '%"kind":"clock.%', '%"kind":"rounding%', '%"kind":"fleet.defined"%'])) {
       _noteRaceEvent(EventEnvelope.fromWire(jsonDecode(r['body'] as String) as Map));
     }
   }
@@ -153,12 +154,15 @@ class EventStore {
   /// and this phone's own clock offsets and clock changes, and its own
   /// roundings, their sail numbers and undos, which a rounding's lap counts;
   /// and every event of this phone's race-timer sequences, which is how a
-  /// later event finds its sequence's fleet and gun (#33).
+  /// later event finds its sequence's fleet and gun (#33); and every phone's
+  /// fleet definitions, since a fleet another phone named the same on the
+  /// same race area is the same fleet's race (#76).
   /// Read from the log when it opens and kept as events arrive.
   final _raceEvents = <EventEnvelope>[];
 
   void _noteRaceEvent(EventEnvelope e) {
     if (StartKinds.sequence.contains(e.kind) ||
+        e.kind == FleetKinds.defined ||
         e.kind == StartKinds.undo ||
         e.kind == StartKinds.timeCorrected ||
         (ClockKinds.all.contains(e.kind) && e.deviceId == deviceId) ||

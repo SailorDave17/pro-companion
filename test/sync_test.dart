@@ -6,7 +6,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:pro_companion_core/core.dart' show EventKinds, FleetEvents, RoleEvents;
+import 'package:pro_companion_core/core.dart'
+    show EventKinds, FinishTimeFlags, FleetEvents, FleetMerge, RoleEvents, raceTimesOf;
 import 'package:pro_companion_core/store.dart' hide newUlid;
 import 'package:pro_companion_sync/sync.dart';
 import 'package:supabase/supabase.dart' show PostgrestException;
@@ -17,12 +18,13 @@ import 'support/local_stack.dart';
 /// #6: the sync engine against the local stack, as a phone meets the companion's server. Each
 /// phone signs in and is admitted through the engine itself; the owner's reads (psql as the table
 /// owner) are the instrument, since no phone can read the log before #50. #64's case is the pull,
-/// the other direction, and the last is #75's: a critical event for a fleet not on shore yet.
+/// the other direction, then #75's: a critical event for a fleet not on shore yet, and last #76's:
+/// two phones' same-named fleets, synced and pulled, read as one.
 ///
 /// Spend per run of this file: 3 anonymous sign-ins (the device-handoff case and #71's join) of the stack's 30 an
-/// hour, and 17 magic-link verifications of its 30 per 5 minutes. A whole stack run spends 24
-/// verifications (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than
-/// on what they test. Prove a mutation with --plain-name on one case.
+/// hour, and 19 magic-link verifications of its 30 per 5 minutes (#76's two phones the last two). A
+/// whole stack run spends 26 verifications (README), so two whole runs inside 5 minutes can fail on
+/// RATE LIMITED rather than on what they test. Prove a mutation with --plain-name on one case.
 ///
 /// Skips unless PRO_COMPANION_LOCAL_STACK=1, which the CI job `local-stack` sets.
 void main() {
@@ -778,6 +780,62 @@ void main() {
       expect(await stack.eventLogCanonical(start), pro.storedByUlid()[start], reason: 'on shore, as the phone wrote it');
       expect(pro.transport.appendsOf(start), 2, reason: 'sent once while waiting, once after the fleet landed');
     });
+
+    test('#76 criteria 1, 2 and 6: two phones that each named Lasers before they had signal both sync with '
+        "nothing refused, and after the pull each reads one fleet, the recorder's finish in the PRO's gun's race",
+        () async {
+      // A race day of its own: criteria 6 and 8 upload a fleet.defined with no name to the shared
+      // day, which every phone pulling that day would hold (measured in a whole-file run).
+      final ownDay = await stack.raceDay();
+      // Two sign-ins: the PRO's and the recorder's.
+      final pro = await StackPhone.open(stack);
+      addTearDown(pro.close);
+      await pro.signInNamed();
+      await pro.admitTo(ownDay, role: 'overall_pro');
+      pro.store.append(RoleEvents.assign('overall_pro'));
+      final recorder = await StackPhone.open(stack);
+      addTearDown(recorder.close);
+      await recorder.signInNamed();
+      await recorder.admitTo(ownDay, role: 'recorder', raceArea: 'Alpha');
+      recorder.store.append(RoleEvents.assign('recorder'));
+
+      // Before either syncs: each names the fleet, the PRO fires its gun, the recorder takes a finish.
+      final proFleet = pro.store.append(FleetEvents.define('Lasers (#76)')).ulid;
+      final recorderFleet = recorder.store.append(FleetEvents.define('Lasers (#76)')).ulid;
+      final gun = pro.store
+          .append(NewEvent(kind: 'start', source: 'tap', role: 'overall_pro', payload: {'fleet': proFleet}))
+          .ulid;
+      final finish = recorder.store
+          .append(NewEvent(kind: 'finish', source: 'tap', role: 'recorder', payload: {'fleet': recorderFleet}))
+          .ulid;
+
+      // Criterion 1: neither phone's sync fails, and the server keeps both definitions.
+      for (final phone in [pro, recorder]) {
+        final run = await phone.engine.syncOnce();
+        expect([run.state, run.refused, run.remaining], [UploadRunState.done, 0, 0], reason: '$run');
+      }
+      for (final f in [proFleet, recorderFleet]) {
+        expect(await stack.eventLogCanonical(f), isNotNull, reason: 'both fleet definitions are on shore');
+      }
+      expect(await stack.eventLogCanonical(finish), recorder.storedByUlid()[finish],
+          reason: "the finish is on shore as the recorder wrote it, naming the recorder's own fleet");
+
+      // Criterion 2: after the pull, each phone reads one fleet, the finish in the gun's race.
+      await pro.engine.syncOnce();
+      await recorder.engine.syncOnce();
+      final read = <List<Object?>>[];
+      for (final phone in [pro, recorder]) {
+        final all = phone.store.readAll();
+        expect(all.map((e) => e.ulid), containsAll([proFleet, recorderFleet, gun, finish]), reason: 'control: pulled');
+        final merge = FleetMerge.of(all);
+        expect(merge.resolve(proFleet), merge.resolve(recorderFleet), reason: 'one fleet');
+        final race = raceTimesOf(all).singleWhere((r) => r.finishes.any((f) => f.ulid == finish));
+        expect(race.gun, gun, reason: "the recorder's finish is in the PRO's gun's race");
+        expect(race.finishes.single.flags, isNot(contains(FinishTimeFlags.noGun)));
+        read.add([race.fleet, race.gun, [for (final f in race.finishes) f.ulid]]);
+      }
+      expect(read.first, read.last, reason: 'both phones read the same one fleet race');
+    });
   }, skip: localStackRequested ? false : localStackSkip);
 }
 
@@ -885,9 +943,10 @@ class StackPhone {
     return engine.signInWithMagicLink(await _stack.magicLink(email!));
   }
 
-  /// Admits the phone to [day] with [role]'s code, and stamps the admission on what it logs next.
-  Future<String> admitTo(owner.Provisioned day, {String role = 'scorer'}) async {
-    admission = await engine.admit(day.eventId, day.codes[role]!);
+  /// Admits the phone to [day] with [role]'s code (on [raceArea], for a bound role), and stamps the
+  /// admission on what it logs next.
+  Future<String> admitTo(owner.Provisioned day, {String role = 'scorer', String? raceArea}) async {
+    admission = await engine.admit(day.eventId, day.codes[raceArea == null ? role : '$role $raceArea']!);
     store.setAdmissionId(admission!);
     this.role = role;
     return admission!;

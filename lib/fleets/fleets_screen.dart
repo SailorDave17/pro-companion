@@ -6,6 +6,7 @@ import '../roles/race_area.dart';
 import '../shore/shore_status.dart';
 import '../ui/bars.dart';
 import '../ui/sunlight.dart';
+import 'fleet_conflict.dart';
 
 /// Naming the day's fleets (#18 criterion 1): a name, and a class if the PRO
 /// wants one. Each fleet is a `fleet.defined` event. The first fleet a phone
@@ -16,8 +17,13 @@ import '../ui/sunlight.dart';
 ///
 /// On a phone working on a race area (#74), the core stamps each new fleet
 /// with it, and this lists that race area's fleets and those that name none.
+///
+/// It lists this phone's own fleets only (#64). It reads the other phones'
+/// definitions too, for one thing (#76 criterion 4): a fleet whose name
+/// another race area also has is marked, since the two are never merged.
 class FleetsScreen extends StatefulWidget {
-  const FleetsScreen({super.key, required this.core, required this.confirmation, this.course});
+  const FleetsScreen(
+      {super.key, required this.core, required this.confirmation, this.course, this.areas = const []});
 
   final CoreClient core;
   final ConfirmationService confirmation;
@@ -26,12 +32,19 @@ class FleetsScreen extends StatefulWidget {
   /// implicit race area, which lists every fleet as before #74.
   final String? course;
 
+  /// The race day's race areas, so a conflicting fleet's race area is named.
+  final List<RaceArea> areas;
+
   @override
   State<FleetsScreen> createState() => _FleetsScreenState();
 }
 
 class _FleetsScreenState extends State<FleetsScreen> {
+  /// This phone's own fleet events: what the screen lists and selects from.
   final _events = <EventEnvelope>[];
+
+  /// The other phones' fleet definitions, read only to mark a conflict.
+  final _others = <EventEnvelope>[];
   final _name = TextEditingController();
   final _klass = TextEditingController();
   String? _deviceId;
@@ -42,11 +55,15 @@ class _FleetsScreenState extends State<FleetsScreen> {
   void initState() {
     super.initState();
     _name.addListener(() => setState(() => _problem = null));
-    Future.wait([widget.core.readOwn(), widget.core.deviceId()]).then((r) {
+    Future.wait([widget.core.readAll(), widget.core.deviceId()]).then((r) {
       if (!mounted) return;
+      final me = r[1] as String;
       setState(() {
-        _events.addAll((r[0] as List<EventEnvelope>).where((e) => FleetKinds.all.contains(e.kind)));
-        _deviceId = r[1] as String;
+        for (final e in r[0] as List<EventEnvelope>) {
+          if (e.deviceId == me && FleetKinds.all.contains(e.kind)) _events.add(e);
+          if (e.deviceId != me && e.kind == FleetKinds.defined) _others.add(e);
+        }
+        _deviceId = me;
         _loaded = true;
       });
     }, onError: (Object _) {
@@ -62,6 +79,9 @@ class _FleetsScreenState extends State<FleetsScreen> {
     };
     return [for (final f in fleets(_events)) if (here.contains(f.id)) f];
   }
+
+  /// What [fleet]'s row says when another race area has a fleet of its name.
+  String? _conflict(Fleet fleet, FleetMerge merge) => fleetConflictNote(merge, fleet.id, fleet.name, widget.areas);
 
   @override
   void dispose() {
@@ -119,6 +139,7 @@ class _FleetsScreenState extends State<FleetsScreen> {
     final all = _listed;
     final current = _deviceId == null ? null : selectedFleet(_events, _deviceId!);
     final text = Theme.of(context).textTheme.bodyLarge;
+    final merge = FleetMerge.of([..._events, ..._others]);
 
     InputDecoration field(String label) => InputDecoration(
           labelText: label,
@@ -155,9 +176,27 @@ class _FleetsScreenState extends State<FleetsScreen> {
                 key: ValueKey('fleet-${f.id}'),
                 constraints: const BoxConstraints(minHeight: Bars.minTargetDp),
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  [f.name, if (f.klass != null) f.klass!, if (f.id == current) 'finishing now'].join(' · '),
-                  style: text?.copyWith(fontWeight: f.id == current ? FontWeight.w700 : null),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      [f.name, if (f.klass != null) f.klass!, if (f.id == current) 'finishing now'].join(' · '),
+                      style: text?.copyWith(fontWeight: f.id == current ? FontWeight.w700 : null),
+                    ),
+                    // A boxed note, not a line of the list: drawn as plain text it read as
+                    // another fleet on the emulator, its wrapped "Lasers" most of all.
+                    if (_conflict(f, merge) case final String note)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 4, bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        color: SunlightTokens.surface,
+                        child: Text(note,
+                            key: ValueKey('fleet-conflict-${f.id}'),
+                            style: const TextStyle(color: SunlightTokens.text, fontSize: 22)),
+                      ),
+                  ],
                 ),
               ),
             const SizedBox(height: 16),

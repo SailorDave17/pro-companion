@@ -81,6 +81,11 @@ class _Naming extends _KeypadFor {
 
 class _RoundingScreenState extends State<RoundingScreen> {
   final _events = <EventEnvelope>[];
+
+  /// [_events] with the fleets several phones named the same, on one race
+  /// area, read as one (#76): the grid offers each once, and a rounding
+  /// logged under either is that fleet's.
+  List<EventEnvelope> get _view => FleetMerge.of(_events).apply(_events);
   bool _loaded = false;
 
   /// The last append did not log.
@@ -145,8 +150,9 @@ class _RoundingScreenState extends State<RoundingScreen> {
       return t.year == today.year && t.month == today.month && t.day == today.day;
     }
 
-    final definedToday = [for (final e in _events) if (e.kind == FleetKinds.defined && onToday(e)) e];
-    return fleets(definedToday.isEmpty ? _events : definedToday);
+    final view = _view;
+    final definedToday = [for (final e in view) if (e.kind == FleetKinds.defined && onToday(e)) e];
+    return fleets(definedToday.isEmpty ? view : definedToday);
   }
 
   /// The fleet shown: the one picked or last tapped, else the fleet this
@@ -158,7 +164,7 @@ class _RoundingScreenState extends State<RoundingScreen> {
     final all = _fleets;
     if (all.isEmpty) return null;
     final ids = {for (final f in all) f.id};
-    for (final e in _events.reversed) {
+    for (final e in _view.reversed) {
       if (e.kind == RoundingKinds.rounding && markOf(e) == widget.mark && ids.contains(fleetOf(e))) return fleetOf(e);
     }
     return all.first.id;
@@ -171,7 +177,8 @@ class _RoundingScreenState extends State<RoundingScreen> {
   /// review: a typed boat that wrapped a middle section pushed the ones below).
   List<_GridSection> get _gridSections {
     final all = _fleets;
-    List<String> known(String? fleet) => knownRoundingSails(_events, fleet: fleet, day: _today);
+    final view = _view;
+    List<String> known(String? fleet) => knownRoundingSails(view, fleet: fleet, day: _today);
     return _sections ??= all.isEmpty
         ? [_GridSection(null, known(null))]
         : [
@@ -264,8 +271,9 @@ class _RoundingScreenState extends State<RoundingScreen> {
     String? nameOf(String? id) => allFleets.where((f) => f.id == id).firstOrNull?.name;
     final fleetName = nameOf(fleet);
     final today = _today;
-    final list = roundingsAt(_events, fleet: fleet, mark: widget.mark, day: today);
-    final last = lastUndoableRounding(_events, fleet: fleet, mark: widget.mark, day: today);
+    final view = _view;
+    final list = roundingsAt(view, fleet: fleet, mark: widget.mark, day: today);
+    final last = lastUndoableRounding(view, fleet: fleet, mark: widget.mark, day: today);
     final lastAt = last == null ? null : list.indexWhere((r) => r.ulid == last.ulid) + 1;
     final keypad = _keypad;
 

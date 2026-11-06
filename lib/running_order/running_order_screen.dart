@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
+import '../fleets/fleet_conflict.dart';
 import '../roles/race_area.dart';
 import '../shore/shore_status.dart';
 import '../stations/station_screen.dart';
@@ -29,9 +30,14 @@ class RunningOrderScreen extends StatefulWidget {
     required this.core,
     this.clock = systemClock,
     this.every = const Duration(seconds: 5),
+    this.areas = const [],
   });
 
   final CoreClient core;
+
+  /// The race day's race areas, so two fleets of one name on two race areas
+  /// are each headed with their own (#76).
+  final List<RaceArea> areas;
 
   /// The phone's clock: the race is the one its date and guns say.
   final int Function() clock;
@@ -87,6 +93,8 @@ class _RunningOrderScreenState extends State<RunningOrderScreen> {
     final theme = Theme.of(context).textTheme;
     final orders = events == null ? const <FleetRunningOrder>[] : runningOrders(events, now: widget.clock());
     final names = events == null ? const <String, String>{} : {for (final f in fleets(events)) f.id: f.name};
+    // A name defined on two race areas is two fleets, never merged (#76).
+    final merge = events == null ? FleetMerge.none : FleetMerge.of(events);
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 72,
@@ -123,8 +131,17 @@ class _RunningOrderScreenState extends State<RunningOrderScreen> {
                 order: o,
                 marks: customMarksEver(events ?? const []),
                 // A day of one fleet needs no heading; roundings that name no
-                // fleet on a day of several do.
-                title: o.fleet == null ? (names.isEmpty ? null : 'No fleet named') : names[o.fleet] ?? 'Fleet',
+                // fleet on a day of several do. Two fleets of one name on two
+                // race areas are headed with their race areas (#76): with the
+                // name alone, two identical headings read as one fleet twice.
+                title: o.fleet == null
+                    ? (names.isEmpty ? null : 'No fleet named')
+                    : [
+                        names[o.fleet] ?? 'Fleet',
+                        if (merge.conflicted(o.fleet!))
+                          if (fleetAreaName(events!, o.fleet!, widget.areas) case final String area) area,
+                      ].join(' · '),
+                conflict: o.fleet == null ? null : fleetConflictNote(merge, o.fleet!, names[o.fleet] ?? 'Fleet', widget.areas),
               ),
           ],
         ),
@@ -134,10 +151,14 @@ class _RunningOrderScreenState extends State<RunningOrderScreen> {
 }
 
 class _FleetOrder extends StatelessWidget {
-  const _FleetOrder({super.key, required this.order, required this.title, required this.marks});
+  const _FleetOrder({super.key, required this.order, required this.title, required this.marks, this.conflict});
 
   final FleetRunningOrder order;
   final String? title;
+
+  /// What to say when another race area has a fleet of the same name (#76
+  /// criterion 4), or null.
+  final String? conflict;
 
   /// Every custom mark ever sent (#78), so a custom station reads by name.
   final Map<String, CustomMark> marks;
@@ -157,6 +178,7 @@ class _FleetOrder extends StatelessWidget {
               // note and line under it (the semantics tree, #68's audit).
               child: Semantics(header: true, container: true, child: Text(t, style: theme.titleLarge)),
             ),
+          if (conflict case final String note) _Note(note, key: const ValueKey('fleet-conflict')),
           // Above the order it qualifies, and short: at 200% text a sentence
           // per mark filled the first screen and hid the order (emulator).
           if (order.waiting.isNotEmpty)

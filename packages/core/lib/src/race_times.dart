@@ -13,6 +13,7 @@ library;
 import 'clock_offsets.dart';
 import 'envelope.dart';
 import 'finishes.dart';
+import 'fleet_merge.dart';
 import 'fleets.dart';
 import 'order.dart';
 import 'results.dart';
@@ -334,8 +335,12 @@ List<FleetRaceTimes> fleetRaceTimes(Iterable<EventEnvelope> events, {required St
 /// Every fleet's [fleetRaceTimes] (criterion 4): each fleet the day defines
 /// that has a finish, in the order defined, then any other fleet a finish
 /// names, then the single-fleet day's. What [CoreClient.raceTimes] answers.
+///
+/// Fleets several phones named the same, on one race area, are one fleet's
+/// races, under the first of them defined (#76, [FleetMerge]): the PRO's gun
+/// and the recorder's finishes meet whichever phone named the fleet.
 List<FleetRaceTimes> raceTimesOf(Iterable<EventEnvelope> events) {
-  final all = events.toList();
+  final all = FleetMerge.of(events).apply(events);
   final named = {for (final e in all) if (_timed.contains(e.kind)) fleetOf(e)};
   final defined = [for (final f in fleets(all)) f.id];
   return [

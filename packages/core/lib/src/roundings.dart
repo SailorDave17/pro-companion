@@ -1,6 +1,7 @@
 import 'clock_offsets.dart';
 import 'envelope.dart';
 import 'finishes.dart';
+import 'fleet_merge.dart';
 import 'fleets.dart';
 import 'order.dart';
 import 'roles.dart';
@@ -121,11 +122,17 @@ List<EventEnvelope> _kept(Iterable<EventEnvelope> events) {
 ///
 /// A rounding that names a race or a lap of its own keeps it, as an event
 /// naming a mark keeps its own.
-NewEvent stampRounding(Iterable<EventEnvelope> events, NewEvent event,
+///
+/// A fleet another phone named the same, on the same race area, is read as
+/// one fleet (#76, [FleetMerge]): its guns are this fleet's, and so are its
+/// roundings. The rounding keeps its own fleet id.
+NewEvent stampRounding(Iterable<EventEnvelope> raw, NewEvent event,
     {required String deviceId, required String? station, required int now}) {
   if (event.kind != RoundingKinds.rounding) return event;
   final payload = event.payload;
-  final fleet = payload[fleetPayloadKey] as String?;
+  final merge = FleetMerge.of(raw);
+  final events = merge.apply(raw);
+  final fleet = merge.resolve(payload[fleetPayloadKey] as String?);
   final race = payload.containsKey(racePayloadKey) ? payload[racePayloadKey] : raceGun(events, fleet, now: now);
   final mark = payload.containsKey(markPayloadKey) ? payload[markPayloadKey] : station;
   final sail = _sailOf(payload['sail']);
@@ -472,7 +479,11 @@ int? _satelliteTime(Iterable<EventEnvelope> events, EventEnvelope rounding) {
 /// none of the day's fleets logs, are their own order, last, and only while
 /// that order holds a rounding in its race: an undone one or yesterday's
 /// leaves no empty section behind (#68's review).
-List<FleetRunningOrder> runningOrders(Iterable<EventEnvelope> events, {required int now}) {
+///
+/// Fleets several phones named the same, on one race area, are one order,
+/// under the first of them defined (#76, [FleetMerge]).
+List<FleetRunningOrder> runningOrders(Iterable<EventEnvelope> raw, {required int now}) {
+  final events = FleetMerge.of(raw).apply(raw);
   final defined = fleets(events);
   final none = runningOrder(events, fleet: null, now: now);
   return [
