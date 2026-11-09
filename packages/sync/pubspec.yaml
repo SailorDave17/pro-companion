@@ -25,6 +25,9 @@ dependencies:
   pro_companion_core: any
 
 dev_dependencies:
+  # The version the core already resolves for the workspace: the scripted
+  # server checks a magic link's PKCE challenge against its verifier (#104).
+  crypto: any
   # The version flutter_test already resolves for the workspace.
   fake_async: 1.3.3
   lints: any

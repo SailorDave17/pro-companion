@@ -11,6 +11,7 @@ import 'package:supabase/supabase.dart';
 
 import 'inline_json.dart';
 import 'key.dart';
+import 'pkce_file.dart';
 import 'session_file.dart';
 import 'transport.dart';
 
@@ -141,7 +142,7 @@ enum _Failure {
 /// exactly what it stored. A race day where the phone was revoked is not read
 /// at all, and nothing already stored is touched (#64 criterion 10).
 class SyncEngine {
-  SyncEngine._(this._store, this._client, this._session, this._transport, this._ownsTransport,
+  SyncEngine._(this._store, this._client, this._session, this._pkce, this._transport, this._ownsTransport,
       this.requestTimeout, this.maxBackoff, this.refreshSpacing, this.pullInterval, this.pullPageSize, this._log) {
     // Subscribed before anything can change the session, so no change is missed.
     _auth = _client.auth.onAuthStateChange.listen(_onAuth,
@@ -178,6 +179,7 @@ class SyncEngine {
     requirePublishableKey(publishableKey);
     final inner = transport ?? IOClient(HttpClient()..connectionTimeout = const Duration(seconds: 5));
     final guarded = GuardedTransport(inner, timeout: requestTimeout);
+    final pkce = PkceFile(sessionDir);
     final client = SupabaseClient(
       url,
       publishableKey,
@@ -186,14 +188,21 @@ class SyncEngine {
       // Sync owns every retry, so a run's length is bounded by its own
       // timeout and backoff and nothing is re-sent behind its back.
       postgrestOptions: const PostgrestClientOptions(retryEnabled: false),
+      // The magic link's PKCE verifier, on disk beside the session (#104):
+      // the client's flow is PKCE by default and has nowhere to keep it
+      // otherwise.
+      authOptions: AuthClientOptions(pkceAsyncStorage: pkce),
     );
-    return SyncEngine._(store, client, SessionFile(sessionDir), guarded, transport == null, requestTimeout,
+    return SyncEngine._(store, client, SessionFile(sessionDir), pkce, guarded, transport == null, requestTimeout,
         maxBackoff, refreshSpacing, pullInterval, pullPageSize, log ?? (_) {});
   }
 
   final EventStore _store;
   final SupabaseClient _client;
   final SessionFile _session;
+
+  /// The magic link's PKCE verifier, the same file the client keeps it in (#104).
+  final PkceFile _pkce;
   final GuardedTransport _transport;
   final bool _ownsTransport;
   final void Function(String line) _log;
@@ -974,6 +983,144 @@ class SyncEngine {
   Future<String> signInWithMagicLink(String tokenHash) => _exclusive(() async =>
       _userOf(await _signIn(() => _client.auth.verifyOTP(type: OtpType.magiclink, tokenHash: tokenHash))));
 
+  /// The sign-in screen's first call (#104): asks the server to mail a magic
+  /// link to a named volunteer's [email], redirecting to [signInRedirect]. The
+  /// client's PKCE flow keeps the code verifier in [PkceFile] beside the
+  /// session, so only this phone can open the link, and only the newest link
+  /// it asked for. The server creates the account on its first sign-in; the
+  /// role's admission code is what admits it to anything.
+  ///
+  /// Refused as [SignInCodes.signedIn] while the phone holds an admitted
+  /// session, or keeps one it cannot reach the server to check, for the
+  /// reason [signInAnonymously] gives; a kept session with no admission is
+  /// dropped instead. Throws a [CoreException] coded from [SignInCodes], and
+  /// nothing else.
+  Future<void> requestMagicLink(String email) => _exclusive(() async {
+        if (email.isEmpty) throw signInException(SignInCodes.refused, 'Enter an email address.');
+        try {
+          await _refuseOverSession();
+          await _client.auth.signInWithOtp(email: email, emailRedirectTo: signInRedirect);
+        } on CoreException {
+          rethrow;
+        } catch (e) {
+          throw _signInFailure(e, opening: false);
+        }
+      });
+
+  /// The second call (#104), when the link opens the app: exchanges the
+  /// one-time [code] its redirect brought back for the volunteer's own
+  /// session, writes it to the session file before answering, and answers
+  /// with the account's email address. The session's token then carries
+  /// `is_anonymous` false, so a [join] after it admits the phone under the
+  /// account, the named path of ADR 005.
+  ///
+  /// Refused as [SignInCodes.signedIn] while the phone holds an admitted
+  /// session (a kept one with no admission is dropped, keeping the link's
+  /// verifier), and as [SignInCodes.refused] for a link the server or this
+  /// phone cannot use:
+  /// expired, used already, or opened on another phone than the one that
+  /// asked for it. Throws a [CoreException] coded from [SignInCodes], and
+  /// nothing else.
+  Future<String> completeMagicLink(String code) => _exclusive(() async {
+        if (code.isEmpty) throw signInException(SignInCodes.refused, 'The link carried no sign-in code.');
+        try {
+          await _refuseOverSession();
+          final response = await _client.auth.exchangeCodeForSession(code);
+          // As [_signIn] does: the file holds the session before this returns.
+          _persistIfStale();
+          final email = response.session.user.email;
+          if (email == null || email.isEmpty) throw StateError('the sign-in answered with no email address');
+          return email;
+        } on CoreException {
+          rethrow;
+        } catch (e) {
+          throw _signInFailure(e, opening: true);
+        }
+      });
+
+  /// Refuses a sign-in while the phone holds an admitted session, or keeps one
+  /// it cannot reach the server to check: a new user would hold none of the
+  /// kept one's admissions, and the events written for them would be
+  /// stranded. A kept session that holds no admission (the store has none)
+  /// strands nothing, so it is dropped and the sign-in goes ahead (owner
+  /// decision at #104's review, 2026-11-09). That is the session a refused
+  /// JOIN WITH CODE leaves behind in a `named_volunteers` club, and keeping it
+  /// would refuse the very sign-in the refusal asks for.
+  Future<void> _refuseOverSession() async {
+    await _ensureSession();
+    if (_client.auth.currentSession == null && !_session.exists) return;
+    if (_store.admissionId != null) {
+      throw signInException(SignInCodes.signedIn, 'This phone is already signed in.');
+    }
+    await _dropSession();
+  }
+
+  /// gotrue's key for the PKCE verifier (`Constants.defaultStorageKey`, which
+  /// supabase 2.16.1 does not export, plus its suffix).
+  static const _verifierKey = 'supabase.auth.token-code-verifier';
+
+  /// Drops the kept session on this phone, for [_refuseOverSession] and for a
+  /// join a club's mode refused. gotrue's sign-out removes the session, then
+  /// the PKCE verifier, then asks the server to end the session: so the
+  /// verifier of a link already asked for is put back (*measured* in gotrue
+  /// 2.27.2's source), and the server's half is let go when it cannot be
+  /// reached, since nothing on the phone depends on it. The sign-out's event
+  /// deletes the session file ([_onAuth]); it is deleted here as well for a
+  /// kept file the client never loaded.
+  Future<void> _dropSession() async {
+    final verifier = await _pkce.getItem(key: _verifierKey);
+    try {
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } catch (e) {
+      _log('SYNC SIGN_OUT_SERVER_HALF ${_describe(e)}');
+    }
+    _session.delete();
+    if (verifier != null) await _pkce.setItem(key: _verifierKey, value: verifier);
+  }
+
+  /// What a failure on the way to a session proves, as a [CoreException] for
+  /// the sign-in screen, named without any token. [opening] says which call
+  /// failed: the link's exchange, or the request for it.
+  CoreException _signInFailure(Object e, {required bool opening}) {
+    switch (e) {
+      // gotrue raises its retryable class for a 5xx too (#104's review): a
+      // server that answered is not missing signal. Measured on the local
+      // stack, a magic-link request with no mail server answers 500.
+      case AuthRetryableFetchException(:final statusCode) when statusCode != null && statusCode.startsWith('5'):
+        return signInException(
+            SignInCodes.failed,
+            opening
+                ? 'The server could not finish the sign-in. Try again later.'
+                : 'The server could not send the link. Try again later.');
+      case AuthRetryableFetchException() || http.ClientException() || TimeoutException() || SocketException():
+        return signInException(SignInCodes.noSignal, 'no answer from the server (${_describe(e)})');
+      case AuthException(:final statusCode, :final code, :final message):
+        if (statusCode == '429') {
+          return signInException(
+              SignInCodes.failed, 'The server is limiting sign-in emails. Try again in a few minutes.');
+        }
+        // gotrue's own refusal before any request: the verifier this phone
+        // kept is gone, so the link was asked for on another phone, or before
+        // the app's data was cleared.
+        if (statusCode == null && message.contains('Code verifier')) {
+          return signInException(SignInCodes.refused, 'Open the newest link on the phone that asked for it.');
+        }
+        if (code == 'email_address_invalid' || code == 'validation_failed') {
+          return signInException(SignInCodes.refused, 'That email address cannot be used.');
+        }
+        if (statusCode != null && statusCode.startsWith('4')) {
+          return signInException(
+              SignInCodes.refused,
+              opening
+                  ? 'That link has expired or was used already. Ask for a new one.'
+                  : 'The server would not send a link to that address.');
+        }
+        return signInException(SignInCodes.failed, 'the sign-in was refused (${_describe(e)})');
+      default:
+        return signInException(SignInCodes.failed, _describe(e));
+    }
+  }
+
   Future<AuthResponse> _signIn(Future<AuthResponse> Function() call) async {
     final AuthResponse response;
     try {
@@ -1081,15 +1228,41 @@ class SyncEngine {
         } on CoreException {
           rethrow;
         } catch (e) {
-          throw _joinFailure(e);
+          // A club's mode refused the path an unadmitted phone signed in by
+          // (#104's review): that session can never be admitted here, so it
+          // is dropped, and the next join or sign-in takes the path the club
+          // admits. An admitted phone keeps its session.
+          final dropped = _store.admissionId == null && _isModeRefusal(e);
+          if (dropped) await _dropSession();
+          throw _joinFailure(e, dropped: dropped);
         }
       });
+
+  static bool _isModeRefusal(Object e) =>
+      e is PostgrestException && e.code == '42501' && '${e.details}'.startsWith('sign_in_mode=');
+
+  /// The sentence for a sign-in path the club's mode does not admit (#5),
+  /// read from `admit_device`'s details, `sign_in_mode=<mode> path=<path>`: it
+  /// names how the club does sign phones in, so the volunteer knows the way
+  /// that works (#104 criterion 3). [dropped] says the refused session was
+  /// dropped, so the sentence may name the next step, which is then true. A
+  /// mode it does not know keeps the plain refusal.
+  static String modeRefusal(String detail, {bool dropped = false}) {
+    final mode = RegExp(r'^sign_in_mode=(\S+)').firstMatch(detail)?.group(1);
+    return switch (mode) {
+      'device_handoff' => 'This club signs phones in by device handoff, not by a volunteer\'s email.'
+          '${dropped ? ' Enter the code again to join by device handoff.' : ''}',
+      'named_volunteers' => 'This club signs phones in by each volunteer\'s own email.'
+          '${dropped ? ' Sign in by email first.' : ''}',
+      _ => 'The club does not admit phones signed in this way.',
+    };
+  }
 
   /// What a failure on the way to an admission proves, as a [CoreException]
   /// for the screen. The server's own judgement of the code is a refusal; no
   /// answer from the server is no signal; anything else is a failure, named
   /// without any token.
-  CoreException _joinFailure(Object e) {
+  CoreException _joinFailure(Object e, {bool dropped = false}) {
     switch (e) {
       case PostgrestException(:final code, :final details):
         // admit_device and race_day_for_code raise 28000 for an unrecognised
@@ -1098,10 +1271,9 @@ class SyncEngine {
         if (code == '28000') return joinException(JoinCodes.refused, 'That code was not recognised.');
         if (code == '42501') {
           final detail = '$details';
-          return joinException(
-              JoinCodes.refused,
+          return joinException(JoinCodes.refused,
               detail.startsWith('sign_in_mode=')
-                  ? 'The club does not admit phones signed in this way.'
+                  ? modeRefusal(detail, dropped: dropped)
                   : 'This phone was revoked from the race day.');
         }
         if (code == '22023') return joinException(JoinCodes.refused, 'That code was not recognised.');

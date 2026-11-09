@@ -44,6 +44,19 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- A magic link's redirect (#104): the server's verify step sends the browser to
+                 procompanion://sign-in with a one-time code, and MainActivity hands it to the app over
+                 pro_companion/sign_in_link. packages/core's signInRedirect is the same address, and
+                 test/main_manifest_test.dart holds the two together. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="procompanion" android:host="sign-in"/>
+            </intent-filter>
+            <!-- The link goes to the sign-in screen through the channel, never to Flutter's router,
+                 which would push it as a route the app has no generator for. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false"/>
         </activity>
         <!-- Not exported: only this app's own process may start, bind or append to the core. -->
         <service

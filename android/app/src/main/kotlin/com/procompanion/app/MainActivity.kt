@@ -26,11 +26,18 @@ import io.flutter.plugin.common.MethodChannel
  * CoreService for as long as it lives, and asks for location and notifications
  * while it is visible. Once location is held it starts the service too, which
  * goes into the foreground and keeps logging after the activity is gone.
+ *
+ * A magic link's redirect (#104): `procompanion://sign-in` opens this
+ * activity, which hands the address to lib/signin/sign_in_link.dart over
+ * `pro_companion/sign_in_link`: the one that started the app answers
+ * `initialLink` once, and each one after arrives as `link`.
  */
 class MainActivity : FlutterActivity() {
     private val confirmation by lazy { Confirmation(this) }
     private val volumeKey = VolumeKeyFinish()
     private var volumeKeyChannel: MethodChannel? = null
+    private var signInLinkChannel: MethodChannel? = null
+    private var initialSignInLink: String? = null
     private var coreBound = false
 
     /** Held only to keep the core host running while the activity lives. */
@@ -40,6 +47,12 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Before super, which configures the engine: the link that started the app, kept for Dart
+        // to take once. A recreated activity carries the same intent, so only a first start counts,
+        // and a relaunch from Recents re-delivers the original intent with its spent code, so that
+        // never counts (#104's review).
+        val fromRecents = ((intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+        if (savedInstanceState == null && !fromRecents) initialSignInLink = signInLinkOf(intent)
         super.onCreate(savedInstanceState)
         // Bound, the core runs whatever the user grants. lib/core_bootstrap.dart waits for it.
         coreBound = bindService(Intent(this, CoreService::class.java), coreHost, Context.BIND_AUTO_CREATE)
@@ -102,6 +115,30 @@ class MainActivity : FlutterActivity() {
             }
         }
         confirmation.attach(flutterEngine.dartExecutor.binaryMessenger)
+        signInLinkChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "pro_companion/sign_in_link").apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "initialLink" -> { result.success(initialSignInLink); initialSignInLink = null }
+                    else -> result.notImplemented()
+                }
+            }
+        }
+    }
+
+    /** A link opening the app while it runs (singleTop): handed to Dart at once. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val link = signInLinkOf(intent) ?: return
+        setIntent(intent)
+        val channel = signInLinkChannel
+        if (channel == null) initialSignInLink = link else channel.invokeMethod("link", link)
+    }
+
+    /** The intent's address when it is the sign-in redirect, and null for any other intent. */
+    private fun signInLinkOf(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        val data = intent.data ?: return null
+        return if (data.scheme == SIGN_IN_SCHEME && data.host == SIGN_IN_HOST) data.toString() else null
     }
 
     /**
@@ -125,6 +162,8 @@ class MainActivity : FlutterActivity() {
         coreBound = false
         volumeKeyChannel?.setMethodCallHandler(null)
         volumeKeyChannel = null
+        signInLinkChannel?.setMethodCallHandler(null)
+        signInLinkChannel = null
         volumeKey.armed = false
         confirmation.release()
         super.onDestroy()
@@ -132,5 +171,9 @@ class MainActivity : FlutterActivity() {
 
     private companion object {
         const val PERMISSIONS_REQUEST = 31
+
+        /** packages/core's signInRedirect, `procompanion://sign-in`, as the manifest declares it. */
+        const val SIGN_IN_SCHEME = "procompanion"
+        const val SIGN_IN_HOST = "sign-in"
     }
 }

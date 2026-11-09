@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pro_companion_core/core.dart' show signInRedirect;
 
 /// #46: a release build is allowed onto the network, so sync can run at all (ADR 006 decision 5).
 ///
@@ -81,6 +82,55 @@ Set<String> queriedPackages(String manifest) {
     }
   }
   return names;
+}
+
+final _mainActivity = RegExp(r'''<activity\b[^>]*android:name\s*=\s*["']\.MainActivity["'][\s\S]*?</activity>''');
+final _intentFilter = RegExp(r'<intent-filter\b[\s\S]*?</intent-filter>');
+final _data = RegExp(r'<data\b([^>]*)>');
+final _category = RegExp(r'<category\b([^>]*)>');
+final _metaData = RegExp(r'<meta-data\b([^>]*)>');
+
+Map<String, String> _attributesOf(String element) =>
+    {for (final a in _attribute.allMatches(element)) a.group(1)!: a.group(2)!};
+
+String? _mainActivityOf(String manifest) => _mainActivity.firstMatch(manifest.replaceAll(_comment, ''))?.group(0);
+
+/// #104: each `VIEW` intent filter MainActivity declares in [manifest], as its categories and the
+/// `scheme://host` of each `<data>`. A commented-out filter is not declared, and a filter with no
+/// `VIEW` action is not one of these.
+List<({Set<String> categories, Set<String> addresses})> viewFilters(String manifest) {
+  final activity = _mainActivityOf(manifest);
+  if (activity == null) return const [];
+  final filters = <({Set<String> categories, Set<String> addresses})>[];
+  for (final match in _intentFilter.allMatches(activity)) {
+    final filter = match.group(0)!;
+    if (!filter.contains('android.intent.action.VIEW')) continue;
+    final categories = <String>{};
+    for (final c in _category.allMatches(filter)) {
+      final name = _attributesOf(c.group(1)!)['android:name'];
+      if (name != null) categories.add(name);
+    }
+    final addresses = <String>{};
+    for (final d in _data.allMatches(filter)) {
+      final a = _attributesOf(d.group(1)!);
+      addresses.add('${a['android:scheme']}://${a['android:host']}');
+    }
+    filters.add((categories: categories, addresses: addresses));
+  }
+  return filters;
+}
+
+/// #104: the `<meta-data>` MainActivity declares in [manifest], name to value.
+Map<String, String> activityMetaData(String manifest) {
+  final activity = _mainActivityOf(manifest);
+  if (activity == null) return const {};
+  final values = <String, String>{};
+  for (final m in _metaData.allMatches(activity)) {
+    final a = _attributesOf(m.group(1)!);
+    final (name, value) = (a['android:name'], a['android:value']);
+    if (name != null && value != null) values[name] = value;
+  }
+  return values;
 }
 
 /// The permissions [manifest] requests, by name. A commented-out element is not one, and nor is a
@@ -165,6 +215,31 @@ void main() {
       expect(queriedPackages(manifest), {'a.queried.app'});
       expect(queriedPackages('<manifest><package android:name="outside.queries"/></manifest>'), isEmpty);
     });
+
+    test("reads MainActivity's VIEW filters and meta-data, and nothing commented out or elsewhere", () {
+      const view = '<intent-filter><action android:name="android.intent.action.VIEW"/>'
+          '<category android:name="android.intent.category.DEFAULT"/>'
+          "<category android:name='android.intent.category.BROWSABLE'/>"
+          '<data android:scheme="app" android:host="here"/></intent-filter>';
+      const manifest = '<application>'
+          '<activity android:name=".MainActivity" android:exported="true">'
+          '<intent-filter><action android:name="android.intent.action.MAIN"/></intent-filter>'
+          '$view'
+          '<!-- <intent-filter><action android:name="android.intent.action.VIEW"/>'
+          '<data android:scheme="gone" android:host="gone"/></intent-filter> -->'
+          '<meta-data android:name="a.flag" android:value="false"/>'
+          '<meta-data android:name="a.theme" android:resource="@style/X"/>'
+          '</activity>'
+          '<activity android:name=".Other"><intent-filter><action android:name="android.intent.action.VIEW"/>'
+          '<data android:scheme="other" android:host="other"/></intent-filter></activity>'
+          '</application>';
+      final filters = viewFilters(manifest);
+      expect(filters, hasLength(1));
+      expect(filters.single.categories, {'android.intent.category.DEFAULT', 'android.intent.category.BROWSABLE'});
+      expect(filters.single.addresses, {'app://here'});
+      expect(activityMetaData(manifest), {'a.flag': 'false'}, reason: 'a resource is not a value');
+      expect(viewFilters('<application><activity android:name=".Other">$view</activity></application>'), isEmpty);
+    });
   });
 
   test('the main manifest requests INTERNET and ACCESS_NETWORK_STATE (#46)', () {
@@ -226,6 +301,22 @@ void main() {
     expect(queriedPackages(File('android/app/src/main/AndroidManifest.xml').readAsStringSync()),
         contains(raceTimerPackage),
         reason: 'LinkTrust reads this package\'s signer, and ADR 004 keeps the declaration');
+  });
+
+  test("MainActivity opens on the magic link's redirect, and only through the app's own channel (#104)", () {
+    final manifest = File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+    final redirect = Uri.parse(signInRedirect);
+    final filters = viewFilters(manifest);
+    expect(filters.map((f) => f.addresses), [
+      {'${redirect.scheme}://${redirect.host}'}
+    ],
+        reason: 'one VIEW filter, and it names exactly the address sync asks the server to redirect to: '
+            'a link to any other address would never reach the sign-in screen');
+    expect(filters.single.categories, containsAll({'android.intent.category.DEFAULT', 'android.intent.category.BROWSABLE'}),
+        reason: 'a browser starts an activity only through BROWSABLE, and an implicit start needs DEFAULT');
+    expect(activityMetaData(manifest)['flutter_deeplinking_enabled'], 'false',
+        reason: "the link goes to the sign-in screen over pro_companion/sign_in_link; Flutter's router "
+            'would push it as a route the app has no generator for');
   });
 
   test('the only service, receiver or provider the main manifest exports is .LinkService (#33)', () {

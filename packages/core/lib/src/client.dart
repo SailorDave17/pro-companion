@@ -53,6 +53,21 @@ abstract interface class CoreClient {
   /// come back as a [CoreException] coded from `JoinCodes`.
   Future<Admission> join(String code);
 
+  /// Asks for a magic link for a named volunteer's [email] (#104, ADR 005's
+  /// named path), redirecting to `signInRedirect`, so the volunteer can open
+  /// it on this phone. Completes once the server has taken the request. A
+  /// phone that already holds a session, a refusal, no signal and a core with
+  /// no server wired to it each come back as a [CoreException] coded from
+  /// `SignInCodes`.
+  Future<void> requestSignInLink(String email);
+
+  /// Signs this phone in as the volunteer whose magic link brought back
+  /// [code] (#104), the one-time code from the link's redirect, and answers
+  /// with the account's email address. The phone's session is then that
+  /// account's, not an anonymous one, so a [join] after it admits the phone
+  /// under the account. Failures come back as for [requestSignInLink].
+  Future<String> completeSignInLink(String code);
+
   /// What this phone knows about race areas (#74): its admission, what that
   /// admission granted, and its race day's race areas as sync last read them.
   /// Writes nothing.
@@ -186,6 +201,15 @@ class PortCoreClient implements CoreClient {
 
   @override
   Future<Admission> join(String code) async => Admission.fromWire(await _call(Wire.join, {'code': code}) as Map);
+
+  @override
+  Future<void> requestSignInLink(String email) async {
+    await _call(Wire.requestSignInLink, {'email': email});
+  }
+
+  @override
+  Future<String> completeSignInLink(String code) async =>
+      await _call(Wire.completeSignInLink, {'code': code}) as String;
 
   @override
   Future<RaceAreas> raceAreas() async => RaceAreas.fromWire(await _call(Wire.raceAreas, const {}) as Map);

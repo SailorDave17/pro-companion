@@ -80,7 +80,7 @@ class Phone {
 
 /// The local stack, reached through its API as the owner's tooling and as phones.
 class LocalStack {
-  LocalStack._(this.api, this._publishableKey, this._secretKey, this._dbContainer)
+  LocalStack._(this.api, this._publishableKey, this._secretKey, this._dbContainer, this._mail)
       : _owner = owner.ServiceApi(owner.Target(api, _secretKey, 'the local stack'));
 
   /// The stack's API URL.
@@ -90,6 +90,10 @@ class LocalStack {
   final String _secretKey;
   final String _dbContainer;
   final owner.ServiceApi _owner;
+
+  /// The stack's mail server (Mailpit), where auth's mail to a volunteer lands (#104). Null when the
+  /// stack was started without it.
+  final Uri? _mail;
 
   /// Every request made as a phone, as `METHOD path key`, where key is the key the request carried
   /// (`publishable` or `secret`) and `+token` marks a phone's bearer token.
@@ -113,7 +117,69 @@ class LocalStack {
     final projectId = RegExp(r'^project_id\s*=\s*"([^"]+)"', multiLine: true)
         .firstMatch(File('supabase/config.toml').readAsStringSync())!
         .group(1)!;
-    return LocalStack._(Uri.parse(url), publishable, secret, 'supabase_db_$projectId');
+    final mail = status['MAILPIT_URL'] ?? status['INBUCKET_URL'];
+    return LocalStack._(
+        Uri.parse(url), publishable, secret, 'supabase_db_$projectId', mail == null ? null : Uri.parse(mail));
+  }
+
+  /// The magic link auth mailed to [email] (#104), opened as the volunteer's browser opens it: the
+  /// newest message to the address is read from the stack's mail server, and its sign-in link is
+  /// followed one hop, without following the redirect. Returns the link and the address the redirect
+  /// names, which is the app's sign-in address with the link's one-time code, or the server's error.
+  /// Opening a link spends it, so [openLink] on the same link reads the server's answer to a reuse.
+  /// Waits up to [within] for the message to land.
+  Future<({String link, String redirect})> openMailedLink(String email,
+      {Duration within = const Duration(seconds: 15)}) async {
+    final mail = _mail;
+    if (mail == null) {
+      throw StateError("the stack's mail server is not running: start the stack without excluding mailpit "
+          '(scripts/start_local_stack.sh does since #104)');
+    }
+    final deadline = DateTime.now().add(within);
+    while (true) {
+      final found = await _getJson(mail.replace(
+          path: '/api/v1/search', queryParameters: {'query': 'to:"$email"', 'limit': '1'})) as Map;
+      final messages = (found['messages'] as List?) ?? const [];
+      if (messages.isNotEmpty) {
+        final id = (messages.first as Map)['ID'] as String;
+        final message = await _getJson(mail.replace(path: '/api/v1/message/$id')) as Map;
+        final link = RegExp(r'https?://\S+/auth/v1/verify\?\S+').firstMatch('${message['Text']}')?.group(0);
+        if (link == null) throw StateError('the message to $email carries no sign-in link');
+        return (link: link, redirect: await openLink(link));
+      }
+      if (DateTime.now().isAfter(deadline)) throw StateError('no message to $email within $within');
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+  }
+
+  /// Follows [link] one hop, as a browser's first request, and returns where its redirect points.
+  Future<String> openLink(String link) async {
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(Uri.parse(link));
+      request.followRedirects = false;
+      final response = await request.close();
+      await response.drain<void>();
+      final location = response.headers.value(HttpHeaders.locationHeader);
+      if (response.statusCode ~/ 100 != 3 || location == null) {
+        throw StateError('the link answered ${response.statusCode} with no redirect');
+      }
+      return location;
+    } finally {
+      client.close();
+    }
+  }
+
+  Future<Object?> _getJson(Uri uri) async {
+    final client = HttpClient();
+    try {
+      final response = await (await client.getUrl(uri)).close();
+      final text = await response.transform(utf8.decoder).join();
+      if (response.statusCode != 200) throw StateError('$uri answered ${response.statusCode}: $text');
+      return jsonDecode(text);
+    } finally {
+      client.close();
+    }
   }
 
   /// A club, an event on it and its race areas, with every admission code, provisioned by the

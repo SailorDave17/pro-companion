@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:pro_companion_core/core.dart'
-    show EventKinds, FinishTimeFlags, FleetEvents, FleetMerge, RoleEvents, raceTimesOf;
+    show EventKinds, FinishTimeFlags, FleetEvents, FleetMerge, RoleEvents, SignInLink, raceTimesOf;
 import 'package:pro_companion_core/store.dart' hide newUlid;
 import 'package:pro_companion_sync/sync.dart';
 import 'package:supabase/supabase.dart' show PostgrestException;
@@ -22,9 +22,10 @@ import 'support/local_stack.dart';
 /// two phones' same-named fleets, synced and pulled, read as one.
 ///
 /// Spend per run of this file: 3 anonymous sign-ins (the device-handoff case and #71's join) of the stack's 30 an
-/// hour, and 19 magic-link verifications of its 30 per 5 minutes (#76's two phones the last two). A
-/// whole stack run spends 26 verifications (README), so two whole runs inside 5 minutes can fail on
-/// RATE LIMITED rather than on what they test. Prove a mutation with --plain-name on one case.
+/// hour, 20 magic-link verifications of its 30 per 5 minutes (#76's two phones, then #104's mailed
+/// link), and 1 mailed link of its 30 an hour (#104). A whole stack run spends 27 verifications
+/// (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than on what they
+/// test. Prove a mutation with --plain-name on one case.
 ///
 /// Skips unless PRO_COMPANION_LOCAL_STACK=1, which the CI job `local-stack` sets.
 void main() {
@@ -610,6 +611,45 @@ void main() {
       }
       final old = (await stack.admissions(day.eventId)).singleWhere((r) => r['id'] == granted.admissionId);
       expect(old['superseded_by'], changed.admissionId);
+    });
+
+    test('#104 criteria 1 to 3: the link the phone asks for is mailed, its redirect hands the app a '
+        "one-time code, the exchange signs the phone in as the volunteer, the role's code admits the "
+        "volunteer's own account, and a club on device handoff refuses it in a sentence naming the mode",
+        () async {
+      final phone = await StackPhone.open(stack);
+      addTearDown(phone.close);
+      final email = 'signin.${newUlid().toLowerCase()}@pro-companion.test';
+      // Criterion 1: the request, PKCE, with the app's own redirect. The stack mails the link.
+      await phone.engine.requestMagicLink(email);
+      final opened = await stack.openMailedLink(email);
+      expect(opened.link, contains('redirect_to=procompanion://sign-in'), reason: 'the link sends the browser back to the app');
+      final link = SignInLink.parse(opened.redirect);
+      expect(link, isNotNull, reason: 'the redirect is the app sign-in address');
+      expect(link!.isError, isFalse, reason: '$link');
+
+      // Criterion 2: the exchange, on this phone, is the volunteer's own session.
+      expect(await phone.engine.completeMagicLink(link.code!), email);
+      expect(phone.transport.seen.map((s) => s.path), isNot(contains('/auth/v1/signup')), reason: 'no anonymous user');
+
+      // Criterion 3: the join screen's join, under the session the phone now holds.
+      final granted = await phone.engine.join(day.codes['recorder Alpha']!);
+      final mine = (await stack.admissions(day.eventId)).singleWhere((r) => r['id'] == granted.admissionId);
+      expect([mine['role'], mine['race_area'], mine['is_anonymous'], mine['email']], ['recorder', 'Alpha', false, email],
+          reason: "admitted under the volunteer's account, on the named path");
+
+      // And in a club that signs phones in by device handoff, the same phone is refused, in the words
+      // the screen shows, read from admit_device's details. No second sign-in is spent.
+      final club = 'Device handoff club ${DateTime.now().microsecondsSinceEpoch}';
+      final handoffDay = await stack.raceDay(club: club);
+      final out = StringBuffer();
+      expect(await owner.run(['sign-in-mode', '--club', club, '--mode', 'device_handoff'], out: out), 0, reason: '$out');
+      await expectLater(
+          phone.engine.join(handoffDay.codes['scorer']!),
+          throwsA(isA<CoreException>()
+              .having((e) => e.code, 'code', JoinCodes.refused)
+              .having((e) => e.message, 'message', "This club signs phones in by device handoff, not by a volunteer's email.")));
+      expect(await stack.admissions(handoffDay.eventId), isEmpty);
     });
 
     test('#53 criteria 1 to 3: a phone revoked by revoke_device is told once, by name, keeps what it '

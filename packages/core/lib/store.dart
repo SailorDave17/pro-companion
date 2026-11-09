@@ -11,6 +11,7 @@ export 'src/location.dart' show ClockOffsetStamp, GpsReasons, GpsStamp, LatestFi
 export 'src/pulls.dart' show PullCursor, PullRefused, PullRun, PullRunState, PullStatus, RefusalStub;
 export 'src/race_areas.dart' show RaceArea, RaceAreas;
 export 'src/roles.dart' show Roles;
+export 'src/sign_ins.dart' show SignInCodes, signInException, signInRedirect;
 export 'src/store.dart' show EventStore;
 export 'src/uploads.dart' show PendingUpload, RefusedUpload, Revocation, UploadRun, UploadRunState, UploadStatus;
 export 'src/wire.dart' show CoreException;

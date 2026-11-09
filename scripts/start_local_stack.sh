@@ -17,10 +17,13 @@
 # - The registry that started the stack is written to $GITHUB_ENV when there is one, so the job's
 #   later steps (db reset) name the same images instead of pulling from the refusing registry.
 #
-# Only the services the tests use are started: the database, auth, the REST API and its gateway.
+# Only the services the tests use are started: the database, auth, the REST API and its gateway,
+# and since #104 the mail server. Auth refuses a magic-link request with a 500 ("Error sending magic
+# link email") while the mail server is stopped (measured on #104), and a test reads the link it
+# mailed from there.
 # START_STACK_BACKOFF_S (default 30) scales the backoff; the script's test sets it to 0.
 
-exclude=studio,imgproxy,inbucket,mailpit,edge-runtime,logflare,vector,supavisor,storage-api,realtime,postgres-meta
+exclude=studio,imgproxy,edge-runtime,logflare,vector,supavisor,storage-api,realtime,postgres-meta
 cli="${SUPABASE_CLI:-npx --yes supabase@2.117.0}"
 backoff="${START_STACK_BACKOFF_S:-30}"
 first="${SUPABASE_INTERNAL_IMAGE_REGISTRY:-public.ecr.aws}"

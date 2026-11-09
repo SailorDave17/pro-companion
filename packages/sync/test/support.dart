@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:clock/clock.dart';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:pro_companion_core/store.dart';
 import 'package:pro_companion_sync/sync.dart';
@@ -141,6 +142,20 @@ class FakeServer extends http.BaseClient {
 
   /// Magic-link token hashes, to the named volunteer each signs in.
   final magicLinks = <String, String>{};
+
+  /// The named volunteers a magic-link request (#104) has created, by email address, and each
+  /// one's address by user.
+  final namedUsers = <String, String>{};
+  final emails = <String, String>{};
+
+  /// Each PKCE flow a request opened (#104): the one-time code its link's verify step would
+  /// redirect with, to the volunteer and the request's code challenge. An exchange removes it.
+  final pkceFlows = <String, ({String user, String? challenge})>{};
+
+  /// The one-time code of the newest link mailed to each address, as the volunteer opening it
+  /// would be handed it at the app's redirect.
+  final newestLinkCode = <String, String>{};
+  var _linkCodes = 0;
   final _refresh = <String, String>{};
   var _users = 0;
   var _tokens = 0;
@@ -192,7 +207,13 @@ class FakeServer extends http.BaseClient {
       'token_type': 'bearer',
       'expires_in': validFor.inSeconds,
       'refresh_token': refresh,
-      'user': {'id': user, 'aud': 'authenticated', 'created_at': '2026-09-26T00:00:00Z', 'is_anonymous': anonymous[user] ?? true},
+      'user': {
+        'id': user,
+        'aud': 'authenticated',
+        'created_at': '2026-09-26T00:00:00Z',
+        'is_anonymous': anonymous[user] ?? true,
+        if (emails[user] != null) 'email': emails[user],
+      },
     };
   }
 
@@ -245,6 +266,27 @@ class FakeServer extends http.BaseClient {
         final user = magicLinks[r.json['token_hash']];
         if (user == null) return _goTrueError(403, 'otp_expired');
         return _json(200, session(user));
+      case ('POST', '/auth/v1/otp'):
+        // A magic-link request (#104): the account is made on its first sign-in, as GoTrue's
+        // create_user does, and the PKCE flow keeps the request's challenge for the exchange.
+        final email = r.json['email'] as String;
+        final user = namedUsers[email] ??= uuid(0x6000 + namedUsers.length + 1);
+        emails[user] = email;
+        anonymous[user] = false;
+        final code = '4d3e9f0a-1b2c-4d5e-8f60-${(++_linkCodes).toRadixString(16).padLeft(12, '0')}';
+        pkceFlows[code] = (user: user, challenge: r.json['code_challenge'] as String?);
+        newestLinkCode[email] = code;
+        return _json(200, <String, Object?>{});
+      case ('POST', '/auth/v1/token') when r.query['grant_type'] == 'pkce':
+        // The exchange: the flow the link's code names, held to the request's challenge, as
+        // GoTrue's pkce grant is. A code with no flow is GoTrue's 404.
+        final flow = pkceFlows[r.json['auth_code']];
+        if (flow == null) return _goTrueError(404, 'flow_state_not_found');
+        final verifier = r.json['code_verifier'] as String? ?? '';
+        final challenge = base64Url.encode(sha256.convert(ascii.encode(verifier)).bytes).replaceAll('=', '');
+        if (challenge != flow.challenge) return _goTrueError(400, 'bad_code_verifier');
+        pkceFlows.remove(r.json['auth_code']);
+        return _json(200, session(flow.user));
       case ('POST', '/auth/v1/token'):
         final user = _refresh.remove(r.json['refresh_token']);
         if (user == null) return _goTrueError(400, 'refresh_token_not_found');
