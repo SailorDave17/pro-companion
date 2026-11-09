@@ -442,6 +442,12 @@ class _HeldCore implements CoreClient {
   Future<Admission> join(String code) => _inner.join(code);
 
   @override
+  Future<void> requestSignInLink(String email) => _inner.requestSignInLink(email);
+
+  @override
+  Future<String> completeSignInLink(String code) => _inner.completeSignInLink(code);
+
+  @override
   Future<void> reportFix(GpsFix fix) => _inner.reportFix(fix);
 
   @override

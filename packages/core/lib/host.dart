@@ -7,11 +7,13 @@ import 'dart:isolate';
 
 import 'src/client.dart';
 import 'src/server.dart';
+import 'src/sign_ins.dart';
 import 'src/store.dart';
 import 'src/wire.dart';
 
 export 'src/client.dart' show CoreClient, PortCoreClient;
 export 'src/server.dart' show CoreServer, JoinHandler;
+export 'src/sign_ins.dart' show SignInHandlers;
 
 /// The name a core host publishes its port under, VM-wide, and the UI engine
 /// looks it up by (ADR 003 decision 3). The app publishes it with
@@ -63,15 +65,18 @@ void _coreMain(List<Object?> args) {
 /// [corePortName]. A close request is refused, because the host and not a
 /// client owns the core's lifetime. Throws when the log cannot be opened.
 ///
-/// [join] is what a `join` request runs (#71). With none, a join is refused
-/// as `no_server`. A host that builds sync on the store first (#113) opens the
-/// store itself and calls [serveStore].
-SendPort serveCore(String dbPath, {JoinHandler? join}) => serveStore(EventStore.open(dbPath), join: join);
+/// [join] is what a `join` request runs (#71), and [signIn] what the two
+/// sign-in requests run (#104). With none, each is refused as `no_server`. A
+/// host that builds sync on the store first (#113) opens the store itself and
+/// calls [serveStore].
+SendPort serveCore(String dbPath, {JoinHandler? join, SignInHandlers? signIn}) =>
+    serveStore(EventStore.open(dbPath), join: join, signIn: signIn);
 
 /// [serveCore] over a store the host already opened, so the host can build
-/// sync on the same store and hand its join in as [join] (#71, #113).
-SendPort serveStore(EventStore store, {JoinHandler? join}) {
-  final server = CoreServer(store, closable: false, join: join);
+/// sync on the same store and hand its join in as [join] (#71, #113) and its
+/// magic-link sign-in as [signIn] (#104, #113).
+SendPort serveStore(EventStore store, {JoinHandler? join, SignInHandlers? signIn}) {
+  final server = CoreServer(store, closable: false, join: join, signIn: signIn);
   final requests = ReceivePort();
   requests.listen(server.handle);
   return requests.sendPort;

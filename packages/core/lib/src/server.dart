@@ -7,6 +7,7 @@ import 'admissions.dart';
 import 'envelope.dart';
 import 'location.dart';
 import 'race_times.dart';
+import 'sign_ins.dart';
 import 'store.dart';
 import 'wire.dart';
 
@@ -21,7 +22,7 @@ typedef JoinHandler = Future<Admission> Function(String code);
 /// core: the foreground service's engine in the app (#32), or an isolate
 /// spawned for a test. The protocol is the same in both.
 class CoreServer {
-  CoreServer(this.store, {this.closable = true, this.join});
+  CoreServer(this.store, {this.closable = true, this.join, this.signIn});
 
   final EventStore store;
 
@@ -34,10 +35,14 @@ class CoreServer {
   /// to, which refuses a join as `no_server`.
   final JoinHandler? join;
 
+  /// What a magic-link sign-in runs (#104), or null for a core nothing is
+  /// wired to, which refuses both sign-in requests as `no_server`.
+  final SignInHandlers? signIn;
+
   /// Handles one request, `[replyPort, command, args]`, and sends the reply.
-  /// Returns false once the core has been asked to close. A `join` replies
-  /// later, when its handler answers; everything else replies before this
-  /// returns.
+  /// Returns false once the core has been asked to close. A `join` or a
+  /// sign-in replies later, when its handler answers; everything else replies
+  /// before this returns.
   bool handle(Object? message) {
     if (message is! List || message.length != 3 || message[0] is! SendPort) {
       return true; // Not a request. Nothing to reply to.
@@ -57,6 +62,10 @@ class CoreServer {
       }
       if (command == Wire.join) {
         _replyLater(reply, _dispatchJoin(args));
+        return true;
+      }
+      if (command == Wire.requestSignInLink || command == Wire.completeSignInLink) {
+        _replyLater(reply, _dispatchSignIn(command, args));
         return true;
       }
       final result = _dispatch(command, args);
@@ -96,6 +105,22 @@ class CoreServer {
       throw joinException(JoinCodes.noServer, 'this core has no server to join through: nothing is wired to it');
     }
     return (await handler(code)).toWire();
+  }
+
+  Future<Object?> _dispatchSignIn(String command, Map args) async {
+    final request = command == Wire.requestSignInLink;
+    final key = request ? 'email' : 'code';
+    final value = args[key];
+    if (value is! String || value.isEmpty) throw ArgumentError.value(value, key, 'must be a non-empty string');
+    final handlers = signIn;
+    if (handlers == null) {
+      throw signInException(SignInCodes.noServer, 'this core has no server to sign in through: nothing is wired to it');
+    }
+    if (request) {
+      await handlers.requestLink(value);
+      return null;
+    }
+    return await handlers.completeLink(value);
   }
 
   Object? _dispatch(String command, Map args) {

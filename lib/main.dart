@@ -7,6 +7,7 @@ import 'finish/volume_key.dart';
 import 'revocation/revoked_banner.dart';
 import 'roles/race_area.dart';
 import 'roles/role_gate.dart';
+import 'signin/sign_in_link.dart';
 import 'ui/clock.dart';
 import 'ui/sunlight.dart';
 
@@ -19,6 +20,7 @@ Future<void> main() async {
     core: core,
     confirmation: ConfirmationService(const PlatformConfirmationDevice()),
     volumeKeys: PlatformVolumeKeyCapture(),
+    signInLinks: PlatformSignInLinks(),
   ));
 }
 
@@ -30,6 +32,7 @@ class ProCompanionApp extends StatelessWidget {
     this.navigatorObservers = const [],
     this.clock = systemClock,
     this.volumeKeys = const NoVolumeKeyCapture(),
+    this.signInLinks = const NoSignInLinks(),
   });
 
   /// The only way UI code reaches the log (ADR 001, ADR 003).
@@ -45,6 +48,9 @@ class ProCompanionApp extends StatelessWidget {
   /// The volume-down key, which logs a finish on the finish screen (#19).
   final VolumeKeyCapture volumeKeys;
 
+  /// The magic links that open the app, for the sign-in screen (#104).
+  final SignInLinks signInLinks;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -56,7 +62,8 @@ class ProCompanionApp extends StatelessWidget {
       builder: (context, navigator) =>
           RaceAreaFrame(child: RevokedFrame(core: core, child: navigator ?? const SizedBox.shrink())),
       // The role picker, or the home of the role this phone runs as (#20).
-      home: RoleGate(core: core, confirmation: confirmation, clock: clock, volumeKeys: volumeKeys),
+      home: RoleGate(
+          core: core, confirmation: confirmation, clock: clock, volumeKeys: volumeKeys, signInLinks: signInLinks),
     );
   }
 }

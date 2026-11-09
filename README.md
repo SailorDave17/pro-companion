@@ -269,8 +269,13 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
   device-handoff phone is one. A full run signs in 20 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 26,
-  19 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 27,
+  20 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+- **The stack runs its mail server** (Mailpit, `[local_smtp]`, port 54424) since #104. Auth refuses
+  a magic-link request with a 500 ("Error sending magic link email") while it is stopped, and
+  `test/sync_test.dart`'s #104 case reads the link it mailed from there. The stack allows 30 sent
+  emails an hour (`email_sent`): the CLI's default of 2 refused the third request in an hour with
+  429 `over_email_send_rate_limit`, mail server or not. A full run mails 1.
 
 ### Applying a migration to the live project
 
@@ -383,6 +388,29 @@ area or event, and the code stays in the field. With no signal, the screen says 
 signal, keeps the code and sends it again every five seconds until the server answers. On a build
 with no server wired to the core (before #113 starts sync in the core host) the screen says so.
 
+**The phone's sign-in screen** (#104) is where a named volunteer signs the phone in as their own
+account: SIGN IN BY EMAIL on the role picker, the volunteer's address, then SEND LINK. The core asks
+the server for a magic link redirecting to the app's own address, `procompanion://sign-in`, by PKCE:
+the code verifier stays on this phone (beside the session file, so a restart of the core host keeps
+it), so the link signs in only the phone that asked, and only the newest link it asked for. The
+screen says so: open the link on this phone. Opening the link opens the app, which hands its
+one-time code to the core; the core exchanges it for the volunteer's session, whose token is not
+anonymous, and the screen shows the account and ENTER ROLE CODE. That is the join screen above, and
+its join now admits the phone under the volunteer's account. A link opens the screen only from the
+picker: one that arrives while a role's home or another screen shows is let go.
+
+- **A phone holding an admitted session is refused**, by the link request and by the link alike,
+  since a new user would strand what it wrote. A session that holds no admission is replaced: in a
+  `named_volunteers` club, the anonymous session a refused JOIN WITH CODE leaves behind is dropped,
+  and the refusal says to sign in by email first; in a `device_handoff` club, a volunteer's refused
+  named session is dropped, and the refusal says to enter the code again.
+- **A refused link is one plain sentence**: expired or used already, opened on another phone than
+  the one that asked, or no signal (the link is kept and TRY AGAIN opens it again). The server's own
+  error text is never shown.
+- **The local stack runs its mail server** for this (see the stack's notes above). The live
+  project's mail and the redirect entry for `procompanion://sign-in` are held for the pilot's sixth
+  milestone; until then a live sign-in cannot complete.
+
 ### Revoking a phone
 
 When a committee phone is lost, the owner takes it off the event (#72). Run with no `--device`,
@@ -426,10 +454,9 @@ dart run scripts/owner.dart revoke --club "Hoover Sailing Club" --event "Club ni
   then refuses and prints their ids, and `--event-id <id>` names one in place of the three flags.
   It finds its target and key as `provision` does.
 
-Not built yet: the phone's magic-link screen (#104; the code entry is #71's join screen, above),
-starting sync in the app (#113, which also wires the join screen's call to sync in the core host),
-and magic-link mail and its redirect on the live project, which are held for the pilot's sixth
-milestone.
+Not built yet: starting sync in the app (#113, which also wires the join screen's and the sign-in
+screen's calls to sync in the core host), and magic-link mail and its redirect on the live project,
+which are held for the pilot's sixth milestone.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses

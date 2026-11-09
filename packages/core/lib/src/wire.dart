@@ -28,6 +28,8 @@ abstract final class Wire {
   static const chainStatus = 'chainStatus';
   static const raceTimes = 'raceTimes';
   static const join = 'join';
+  static const requestSignInLink = 'requestSignInLink';
+  static const completeSignInLink = 'completeSignInLink';
   static const raceAreas = 'raceAreas';
   static const receiveLink = 'receiveLink';
   static const relogSequence = 'relogSequence';
@@ -47,7 +49,9 @@ abstract final class Wire {
   /// both write nothing. join (#71) hands a code to whatever the host wired
   /// the core to (sync, in the app), which admits the phone and stamps the
   /// admission; a core with nothing wired refuses it as `no_server`.
-  /// raceAreas (#74) reads the admission's grant and its race day's race
+  /// requestSignInLink and completeSignInLink (#104) hand a named volunteer's
+  /// magic-link sign-in to the same host the same way, and are refused as
+  /// `no_server` on the same terms. raceAreas (#74) reads the admission's grant and its race day's race
   /// areas as sync kept them, and writes nothing.
   /// receiveLink stores one event from race-timer (#33), and relogSequence and
   /// takeBackSequence correct a sequence by appending undos and copies, never
@@ -67,6 +71,8 @@ abstract final class Wire {
     chainStatus,
     raceTimes,
     join,
+    requestSignInLink,
+    completeSignInLink,
     raceAreas,
     receiveLink,
     relogSequence,
@@ -102,7 +108,7 @@ class CoreException implements Exception {
 
   /// `refused` (the store said no), `invalid` (bad arguments),
   /// `unknown_command`, or `failed` (anything else); from `join`, one of
-  /// `JoinCodes.all` (#71).
+  /// `JoinCodes.all` (#71); from a sign-in, one of `SignInCodes.all` (#104).
   final String code;
   final String message;
 

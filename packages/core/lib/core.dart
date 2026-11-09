@@ -82,6 +82,7 @@ export 'src/roundings.dart'
         stationedMarks;
 export 'src/scoring.dart'
     show DiscardStep, Discards, Race, RaceScore, ScoreCode, Series, Standing, scoreSeries;
+export 'src/sign_ins.dart' show SignInCodes, SignInLink, signInRedirect;
 export 'src/starts.dart'
     show
         FleetRaceState,

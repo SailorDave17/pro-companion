@@ -123,13 +123,30 @@ void main() {
           throwsA(isA<CoreException>().having((e) => e.code, 'code', JoinCodes.refused).having((e) => e.message, 'message', 'This phone was revoked from the race day.')));
       s.hooks.clear();
 
-      s.hooks.add((r) => r.path.endsWith('/rpc/admit_device')
-          ? http.Response(
-              jsonEncode({'code': '42501', 'details': 'sign_in_mode=named_volunteers path=device_handoff', 'hint': null, 'message': 'x'}), 403,
-              headers: {'content-type': 'application/json'})
-          : null);
-      await expectLater(engine.join('RECO-ALFA'),
-          throwsA(isA<CoreException>().having((e) => e.code, 'code', JoinCodes.refused).having((e) => e.message, 'message', 'The club does not admit phones signed in this way.')));
+      // #104 criterion 3: the sentence names how the club does sign phones
+      // in, read from the refusal's details. This phone holds no admission, so
+      // the refused session is dropped and the sentence names the next step
+      // (#104's review); sign_in_test.dart holds an admitted phone's form.
+      const handoff =
+          "This club signs phones in by device handoff, not by a volunteer's email. Enter the code again to join by device handoff.";
+      for (final (details, sentence) in [
+        (
+          'sign_in_mode=named_volunteers path=device_handoff',
+          "This club signs phones in by each volunteer's own email. Sign in by email first."
+        ),
+        ('sign_in_mode=device_handoff path=named_volunteers', handoff),
+        ('sign_in_mode=device_handoff path=unknown', handoff),
+        ('sign_in_mode=some_later_mode path=named_volunteers', 'The club does not admit phones signed in this way.'),
+      ]) {
+        s.hooks.clear();
+        s.hooks.add((r) => r.path.endsWith('/rpc/admit_device')
+            ? http.Response(jsonEncode({'code': '42501', 'details': details, 'hint': null, 'message': 'x'}), 403,
+                headers: {'content-type': 'application/json'})
+            : null);
+        await expectLater(engine.join('RECO-ALFA'),
+            throwsA(isA<CoreException>().having((e) => e.code, 'code', JoinCodes.refused).having((e) => e.message, 'message', sentence)),
+            reason: details);
+      }
       expect(phone.store.admissionId, isNull, reason: 'nothing stamped by a refusal');
     });
 

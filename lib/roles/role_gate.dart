@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:pro_companion_core/core.dart';
 
 import '../confirmation.dart';
 import '../finish/volume_key.dart';
 import '../join/join_screen.dart';
+import '../signin/sign_in_link.dart';
+import '../signin/sign_in_screen.dart';
 import '../ui/bars.dart';
 import '../ui/clock.dart';
 import '../ui/fill_or_scroll.dart';
@@ -23,6 +27,13 @@ import 'roles.dart';
 /// From the picker, JOIN WITH CODE opens the join screen (#71): a phone
 /// admitted there comes back with the pick of the role its code granted,
 /// and that role's home opens. #77 later narrows the picker to that role.
+///
+/// SIGN IN BY EMAIL opens the sign-in screen (#104), which hands back the same
+/// pick once the volunteer's account is admitted. The gate also reads the
+/// magic links that open the app, for as long as it lives, which is the app's
+/// whole life: one that opens it while the sign-in screen shows goes to that
+/// screen, and any other opens the screen on it, as after the app was killed
+/// on the way to the mail app.
 class RoleGate extends StatefulWidget {
   const RoleGate({
     super.key,
@@ -30,12 +41,16 @@ class RoleGate extends StatefulWidget {
     required this.confirmation,
     this.clock = systemClock,
     this.volumeKeys = const NoVolumeKeyCapture(),
+    this.signInLinks = const NoSignInLinks(),
   });
 
   final CoreClient core;
   final ConfirmationService confirmation;
   final int Function() clock;
   final VolumeKeyCapture volumeKeys;
+
+  /// The magic links that open the app (#104).
+  final SignInLinks signInLinks;
 
   @override
   State<RoleGate> createState() => _RoleGateState();
@@ -48,6 +63,17 @@ class _RoleGateState extends State<RoleGate> {
   bool _notLogged = false;
   bool _busy = false;
 
+  /// The sign-in links for the sign-in screen while it shows (#104): one
+  /// controller per screen, single-subscription, so a link that arrives
+  /// between the push and the screen's first listen is kept for it rather
+  /// than dropped (#104's review). Null while no sign-in screen shows.
+  StreamController<SignInLink>? _screenLinks;
+  StreamSubscription<String>? _incoming;
+
+  /// A link that arrived before the gate had read whether this phone runs a
+  /// role, routed once the read answers.
+  SignInLink? _early;
+
   @override
   void initState() {
     super.initState();
@@ -57,9 +83,80 @@ class _RoleGateState extends State<RoleGate> {
         _roleEvents.addAll((r[0] as List<EventEnvelope>).where((e) => RoleKinds.all.contains(e.kind)));
         _deviceId = r[1] as String;
       });
+      _routeEarly();
     }, onError: (Object _) {
-      if (mounted) setState(() => _unreadable = true);
+      if (!mounted) return;
+      setState(() => _unreadable = true);
+      _routeEarly();
     });
+    _incoming = widget.signInLinks.incoming.listen(_onLink);
+    widget.signInLinks.takeInitial().then((uri) {
+      if (uri != null) _onLink(uri);
+    }, onError: (Object _) {});
+  }
+
+  @override
+  void dispose() {
+    _incoming?.cancel();
+    _screenLinks?.close();
+    super.dispose();
+  }
+
+  /// A link that opened the app. An address that is not a sign-in is ignored.
+  void _onLink(String uri) {
+    final link = SignInLink.parse(uri);
+    if (link != null && mounted) _route(link);
+  }
+
+  /// The sign-in screen's link, if it shows. Otherwise it opens the screen,
+  /// but only on the picker: a link never covers a role's home or a screen
+  /// opened over the picker, the race-time screens and the join screen
+  /// among them (#104's review), and there it is let go. One that arrives
+  /// before the gate knows which it shows waits for that read.
+  void _route(SignInLink link) {
+    final screen = _screenLinks;
+    if (screen != null) {
+      screen.add(link);
+      return;
+    }
+    final deviceId = _deviceId;
+    if (deviceId == null && !_unreadable) {
+      _early = link;
+      return;
+    }
+    final onTop = ModalRoute.of(context)?.isCurrent ?? true;
+    final runsARole = deviceId != null && currentRole(_roleEvents, deviceId) != null;
+    if (onTop && !runsARole) _signIn(opening: link);
+  }
+
+  void _routeEarly() {
+    final early = _early;
+    _early = null;
+    if (early != null) _route(early);
+  }
+
+  /// SIGN IN BY EMAIL (#104), or a link that opened the app: the sign-in
+  /// screen hands back the role pick the join screen logged, as [_join] gets.
+  Future<void> _signIn({SignInLink? opening}) async {
+    if (_screenLinks != null) return;
+    final links = _screenLinks = StreamController<SignInLink>();
+    final Object? result;
+    try {
+      result = await Navigator.of(context).push<Object?>(MaterialPageRoute(
+        builder: (_) => SignInScreen(
+          core: widget.core,
+          confirmation: widget.confirmation,
+          links: links.stream,
+          opening: opening,
+        ),
+      ));
+    } finally {
+      _screenLinks = null;
+      // Not awaited: a single-subscription controller's close completes only
+      // once a listener has seen the done event, which may never come.
+      unawaited(links.close());
+    }
+    _picked(result);
   }
 
   /// Appends [event] and, once the core confirms it, moves to what it means.
@@ -91,6 +188,11 @@ class _RoleGateState extends State<RoleGate> {
     final result = await Navigator.of(context).push<Object?>(MaterialPageRoute(
       builder: (_) => JoinScreen(core: widget.core, confirmation: widget.confirmation),
     ));
+    _picked(result);
+  }
+
+  /// A role pick a set-up screen logged and handed back opens that role's home.
+  void _picked(Object? result) {
     if (!mounted || result is! EventEnvelope) return;
     setState(() {
       _roleEvents.add(result);
@@ -129,18 +231,21 @@ class _RoleGateState extends State<RoleGate> {
               : null,
       onPick: (role) => _log(RoleEvents.assign(role)),
       onJoin: _join,
+      onSignIn: _signIn,
     );
   }
 }
 
 /// The role picker (#20 criterion 1): one tap on a role logs the pick and
 /// opens that role's home. Below the roles, JOIN WITH CODE (#71) opens the
-/// join screen for a phone handed a role's admission code.
+/// join screen for a phone handed a role's admission code, and SIGN IN BY
+/// EMAIL (#104) the sign-in screen for a named volunteer.
 class RolePicker extends StatelessWidget {
-  const RolePicker({super.key, required this.onPick, required this.onJoin, this.problem});
+  const RolePicker({super.key, required this.onPick, required this.onJoin, required this.onSignIn, this.problem});
 
   final ValueChanged<String> onPick;
   final VoidCallback onJoin;
+  final VoidCallback onSignIn;
 
   /// Shown above the roles: a pick that did not log, or a log that could not
   /// be read.
@@ -211,6 +316,17 @@ class RolePicker extends StatelessWidget {
                     key: const ValueKey('join-with-code'),
                     onPressed: onJoin,
                     child: const FitLabel('JOIN WITH CODE'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // A named volunteer signs in first (#104), then joins with the code.
+                SizedBox(
+                  width: double.infinity,
+                  height: Bars.minTargetDp + 8,
+                  child: OutlinedButton(
+                    key: const ValueKey('sign-in-by-email'),
+                    onPressed: onSignIn,
+                    child: const FitLabel('SIGN IN BY EMAIL'),
                   ),
                 ),
               ],

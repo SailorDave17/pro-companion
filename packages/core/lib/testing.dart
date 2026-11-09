@@ -20,6 +20,7 @@ import 'src/race_areas.dart';
 import 'src/race_times.dart';
 import 'src/roles.dart';
 import 'src/roundings.dart';
+import 'src/sign_ins.dart';
 import 'src/starts.dart';
 import 'src/stations.dart';
 import 'src/uploads.dart';
@@ -102,6 +103,24 @@ class FakeCore implements CoreClient {
 
   /// Every code [join] was given, in order.
   final joins = <String>[];
+
+  /// What [requestSignInLink] runs (#104), standing in for the server sync
+  /// reaches: given the email address, it completes once the request is
+  /// taken, or throws the [CoreException] the real core would
+  /// (`SignInCodes`). With none set, the request is refused as `no_server`,
+  /// as a core nothing is wired to is.
+  Future<void> Function(String email)? onRequestSignInLink;
+
+  /// Every email address [requestSignInLink] was given, in order.
+  final signInLinkRequests = <String>[];
+
+  /// What [completeSignInLink] runs (#104): given the link's one-time code,
+  /// it answers the account's email address, or throws as
+  /// [onRequestSignInLink] does. With none set, refused as `no_server`.
+  Future<String> Function(String code)? onCompleteSignInLink;
+
+  /// Every one-time code [completeSignInLink] was given, in order.
+  final signInLinkCodes = <String>[];
 
   /// What each admission granted (#74), as the real core keeps what sync
   /// read: a [join] records its answer here, and a test may add one, as a
@@ -247,6 +266,30 @@ class FakeCore implements CoreClient {
           raceAreaList.add(RaceArea(id: course, name: name));
         }
         return admission;
+      });
+
+  @override
+  Future<void> requestSignInLink(String email) => _call(Wire.requestSignInLink, () async {
+        if (email.isEmpty) throw ArgumentError.value(email, 'email', 'must be a non-empty string');
+        signInLinkRequests.add(email);
+        final handler = onRequestSignInLink;
+        if (handler == null) {
+          throw signInException(SignInCodes.noServer, 'this core has no server to sign in through: nothing is wired to it');
+        }
+        await handler(email);
+      });
+
+  @override
+  Future<String> completeSignInLink(String code) => _call(Wire.completeSignInLink, () async {
+        if (code.isEmpty) throw ArgumentError.value(code, 'code', 'must be a non-empty string');
+        signInLinkCodes.add(code);
+        final handler = onCompleteSignInLink;
+        if (handler == null) {
+          throw signInException(SignInCodes.noServer, 'this core has no server to sign in through: nothing is wired to it');
+        }
+        final email = await handler(code);
+        requireWireSafe(email, 'completeSignInLink');
+        return email;
       });
 
   @override
