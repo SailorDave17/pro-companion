@@ -47,7 +47,10 @@ done
 pro_log=$(mktemp)
 mark_log=$(mktemp)
 echo "two-phones: PRO on $PRO, mark boat on $MARK"
-flutter test integration_test/two_phones_flow.dart -d "$PRO" --dart-define-from-file="$defines" \
+# The expanded reporter, by name, on both runs: the github reporter, the default on GitHub Actions,
+# holds a test's printed lines until the test ends, and PRO_READY is waited for while it runs
+# (sync_flow.sh).
+flutter test integration_test/two_phones_flow.dart -d "$PRO" --reporter expanded --dart-define-from-file="$defines" \
   --dart-define=TWO_PHONES_ROLE=pro --dart-define=TWO_PHONES_CODE="$pro_code" >"$pro_log" 2>&1 &
 pro_run=$!
 # One build at a time: two flutter test builds in one project collide over build/. The mark boat
@@ -59,7 +62,7 @@ until grep -q "SYNC_FLOW PRO_READY" "$pro_log"; do
   sleep 2
   waited=$((waited + 2))
 done
-flutter test integration_test/two_phones_flow.dart -d "$MARK" --dart-define-from-file="$defines" \
+flutter test integration_test/two_phones_flow.dart -d "$MARK" --reporter expanded --dart-define-from-file="$defines" \
   --dart-define=TWO_PHONES_ROLE=mark --dart-define=TWO_PHONES_CODE="$mark_code" >"$mark_log" 2>&1 &
 mark_run=$!
 

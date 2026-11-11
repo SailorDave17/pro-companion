@@ -66,7 +66,10 @@ restore
 
 log=$(mktemp)
 echo "sync-flow: race day $event_id, as $email"
-flutter test integration_test/sync_flow.dart -d "$DEVICE" --dart-define-from-file="$defines" \
+# The expanded reporter, by name: on GitHub Actions the default is the github reporter, which holds
+# every line a test prints until the test ends. This script acts on those lines while it runs, so
+# LINK_SENT arrived with the failure, 90 s late (measured on #188's first CI run).
+flutter test integration_test/sync_flow.dart -d "$DEVICE" --reporter expanded --dart-define-from-file="$defines" \
   --dart-define=SYNC_FLOW_EMAIL="$email" --dart-define=SYNC_FLOW_CODE="$code" \
   --dart-define=SYNC_FLOW_EVENT="$event" --dart-define=SYNC_FLOW_PORT="$PORT" >"$log" 2>&1 &
 run=$!
