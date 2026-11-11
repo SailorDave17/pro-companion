@@ -221,11 +221,28 @@ has revoked the phone (#53, above).
   one phone is read: race times, the running order, the rounding grid, and the race a finish joins.
   Every event keeps the fleet id its phone gave it. One name on two race areas stays two fleets,
   marked on FLEETS and in the running order. `docs/roles.md` states the rule.
-- **Neither half is in the app yet.** Starting it from the core host, with the project's URL and key, is
-  #113's. The host itself is #32's (ADR 003, `lib/core_host.dart`), the foreground service that
-  keeps the core running with the app closed. Since #46 a release build may use the network: the main
-  manifest requests `INTERNET` and `ACCESS_NETWORK_STATE`, held there by
+- **The app's core host starts both (#113).** `coreMain` (`lib/core_host.dart`, ADR 003's host,
+  #32) opens the log, builds one `SyncEngine` on it in the same engine, and starts it once the
+  service says it is ready. From then on sync runs on its own: the core's server nudges it after
+  every request that appended one of this phone's own events, and its timers do the rest. The join
+  screen's join and the sign-in screen's two calls reach the server through it. The session is kept
+  in the app's no-backup directory, which CoreService hands `coreMain` as its one argument, so a
+  restore or a device transfer never brings back a refresh token many rotations old (ADR 006).
+  Whether `core.db` itself is left out of Android's backup is #169's, which measures it first; the
+  platform's default applies to it until then. Since #46 a release build may use the network: the
+  main manifest requests `INTERNET` and `ACCESS_NETWORK_STATE`, held there by
   `test/main_manifest_test.dart` and, in the release APK, by `scripts/check_release_signing.sh`.
+- **A build syncs only when it is given a project.** The URL and the publishable key come from a
+  defines file holding those two and nothing else, never `.env.local`:
+  `dart run scripts/sync_defines.dart` writes `sync.defines.json` from the local stack's status,
+  and `flutter run --dart-define-from-file=sync.defines.json` builds with it. The file is
+  git-ignored. A field build's file names the live project (`docs/field-builds.md`). A build given
+  no defines file logs `SYNC OFF this build names no project` and works as before #113, with join
+  and sign-in answering that there is no server.
+- **On a phone**: `sh integration_test/sync_flow.sh` signs a fresh phone in by the mailed link,
+  joins, cuts the path to the stack and restores it, and revokes the phone, all through the app's
+  own host. `sh integration_test/two_phones.sh <pro> <mark>` runs a PRO and a mark boat on two
+  emulators. Both need the local stack, and CI's `sync-device` job runs both.
 
 ### Tests against the local stack
 
@@ -269,13 +286,14 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
   device-handoff phone is one. A full run signs in 20 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 27,
-  20 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 28,
+  21 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 - **The stack runs its mail server** (Mailpit, `[local_smtp]`, port 54424) since #104. Auth refuses
   a magic-link request with a 500 ("Error sending magic link email") while it is stopped, and
-  `test/sync_test.dart`'s #104 case reads the link it mailed from there. The stack allows 30 sent
-  emails an hour (`email_sent`): the CLI's default of 2 refused the third request in an hour with
-  429 `over_email_send_rate_limit`, mail server or not. A full run mails 1.
+  `test/sync_test.dart`'s #104 and #113 cases read the links they mailed from there. The stack allows
+  30 sent emails an hour (`email_sent`): the CLI's default of 2 refused the third request in an hour
+  with 429 `over_email_send_rate_limit`, mail server or not. A full run mails 2, and each
+  `integration_test/sync_flow.sh` run 1 more.
 
 ### Applying a migration to the live project
 
@@ -386,7 +404,7 @@ being left. The screen then shows the role and race area granted, and one tap lo
 opens that role's home. A code the server refuses is one plain sentence that names no role, race
 area or event, and the code stays in the field. With no signal, the screen says admission needs
 signal, keeps the code and sends it again every five seconds until the server answers. On a build
-with no server wired to the core (before #113 starts sync in the core host) the screen says so.
+given no project to sync with (no defines file, #113) the screen says it has no server.
 
 **The phone's sign-in screen** (#104) is where a named volunteer signs the phone in as their own
 account: SIGN IN BY EMAIL on the role picker, the volunteer's address, then SEND LINK. The core asks
@@ -454,9 +472,9 @@ dart run scripts/owner.dart revoke --club "Hoover Sailing Club" --event "Club ni
   then refuses and prints their ids, and `--event-id <id>` names one in place of the three flags.
   It finds its target and key as `provision` does.
 
-Not built yet: starting sync in the app (#113, which also wires the join screen's and the sign-in
-screen's calls to sync in the core host), and magic-link mail and its redirect on the live project,
-which are held for the pilot's sixth milestone.
+Not built yet: magic-link mail and its redirect on the live project, which are held for the pilot's
+sixth milestone. Since #113 the app's core host starts sync, so the join and sign-in screens reach
+the server on a build given a project.
 
 Credentials: `.env.example` names what the app and CI read; values live in a git-ignored
 `.env.local` and in the repository's Actions secrets. `test/no_secrets_in_tree_test.dart` refuses

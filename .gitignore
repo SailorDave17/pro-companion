@@ -20,6 +20,11 @@ migrate_working_dir/
 # ignored at any depth; only the names-only template is tracked.
 .env*
 !.env.example
+# Sync's defines file (#113): a project's URL and publishable key, written by
+# scripts/sync_defines.dart for the local stack or by hand for the live project.
+# Publishable, but kept out of a public tree all the same.
+sync.defines.json
+*.defines.json
 # Release signing (#23): the owner's upload keystore and android/key.properties
 # live outside git, at any depth, and so do copies of them (key.properties.bak,
 # upload.jks.orig). test/no_secrets_in_tree_test.dart fails if one is ever

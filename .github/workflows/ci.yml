@@ -152,6 +152,44 @@ jobs:
             sh integration_test/link_kill.sh emulator-5554
             sh integration_test/volume_key.sh emulator-5554
 
+  # Sync started by the app's own core host (#113), against a local stack built from
+  # this repo's migrations, on the same API 34 image as `integration`: the one job
+  # with both an emulator and a stack. sync_flow.sh signs a fresh phone in by the
+  # mailed link, joins, cuts the path to the stack and restores it, and revokes
+  # the phone; two_phones.sh then runs a PRO and a mark boat on two emulators,
+  # the second booted beside the runner's own.
+  sync-device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          channel: stable
+          flutter-version: "3.44.9"
+          cache: true
+      - run: flutter pub get
+      - name: Start the local stack from supabase/migrations
+        run: sh scripts/start_local_stack.sh
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          script: |
+            sh integration_test/sync_flow.sh emulator-5554
+            sh integration_test/second_emulator.sh 5556
+            sh integration_test/two_phones.sh emulator-5554 emulator-5556
+
   # burgee is private (#17). Its default branch is read here with a read-only
   # deploy key, so the drift check on burgee's vendored copies of fixtures/ (held
   # H87, ADR 005 point 4) can run from this repo's CI. This repo is public and so

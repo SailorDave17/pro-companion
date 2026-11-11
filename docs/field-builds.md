@@ -88,6 +88,26 @@ The APK is `build/app/outputs/flutter-apk/app-release.apk`. If any value is miss
 is not where it says, the build stops at `checkReleaseSigning` and names what is missing. It never
 falls back to the debug keys. `flutter run --release` needs the key too.
 
+**A build that syncs (#113)** also takes the project it sends to, from a defines file that holds the
+project's URL and its **publishable** key and nothing else. Write it by hand for the live project, as
+`live.defines.json` beside the repo's root (git ignores `*.defines.json`), with the key from the
+project's API settings:
+
+```
+{
+  "PRO_COMPANION_SUPABASE_URL": "https://<project-ref>.supabase.co",
+  "PRO_COMPANION_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_..."
+}
+```
+
+```
+flutter build apk --release --dart-define-from-file=live.defines.json
+```
+
+Never point it at `.env.local`: everything in a defines file is compiled into the APK, and that file
+holds the secret key and the owner's token. A secret key in the file is refused at launch, and the
+phone runs with sync off. A build with no defines file runs with sync off too, logging taps as before.
+
 **Check what signed it** with `apksigner`, from the SDK's build tools:
 
 ```
