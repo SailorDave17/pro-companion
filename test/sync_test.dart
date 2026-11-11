@@ -6,8 +6,10 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:pro_companion/core_host.dart' show SyncConfig, openSync, serveHost;
 import 'package:pro_companion_core/core.dart'
     show EventKinds, FinishTimeFlags, FleetEvents, FleetMerge, RoleEvents, SignInLink, raceTimesOf;
+import 'package:pro_companion_core/host.dart' show PortCoreClient;
 import 'package:pro_companion_core/store.dart' hide newUlid;
 import 'package:pro_companion_sync/sync.dart';
 import 'package:supabase/supabase.dart' show PostgrestException;
@@ -22,8 +24,8 @@ import 'support/local_stack.dart';
 /// two phones' same-named fleets, synced and pulled, read as one.
 ///
 /// Spend per run of this file: 3 anonymous sign-ins (the device-handoff case and #71's join) of the stack's 30 an
-/// hour, 20 magic-link verifications of its 30 per 5 minutes (#76's two phones, then #104's mailed
-/// link), and 1 mailed link of its 30 an hour (#104). A whole stack run spends 27 verifications
+/// hour, 21 magic-link verifications of its 30 per 5 minutes (#76's two phones, then #104's and
+/// #113's mailed links), and 2 mailed links of its 30 an hour (#104, #113). A whole stack run spends 28 verifications
 /// (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than on what they
 /// test. Prove a mutation with --plain-name on one case.
 ///
@@ -650,6 +652,48 @@ void main() {
               .having((e) => e.code, 'code', JoinCodes.refused)
               .having((e) => e.message, 'message', "This club signs phones in by device handoff, not by a volunteer's email.")));
       expect(await stack.admissions(handoffDay.eventId), isEmpty);
+    });
+
+    test("#113 criteria 1 and 5: the core host serves sync's engine, so the sign-in screen's two calls "
+        "and the join screen's join reach the server through the core's port alone, and what the "
+        'phone logs next goes up on its own, nudged rather than waiting on a timer', () async {
+      final dir = Directory.systemTemp.createTempSync('pc_host_stack_').path;
+      final store = EventStore.open('$dir${Platform.pathSeparator}core.db');
+      final engine = openSync(store,
+          config: () => SyncConfig(stack.api.toString(), stack.publishableKey), sessionDir: dir, log: printOnFailure);
+      expect(engine, isNotNull, reason: 'a build with the stack as its project syncs');
+      addTearDown(() async {
+        await engine!.close();
+        store.close();
+      });
+      // The UI's view of the host: the core's port, as the screens reach it, and nothing else.
+      final core = PortCoreClient(serveHost(store, engine), closesCore: false);
+      engine!.start();
+
+      final email = 'host.${newUlid().toLowerCase()}@pro-companion.test';
+      await core.requestSignInLink(email);
+      final link = SignInLink.parse((await stack.openMailedLink(email)).redirect);
+      expect(await core.completeSignInLink(link!.code!), email);
+      final granted = await core.join(day.codes['recorder Alpha']!);
+      final mine = (await stack.admissions(day.eventId)).singleWhere((r) => r['id'] == granted.admissionId);
+      expect([mine['role'], mine['is_anonymous'], mine['email']], ['recorder', false, email],
+          reason: "admitted under the volunteer's own account, through the host");
+
+      // As the join screen does on OPEN HOME, then one tap. Nothing here calls syncOnce.
+      await core.append(RoleEvents.assign('recorder'));
+      final tapped = DateTime.now();
+      final note = await core.append(
+          NewEvent(kind: 'note', source: 'tap', role: 'recorder', payload: const {'text': 'host nudge'}));
+      String? landedOn;
+      while (landedOn == null && DateTime.now().difference(tapped) < const Duration(seconds: 30)) {
+        landedOn = await stack.eventOf(note.ulid);
+        if (landedOn == null) await Future<void>.delayed(const Duration(milliseconds: 200));
+      }
+      final took = DateTime.now().difference(tapped);
+      expect(landedOn, day.eventId, reason: 'the tap reached shore without a call to sync');
+      // The engine's own timers would send it too, but no sooner than its 15 s pull interval after
+      // the join's run: inside 5 s, only the nudge after the append can have sent it.
+      expect(took, lessThan(const Duration(seconds: 5)), reason: 'took $took');
     });
 
     test('#53 criteria 1 to 3: a phone revoked by revoke_device is told once, by name, keeps what it '

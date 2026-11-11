@@ -109,6 +109,12 @@ class EventStore {
   /// This install's device id. Every event it appends carries it.
   final String deviceId;
 
+  /// The sequence number of this device's last stored event, 0 before the
+  /// first. It moves only when one of this phone's own events is committed,
+  /// never for another phone's events a pull stores, so the core's server
+  /// reads it to tell sync something is waiting (#113).
+  int get lastOwnSeq => _nextSeq - 1;
+
   /// Where the phone is (#31). Every event appended carries its position, or
   /// the reason there is none, read from here at the moment of the append.
   final LocationProvider location;

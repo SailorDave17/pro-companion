@@ -115,9 +115,9 @@ List<EventEnvelope> _kept(Iterable<EventEnvelope> events) {
 /// [raceGun] names, or null when the phone knows none. And its boat's lap
 /// there, [lapPayloadKey]: one more than her roundings this phone has kept at
 /// the mark, for the fleet, in that race. That is her count since the gun,
-/// else since the day began (owner decision at #54's pickup, 2026-10-27). So
-/// until a mark-boat phone learns the guns (#113), a second race on one day
-/// counts on from the first. An unidentified boat's lap is null; a sail number
+/// else since the day began (owner decision at #54's pickup, 2026-10-27). So a
+/// mark-boat phone that has not pulled the guns down (#113's sync, no signal
+/// yet) counts a second race on one day on from the first. An unidentified boat's lap is null; a sail number
 /// named later leaves it so, and her next rounding counts that one.
 ///
 /// A rounding that names a race or a lap of its own keeps it, as an event
