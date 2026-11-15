@@ -63,9 +63,24 @@ class Fleet {
 }
 
 /// Every fleet defined, in the order they were defined.
+///
+/// A definition whose name is missing or not a string is passed over (#178).
+/// No version of the app writes one, but the server accepts any payload, and
+/// every view that reads all phones' events lists fleets here, so one such
+/// event pulled down by sync must not take those views down on every phone.
+/// [FleetMerge] already skips it. A class that is not a string reads as none:
+/// the fleet's name is still good, so the fleet is still listed.
 List<Fleet> fleets(Iterable<EventEnvelope> events) => [
       for (final e in events.where((e) => e.kind == FleetKinds.defined).toList()..sort(happened))
-        Fleet(id: e.ulid, name: e.payload['name'] as String, klass: e.payload['class'] as String?),
+        if (e.payload['name'] case final String name)
+          Fleet(
+            id: e.ulid,
+            name: name,
+            klass: switch (e.payload['class']) {
+              final String c => c,
+              _ => null,
+            },
+          ),
     ];
 
 /// [deviceId]'s fleet switches that have not been undone, oldest first. A

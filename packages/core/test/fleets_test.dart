@@ -204,6 +204,61 @@ void main() {
       expect(selectedFleet(log(), store.deviceId), a);
     });
   });
+
+  group('#178: a pulled fleet definition with no usable name is passed over', () {
+    /// A `fleet.defined` from another phone carrying [payload] as it is, as
+    /// sync would store one the server accepted. No app version writes one:
+    /// the local-stack test "criteria 6 and 8" uploads `{"probe": …}`.
+    EventEnvelope pulledDefinition(Map<String, Object?> payload, {required int ts, required int seq}) {
+      final e = EventEnvelope(
+        ulid: newUlidFor(ts),
+        deviceTs: ts,
+        deviceId: '01J9OTHERPHONE000000000000Z',
+        seq: seq,
+        source: 'tap',
+        kind: FleetKinds.defined,
+        payloadVersion: 1,
+        payload: payload,
+      );
+      store.insert(e);
+      return e;
+    }
+
+    /// Lasers and 420s defined here, and three bad definitions pulled down
+    /// between them: no name, a name that is a number, and a null name.
+    (String, String) dayWithBadDefinitions() {
+      final lasers = store.append(FleetEvents.define('Lasers')).ulid;
+      pulledDefinition({'probe': 'criteria 6 and 8'}, ts: 1727190001500, seq: 1);
+      pulledDefinition({'name': 42, 'class': null}, ts: 1727190001600, seq: 2);
+      pulledDefinition({'name': null}, ts: 1727190001700, seq: 3);
+      final four20s = store.append(FleetEvents.define('420s')).ulid;
+      return (lasers, four20s);
+    }
+
+    test('criterion 2: every well-formed fleet is still listed, in the order defined', () {
+      final (lasers, four20s) = dayWithBadDefinitions();
+      expect(fleets(log()).map((f) => (f.id, f.name)), [(lasers, 'Lasers'), (four20s, '420s')]);
+    });
+
+    test('criterion 1: race times read the log without throwing, and time the well-formed fleets', () {
+      final (lasers, four20s) = dayWithBadDefinitions();
+      store.append(StartEvents.start(fleet: lasers, source: 'manual'));
+      store.append(FinishEvents.finish(fleet: lasers));
+      store.append(StartEvents.start(fleet: four20s, source: 'manual'));
+      store.append(FinishEvents.finish(fleet: four20s));
+      expect(raceTimesOf(log()).map((r) => r.fleet), [lasers, four20s]);
+    });
+
+    test('criterion 1: the running order reads the log without throwing, one order per well-formed fleet', () {
+      final (lasers, four20s) = dayWithBadDefinitions();
+      expect(runningOrders(log(), now: 1727190100000).map((o) => o.fleet), [lasers, four20s]);
+    });
+
+    test('a class that is not a string reads as none, and the fleet is still listed', () {
+      final e = pulledDefinition({'name': 'Optis', 'class': 7}, ts: 1727190001500, seq: 1);
+      expect(fleets(log()).map((f) => (f.id, f.name, f.klass)), [(e.ulid, 'Optis', null)]);
+    });
+  });
 }
 
 /// A ULID for [ts] with a fixed tail, for events built by hand.
