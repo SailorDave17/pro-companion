@@ -224,7 +224,11 @@ has revoked the phone (#53, above).
 - **The app's core host starts both (#113).** `coreMain` (`lib/core_host.dart`, ADR 003's host,
   #32) opens the log, builds one `SyncEngine` on it in the same engine, and starts it once the
   service says it is ready. From then on sync runs on its own: the core's server nudges it after
-  every request that appended one of this phone's own events, and its timers do the rest. The join
+  every request that appended one of this phone's own events, and its timers do the rest. Since
+  #52, CoreService also watches the phone's default network, and when it comes back the host runs
+  sync at once and starts its backoff over (`SyncEngine.resume`). So what waited goes up within a
+  few seconds of signal returning, with the activity destroyed, where the backoff alone took up to
+  15 s more. A tap's nudge still waits a backoff out, so a dead link is not hammered. The join
   screen's join and the sign-in screen's two calls reach the server through it. The session is kept
   in the app's no-backup directory, which CoreService hands `coreMain` as its one argument, so a
   restore or a device transfer never brings back a refresh token many rotations old (ADR 006).
@@ -242,7 +246,12 @@ has revoked the phone (#53, above).
 - **On a phone**: `sh integration_test/sync_flow.sh` signs a fresh phone in by the mailed link,
   joins, cuts the path to the stack and restores it, and revokes the phone, all through the app's
   own host. `sh integration_test/two_phones.sh <pro> <mark>` runs a PRO and a mark boat on two
-  emulators. Both need the local stack, and CI's `sync-device` job runs both.
+  emulators. `sh integration_test/background_upload.sh` (#52) joins a fresh emulator by code,
+  destroys its activity, turns airplane mode on, logs five notes and turns it off just after a
+  failed try, and requires all five on shore well inside the 15 s the backoff would take. It builds
+  with Gradle and points the build at the stack's `10.0.2.2`, the emulator's own route to this
+  machine, because adb's reverse forward survives airplane mode and would cut nothing. All three
+  need the local stack, and CI's `sync-device` job runs all three.
 
 ### Tests against the local stack
 
@@ -285,7 +294,8 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
     among them.
 - **The stack allows 30 anonymous sign-ins an hour per IP** (`[auth.rate_limit]`), and each
   device-handoff phone is one. A full run signs in 20 of them, so a second full run within the hour
-  can reach the limit; run one file at a time while working. A named volunteer's phone spends a
+  can reach the limit; run one file at a time while working. Each
+  `integration_test/background_upload.sh` run spends one more. A named volunteer's phone spends a
   token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 28,
   21 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 - **The stack runs its mail server** (Mailpit, `[local_smtp]`, port 54424) since #104. Auth refuses

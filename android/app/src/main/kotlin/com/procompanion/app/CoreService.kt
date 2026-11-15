@@ -7,10 +7,14 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.ResultReceiver
 import android.util.Log
 import io.flutter.FlutterInjector
@@ -52,6 +56,8 @@ class CoreService : Service() {
     private var confirmation: Confirmation? = null
     private var dartReady = false
     private var foreground = false
+    private var network: ConnectivityManager.NetworkCallback? = null
+    private val main = Handler(Looper.getMainLooper())
 
     /** Appends that arrived while the engine started, held until Dart says it is ready. */
     private val pending = ArrayDeque<Intent>()
@@ -83,6 +89,8 @@ class CoreService : Service() {
 
     override fun onDestroy() {
         live = null
+        network?.let { getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it) }
+        network = null
         location?.stop()
         location = null
         channel?.setMethodCallHandler(null)
@@ -132,6 +140,36 @@ class CoreService : Service() {
         location = feed
         confirmation = buzz
         live = this
+        watchNetwork()
+    }
+
+    /**
+     * #52: tells the core host each time the phone's default network comes up, so sync uploads
+     * what waits at once, with or without the activity, rather than when its backoff next runs (up
+     * to 15 s later). `ACCESS_NETWORK_STATE` is already in the main manifest (#46). The callback
+     * also fires as it registers, before Dart is ready; that call is dropped here, and sync's start
+     * runs a sync of its own. A refusal to register costs only the early resume: the backoff still
+     * retries, so it is logged and the host goes on.
+     */
+    private fun watchNetwork() {
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                main.post { online() }
+            }
+        }
+        try {
+            getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(callback)
+            network = callback
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "no network callback, so sync resumes on its backoff alone: $e")
+        }
+    }
+
+    /** Main thread only: the channel belongs to the platform thread. */
+    private fun online() {
+        if (!dartReady) return
+        onlineSent++
+        channel?.invokeMethod("online", null)
     }
 
     /**
@@ -283,6 +321,11 @@ class CoreService : Service() {
         /** How many link calls have had to wait for the engine, which nothing else can show a test. */
         @Volatile
         var linksHeld = 0
+            private set
+
+        /** How many times the host has been told the network came back (#52), for a test's control. */
+        @Volatile
+        var onlineSent = 0
             private set
 
         private const val MAX_HELD_LINKS = 64

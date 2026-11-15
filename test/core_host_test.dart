@@ -50,9 +50,24 @@ void main() {
         throwsA(isA<PlatformException>().having((e) => e.code, 'code', 'refused')));
   });
 
-  test('the host answers no method but append and link', () async {
+  test('the host answers no method but append, link and online', () async {
     await expectLater(handleHostCall(FakeCore(), const MethodCall('delete', null)),
         throwsA(isA<MissingPluginException>()));
+  });
+
+  // #52: CoreService's network callback. That it reaches sync on a phone with the activity
+  // destroyed is BackgroundUploadTest (android/app/src/androidTest), run by background_upload.sh.
+  test("#52: the network coming back runs the host's online handler once, appends nothing, and "
+      'answers nothing', () async {
+    final core = FakeCore();
+    var resumed = 0;
+    expect(await handleHostCall(core, const MethodCall('online'), online: () => resumed++), isNull);
+    expect(resumed, 1);
+    expect(await core.count(), 0);
+  });
+
+  test('#52: with no sync, the network coming back is answered and does nothing', () async {
+    expect(await handleHostCall(FakeCore(), const MethodCall('online')), isNull);
   });
 
   group('#33: one event from race-timer, as LinkService hands it over', () {
