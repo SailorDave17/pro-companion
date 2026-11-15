@@ -150,6 +150,25 @@ void main() {
       expect((await appended(tester)).last.payload, containsPair('fleet', lasers));
     });
 
+    testWidgets('a pulled fleet definition with no name is passed over, and the grid still opens (#178)',
+        (tester) async {
+      final lasers = day.pulledFleet('Lasers');
+      final nameless = day.pulledDefinition({'probe': 'criteria 6 and 8'});
+      final numbered = day.pulledDefinition({'name': 42, 'class': null});
+      final four20s = day.pulledFleet('420s');
+      day.rounding('887', fleet: lasers);
+      await openRoundings(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(ValueKey('rounding-fleet-$lasers')), findsOneWidget);
+      expect(find.byKey(ValueKey('rounding-fleet-$four20s')), findsOneWidget);
+      expect(find.byKey(ValueKey('rounding-fleet-$nameless')), findsNothing);
+      expect(find.byKey(ValueKey('rounding-fleet-$numbered')), findsNothing);
+
+      // And the grid logs as before.
+      await tap(tester, fleetBoat(lasers, '887'));
+      expect((await appended(tester)).single.payload['fleet'], lasers);
+    });
+
     testWidgets("a tap on another fleet's boat shows her, and UNDO LAST takes her back, not the fleet picked "
         "(#54's second review)", (tester) async {
       final lasers = day.pulledFleet('Lasers');
@@ -512,7 +531,11 @@ class _Day {
 
   /// A fleet the PRO's phone named, pulled down by sync, and its id. Named
   /// now, or [at].
-  String pulledFleet(String name, {int? at}) {
+  String pulledFleet(String name, {int? at}) => pulledDefinition({'name': name, 'class': null}, at: at);
+
+  /// A `fleet.defined` the PRO's phone sent with [payload] as it is, pulled
+  /// down by sync, and its id. The server accepts one with no name (#178).
+  String pulledDefinition(Map<String, Object?> payload, {int? at}) {
     final e = EventEnvelope(
       ulid: '01J8${(++_n).toString().padLeft(22, '0')}',
       deviceTs: at ?? (now += 1000),
@@ -522,7 +545,7 @@ class _Day {
       kind: FleetKinds.defined,
       payloadVersion: 1,
       role: Roles.overallPro,
-      payload: {'name': name, 'class': null},
+      payload: payload,
     );
     core.seed([e]);
     seeded.add(e.ulid);
