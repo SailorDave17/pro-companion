@@ -350,6 +350,36 @@ class LocalStack {
     return out.isEmpty ? [] : out.split('\n');
   }
 
+  /// The refusal stubs kept for [eventId] (#60): `device_id`, `seq`, `hash` and `reason` of each,
+  /// the columns a phone admitted to the race day may read, by device and number. Read as the table
+  /// owner. The refused text itself is not read.
+  Future<List<Map<String, Object?>>> refusalStubs(String eventId) async {
+    final out = await _psql("select coalesce(json_agg(json_build_object('device_id', device_id, 'seq', seq, "
+        "'hash', event_hash, 'reason', reason) order by device_id, seq, event_hash), '[]') "
+        "from public.event_refusal where event_id = '$eventId';");
+    return [for (final row in jsonDecode(out) as List) Map<String, Object?>.from(row as Map)];
+  }
+
+  /// The shore verifier's answer for [eventId] (#62), read as the owner's tooling reads it: as
+  /// service_role, its claims set the way PostgREST sets them, in one database session. One row per
+  /// device: `device_id`, `status`, `verdict`, `at_seq`, `at_ulid`, `after_seq`, `reason`,
+  /// `lowest_seq`, `highest_seq`, `missing` and `refused_seqs`.
+  Future<List<Map<String, Object?>>> chainVerification(String eventId) async {
+    final result = await Process.run('docker', [
+      'exec', _dbContainer, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-q', '-t', '-A',
+      '-c', 'begin',
+      '-c', 'set local role service_role',
+      '-c', "select set_config('request.jwt.claims', '{\"role\":\"service_role\"}', true) is null",
+      '-c', "select 'chains ' || coalesce(json_agg(c), '[]') from public.chain_verification('$eventId') c",
+      '-c', 'commit',
+    ]);
+    if (result.exitCode != 0) throw StateError('psql failed: ${result.stderr}');
+    final line = (result.stdout as String).split('\n').firstWhere((l) => l.startsWith('chains '));
+    return [
+      for (final row in jsonDecode(line.substring('chains '.length)) as List) Map<String, Object?>.from(row as Map)
+    ];
+  }
+
   /// Every admission to [eventId] in the order made, read as the table owner, with the Auth user
   /// behind each: `id`, `auth_uid`, `role`, `race_area` (its name, null when event-wide), `person`,
   /// `revoked`, `revoked_at`, `superseded_by`, `admitted_at`, and the user's `is_anonymous` and

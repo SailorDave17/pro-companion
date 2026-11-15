@@ -21,11 +21,12 @@ import 'support/local_stack.dart';
 /// phone signs in and is admitted through the engine itself; the owner's reads (psql as the table
 /// owner) are the instrument, since no phone can read the log before #50. #64's case is the pull,
 /// the other direction, then #75's: a critical event for a fleet not on shore yet, and last #76's:
-/// two phones' same-named fleets, synced and pulled, read as one.
+/// two phones' same-named fleets, synced and pulled, read as one. #62's case is the shore verifier
+/// over a real phone's uploaded chain.
 ///
 /// Spend per run of this file: 3 anonymous sign-ins (the device-handoff case and #71's join) of the stack's 30 an
-/// hour, 21 magic-link verifications of its 30 per 5 minutes (#76's two phones, then #104's and
-/// #113's mailed links), and 2 mailed links of its 30 an hour (#104, #113). A whole stack run spends 28 verifications
+/// hour, 22 magic-link verifications of its 30 per 5 minutes (#76's two phones, #62's phone, then #104's and
+/// #113's mailed links), and 2 mailed links of its 30 an hour (#104, #113). A whole stack run spends 29 verifications
 /// (README), so two whole runs inside 5 minutes can fail on RATE LIMITED rather than on what they
 /// test. Prove a mutation with --plain-name on one case.
 ///
@@ -919,6 +920,56 @@ void main() {
         read.add([race.fleet, race.gun, [for (final f in race.finishes) f.ulid]]);
       }
       expect(read.first, read.last, reason: 'both phones read the same one fleet race');
+    });
+
+    test("#62 criteria 1 and 2: a real phone's chain, uploaded by the sync engine, reads on shore as the "
+        "phone's own verifier reads the same texts: gapped below its first upload, refused where the server "
+        'refused, and never broken', () async {
+      // A race day of its own, so no other case's events or refusals are on it. One sign-in.
+      final ownDay = await stack.raceDay();
+      final phone = await StackPhone.open(stack);
+      addTearDown(phone.close);
+      await phone.signInNamed();
+      // Logged before the admission, so it stays on the phone (#6 decision D3) and never reaches shore.
+      final before = phone.store
+          .append(NewEvent(kind: 'note', source: 'tap', payload: {'text': 'before the admission (#62)'}));
+      await phone.admitTo(ownDay, role: 'scorer');
+      phone.store.append(RoleEvents.assign('scorer'));
+      phone.log(2);
+      // A start, which is not the scorer's to write (#75): the server refuses it and keeps its stub.
+      final refused = phone.store
+          .append(NewEvent(kind: 'start', source: 'tap', role: 'scorer', payload: {'fleet': null}));
+      phone.log(2);
+
+      final run = await phone.engine.syncOnce();
+      expect(run.refused, 1, reason: '$run');
+
+      final mine = phone.store.deviceId;
+      final texts = [
+        for (final r in await stack.eventLogRows(ownDay.eventId))
+          if (r['device_id'] == mine) r['canonical'] as String,
+      ];
+      final stubs = [
+        for (final s in await stack.refusalStubs(ownDay.eventId))
+          if (s['device_id'] == mine) ChainRefusal.fromWire(s),
+      ];
+      final ulids = [for (final t in texts) (jsonDecode(t) as Map)['ulid']];
+      expect(ulids, isNot(contains(before.ulid)), reason: 'control: the note from before the admission is not on shore');
+      expect(ulids, isNot(contains(refused.ulid)), reason: 'control: nor is the refused start');
+      expect(stubs.map((s) => s.seq), [refused.seq], reason: "control: the start's stub is, at its number");
+      expect(verifyChain([for (final t in phone.storedByUlid().values) t]), const ChainVerdict.intact(),
+          reason: "control: the phone's own chain is whole");
+
+      final shore = (await stack.chainVerification(ownDay.eventId)).singleWhere((c) => c['device_id'] == mine);
+      final own = verifyChain(texts, refusals: stubs);
+      expect([shore['verdict'], shore['at_seq'], shore['at_ulid'], shore['after_seq']],
+          [own.state.name, own.atSeq, own.atUlid, own.afterSeq],
+          reason: "the shore verifier reaches the phone's own verdict over the same texts and stubs: $shore");
+      expect(shore['verdict'], 'gapped', reason: 'counted from seq 1, which never reached shore');
+      expect(shore['status'], 'gapped', reason: 'gapped outranks refused');
+      expect(shore['lowest_seq'], before.seq + 1, reason: 'the lowest number held is the first after the admission');
+      expect(shore['missing'], 0, reason: 'nothing is missing above it: the refused start is filled by its stub');
+      expect(shore['refused_seqs'], [refused.seq], reason: 'and listed as refused');
     });
   }, skip: localStackRequested ? false : localStackSkip);
 }

@@ -30,18 +30,22 @@ const admissionOf = {
   deviceB: '00000000-0000-0000-0000-0000000000b1',
 };
 
+/// Device A's second admission, in intact-readmitted only (#62 criterion 3):
+/// the PRO's phone re-admitted as the scorer mid-day.
+const admissionA2 = '00000000-0000-0000-0000-0000000000a2';
+
 /// A fixed, valid ULID for event [n].
 String ulid(int n) => '01J8Z0E${n.toString().padLeft(19, '0')}';
 
 EventEnvelope event(int n, String device, int seq, String kind, String source, Map<String, Object?> payload,
-        {String? role, GpsFix? gps, String? corrects}) =>
+        {String? role, GpsFix? gps, String? corrects, String? admission}) =>
     EventEnvelope(
       ulid: ulid(n),
       deviceTs: dayStart + n * 1000,
       deviceId: device,
       seq: seq,
       role: role,
-      admissionId: admissionOf[device],
+      admissionId: admission ?? admissionOf[device],
       // The core stamps a position or the reason there is none (#31). These
       // phones had a fix only for their finishes.
       gps: gps,
@@ -88,8 +92,11 @@ List<String> chain(List<EventEnvelope> events, {String first = genesisHash}) {
   return texts;
 }
 
-/// One vector file's text.
-String render(String name, String description, List<String> texts, Map<String, Map<String, Object?>> expected) {
+/// One vector file's text. [refusals] are the refusal stubs a verifier also
+/// holds (#62, docs/event-chain.md "Refusal stubs in the chain"); the key is
+/// written only when there are any, so the files from before #62 are unchanged.
+String render(String name, String description, List<String> texts, Map<String, Map<String, Object?>> expected,
+    {List<ChainRefusal> refusals = const []}) {
   final vector = {
     'format': format,
     'name': name,
@@ -97,19 +104,26 @@ String render(String name, String description, List<String> texts, Map<String, M
     'events': [
       for (final text in texts) {'hash': chainHash(text), 'canonical': text}
     ],
+    if (refusals.isNotEmpty) 'refusals': [for (final r in refusals) r.toWire()],
     'expected': expected,
   };
   return '${const JsonEncoder.withIndent('  ').convert(vector)}\n';
 }
 
-Map<String, Object?> broken(int atSeq, String atUlid, {int? afterSeq}) =>
-    {'verdict': 'broken', 'at_seq': atSeq, 'at_ulid': atUlid, 'after_seq': ?afterSeq};
+Map<String, Object?> broken(int atSeq, String? atUlid, {int? afterSeq}) =>
+    {'verdict': 'broken', 'at_seq': atSeq, 'at_ulid': ?atUlid, 'after_seq': ?afterSeq};
+
+/// A refusal stub of device A's event at [seq], whose refused text hashed to
+/// [hash]. The reason is one append_event writes (#75).
+ChainRefusal stub(int seq, String hash) =>
+    ChainRefusal(deviceId: deviceA, seq: seq, hash: hash, reason: 'kind_not_permitted');
 
 /// Every vector file, by file name, exactly as [main] writes it.
 Map<String, String> vectorFiles() {
   final files = <String, String>{};
-  void write(String name, String description, List<String> texts, Map<String, Map<String, Object?>> expected) =>
-      files['$name.json'] = render(name, description, texts, expected);
+  void write(String name, String description, List<String> texts, Map<String, Map<String, Object?>> expected,
+          {List<ChainRefusal> refusals = const []}) =>
+      files['$name.json'] = render(name, description, texts, expected, refusals: refusals);
 
   final a = chain(dayA);
 
@@ -166,6 +180,48 @@ Map<String, String> vectorFiles() {
     deviceA: {'verdict': 'intact'},
     deviceB: {'verdict': 'intact'},
   });
+
+  // #62: a re-admission, and the refusal stubs #67 left to the shore verifier.
+  final readmitted = chain([
+    ...dayA.sublist(0, 2),
+    event(21, deviceA, 3, 'admission.superseded', 'core', {'superseded_by': admissionA2}, role: 'overall_pro'),
+    event(22, deviceA, 4, 'note', 'tap', {'text': 'Scoring from here'}, role: 'scorer', admission: admissionA2),
+    event(23, deviceA, 5, 'note', 'tap', {'text': 'Race 1 provisional'}, role: 'scorer', admission: admissionA2),
+  ]);
+  write('intact-readmitted', "Device A's PRO phone re-admitted as the scorer after seq 2: the marker at "
+      'seq 3 under the first admission, then seq 4 and 5 under the second. A chain is per device, so it '
+      'runs on across the change of admission.', readmitted, {
+    deviceA: {'verdict': 'intact'},
+  });
+
+  final withoutThree = [a[0], a[1], a[3], a[4], a[5]];
+  write('refused-middle', "The server refused seq 3, so it is not among the events, and its stub "
+      "carries the refused text's hash. Seq 4 links to that hash, so the stub fills the number and the "
+      'chain holds.', withoutThree, {
+    deviceA: {'verdict': 'intact'},
+  }, refusals: [stub(3, chainHash(a[2]))]);
+
+  write('refused-held', "The phone's own log holds seq 3, and the server's stub of it has the same "
+      'hash: the stub is that event, refused, and is read once.', a, {
+    deviceA: {'verdict': 'intact'},
+  }, refusals: [stub(3, chainHash(a[2]))]);
+
+  final otherText = canonicalJson(forkNote.toWire());
+  write('broken-refusal-forged', "Seq 3's stub carries a hash that is not the refused event's. Seq 4 is "
+      'checked against the stub as against any event, so the chain breaks at seq 4, after seq 3.',
+      withoutThree, {
+    deviceA: broken(4, ulid(4), afterSeq: 3),
+  }, refusals: [stub(3, chainHash(otherText))]);
+
+  write('broken-refusal-fork', 'Seq 3 is held, and a stub of another text also holds seq 3: a fork, '
+      'named by the held event, since at one number a stub is read before an event.', a, {
+    deviceA: broken(3, ulid(3)),
+  }, refusals: [stub(3, chainHash(otherText))]);
+
+  write('broken-refusal-twice', 'Two stubs of two texts hold seq 3 and no event does: a fork with no '
+      'text to name it by.', withoutThree, {
+    deviceA: broken(3, null),
+  }, refusals: [stub(3, chainHash(a[2])), stub(3, chainHash(otherText))]);
   return files;
 }
 

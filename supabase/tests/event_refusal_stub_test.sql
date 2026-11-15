@@ -167,13 +167,15 @@ select is(array(select v.view_schema::text || '.' || v.view_name::text from info
                 where v.table_schema = 'public' and v.table_name = 'event_refusal'),
           array[]::text[],
           'no view reads the refusal record');
-select is(array(select p.proname::text from pg_proc p
+-- Since #62 chain_verification names the record too, reading the stub columns. It is stable, and
+-- Postgres refuses a write from a non-volatile function, so append_event stays the one writer.
+select is(array(select p.proname::text || ' ' || p.provolatile::text from pg_proc p
                 where p.pronamespace = 'public'::regnamespace and p.prosrc like '%event_refusal%'
                   and (has_function_privilege('authenticated', p.oid, 'execute')
                        or has_function_privilege('anon', p.oid, 'execute'))
                 order by p.proname),
-          array['append_event'],
-          'append_event is the only function a client can call whose body names the record');
+          array['append_event v', 'chain_verification s'],
+          'append_event is the only function a client can call whose body names the record and may write it');
 
 select * from finish();
 rollback;

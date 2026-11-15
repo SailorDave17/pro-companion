@@ -53,7 +53,13 @@ for #31 changed every hash and no verdict, as #49's did.
 
 - **`events`** are the events a verifier holds, in log order, with nothing else about them. The
   hash is over the canonical text exactly as given.
+- **`refusals`**, since #62, appears only in a file whose verifier also holds refusal stubs (#60):
+  each one's `device_id`, `seq`, `hash` (the SHA-256 of the text the server refused) and `reason`.
+  A verifier reads each in its event's place (`docs/event-chain.md`, "Refusal stubs in the chain").
+  The format name did not change, so a verifier from before #62 that ignores the key fails
+  `refused-middle` loudly, reading gapped where intact is expected, rather than passing silently.
 - **`at_seq` and `at_ulid`** appear only on a broken verdict, and name its break point.
+  `broken-refusal-twice` carries no `at_ulid`: its break is between two stubs, which have no ULID.
   **`after_seq`** appears when that event follows another one. It is the event before the break,
   which may be the altered one.
 
@@ -70,3 +76,9 @@ for #31 changed every hash and no verdict, as #49's did.
 | `broken-first-link` | seq 1's previous hash is not genesis | broken at 1 |
 | `broken-fork` | two events hold seq 3 | broken at 3, the later ULID |
 | `handoff` | a replacement phone's own chain from genesis | intact, per device |
+| `intact-readmitted` | re-admitted mid-day: a marker, then a second admission (#62) | intact |
+| `refused-middle` | seq 3 refused; its stub's hash is the refused text's (#62) | intact |
+| `refused-held` | seq 3 held, and a stub with its hash (#62) | intact, read once |
+| `broken-refusal-forged` | seq 3's stub carries another hash (#62) | broken at 4, after 3 |
+| `broken-refusal-fork` | seq 3 held, and a stub of another text (#62) | broken at 3, the held event |
+| `broken-refusal-twice` | two stubs of two texts at seq 3 (#62) | broken at 3, no ULID |
