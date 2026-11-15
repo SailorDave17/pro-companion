@@ -131,6 +131,22 @@ notes. A phone with no admission in the club leaves nothing behind (G43).
 - **They are kept as long as the event's log, with no separate purge** (G45). Like the log, they
   cannot be updated or deleted by any role, the owner included.
 
+**The server verifies each phone's chain (#62)**, so a protest committee on shore can tell a far
+mark's lagging log from an altered one. `chain_verification(race day)` gives one row per device:
+its status (broken, gapped, refused or intact, the worst that applies), the chain's verdict with
+its first bad event, the lowest and highest numbers held, how many are missing between them, and
+every number the server refused. `chain_attribution(race day)` gives each event's admission, role
+and race area: a device's chain runs on across a re-admission, and each event belongs to the
+admission it was written under.
+
+- **The verdict counts from seq 1** (owner decision), as `docs/event-chain.md` and the vectors do.
+  A phone's events from before its admission never reach shore, so a real phone reads gapped there;
+  the lowest number held and the missing count beside it tell that from a hole.
+- **A refused event is never read as a gap**: its stub fills its number with its hash, and the
+  event after it is checked against that.
+- **Only a phone admitted to the race day, or service_role, may read either**; anyone else is
+  refused (42501). Neither answers with an event's text.
+
 ### Sync: the phone's own events, up to the log
 
 `packages/sync` (#6, ADR 006) uploads each of the phone's own events through `append_event`,
@@ -296,8 +312,8 @@ PRO_COMPANION_LOCAL_STACK=1 flutter test
   device-handoff phone is one. A full run signs in 20 of them, so a second full run within the hour
   can reach the limit; run one file at a time while working. Each
   `integration_test/background_upload.sh` run spends one more. A named volunteer's phone spends a
-  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 28,
-  21 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
+  token verification instead, which the stack allows 30 of **per 5 minutes**. A full run spends 29,
+  22 of them in `test/sync_test.dart`, so prove a mutation there with `--plain-name` on one case.
 - **The stack runs its mail server** (Mailpit, `[local_smtp]`, port 54424) since #104. Auth refuses
   a magic-link request with a 500 ("Error sending magic link email") while it is stopped, and
   `test/sync_test.dart`'s #104 and #113 cases read the links they mailed from there. The stack allows

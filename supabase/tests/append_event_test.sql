@@ -42,12 +42,16 @@ select ok(not has_table_privilege('authenticated', 'public.event_log', 'INSERT')
           and not has_table_privilege('service_role', 'public.event_log', 'INSERT')
           and not has_any_column_privilege('service_role', 'public.event_log', 'INSERT'),
           'no role but the log''s owner holds INSERT on event_log, on the table or any column');
-select is(array(select p.proname::text from pg_proc p
+-- Since #62 two readers name the log too, chain_verification and chain_attribution. Both are stable,
+-- and Postgres refuses a write from a non-volatile function, so append_event stays the one a client
+-- can call that may write it.
+select is(array(select p.proname::text || ' ' || p.provolatile::text from pg_proc p
                 where p.pronamespace = 'public'::regnamespace and p.prosrc like '%event_log%'
                   and (has_function_privilege('authenticated', p.oid, 'execute')
-                       or has_function_privilege('anon', p.oid, 'execute'))),
-          array['append_event'],
-          'append_event is the only function a client can call whose body names the log');
+                       or has_function_privilege('anon', p.oid, 'execute'))
+                order by p.proname),
+          array['append_event v', 'chain_attribution s', 'chain_verification s'],
+          'append_event is the only function a client can call whose body names the log and may write it');
 
 -- 6–10. Criterion 4: the refusal table, which no client role can write. A phone reads #60's stub
 -- columns only, and no other.

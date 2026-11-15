@@ -23,6 +23,10 @@ const admissionOf = {
   '01J8Z0D0000000000000000002': '00000000-0000-0000-0000-0000000000b1',
 };
 
+/// The admission device A moves to after its `admission.superseded` marker,
+/// in intact-readmitted (#62 criterion 3).
+const readmittedTo = '00000000-0000-0000-0000-0000000000a2';
+
 String baseName(File f) => f.uri.pathSegments.last;
 
 void main() {
@@ -30,10 +34,12 @@ void main() {
     ..sort((a, b) => baseName(a).compareTo(baseName(b)));
   final written = writer.vectorFiles();
 
-  test('the set covers intact, gapped, broken and handoff chains', () {
+  test('the set covers intact, gapped, broken, handoff, re-admitted and refused chains', () {
     expect(files.map((f) => baseName(f).replaceAll('.json', '')).toSet(), {
       'intact', 'gapped-middle', 'gapped-start', 'broken-payload', 'broken-relinked', //
-      'broken-relinked-start', 'broken-first-link', 'broken-fork', 'handoff',
+      'broken-relinked-start', 'broken-first-link', 'broken-fork', 'handoff', //
+      'intact-readmitted', 'refused-middle', 'refused-held', 'broken-refusal-forged', //
+      'broken-refusal-fork', 'broken-refusal-twice',
     });
     expect(written.keys.toSet(), files.map(baseName).toSet(), reason: 'the writer writes exactly the committed set');
   });
@@ -42,6 +48,7 @@ void main() {
     final vector = jsonDecode(file.readAsStringSync()) as Map;
     final events = [for (final e in vector['events'] as List) e as Map];
     final texts = [for (final e in events) e['canonical'] as String];
+    final refusals = [for (final r in (vector['refusals'] as List?) ?? const []) ChainRefusal.fromWire(r as Map)];
 
     group('${vector['name']}', () {
       test('is in the set format and names itself after its file', () {
@@ -68,10 +75,26 @@ void main() {
         }
       });
 
-      test("each event carries its device's admission id (#49)", () {
-        for (final text in texts) {
-          final wire = jsonDecode(text) as Map;
-          expect(wire['admission_id'], admissionOf[wire['device_id']], reason: text);
+      test("each event carries its device's admission id (#49), the second one only after its marker (#62)", () {
+        final wires = [for (final text in texts) jsonDecode(text) as Map]
+          ..sort((a, b) => (a['seq'] as int).compareTo(b['seq'] as int));
+        final moved = <Object?>{};
+        for (final wire in wires) {
+          final device = wire['device_id'];
+          expect(wire['admission_id'], moved.contains(device) ? readmittedTo : admissionOf[device], reason: '$wire');
+          if (wire['kind'] == 'admission.superseded') {
+            expect((wire['payload'] as Map)['superseded_by'], readmittedTo);
+            moved.add(device);
+          }
+        }
+      });
+
+      test('each refusal stub names a vector device, a sequence number and a SHA-256 (#62)', () {
+        for (final r in refusals) {
+          expect(admissionOf.keys, contains(r.deviceId));
+          expect(r.seq, greaterThan(0));
+          expect(r.hash, matches(RegExp(r'^[0-9a-f]{64}$')));
+          expect(r.reason, isNotEmpty);
         }
       });
 
@@ -81,7 +104,7 @@ void main() {
       });
 
       test('the verifier reaches the expected verdict for each device', () {
-        final got = verifyChains(texts);
+        final got = verifyChains(texts, refusals: refusals);
         final expected = vector['expected'] as Map;
         expect(got.keys.toSet(), expected.keys.toSet());
         expected.forEach((device, want) {

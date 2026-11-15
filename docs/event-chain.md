@@ -87,8 +87,26 @@ refused, the same hash the chain takes. A verifier given stubs reads each one in
   with no text to name it by.
 - At one number a stub is read before an event, so a fork between the two is named by the event.
 
-`verifyChain(texts, refusals: …)` implements this. The shore verifier (#62) reproduces it. The
-vectors carry no stubs yet; #62 adds them with its verifier (owner decision at #67's pickup).
+`verifyChain(texts, refusals: …)` implements this, and the shore verifier (#62) reproduces it. The
+vectors carry stubs since #62 (owner decision at #67's pickup): `refused-middle`, `refused-held`
+and the three `broken-refusal-…` files.
+
+## On shore (#62)
+
+The companion's server verifies every device's chain on a race day, from the canonical text its log
+stores and the stubs of what it refused (`supabase/migrations/20261115000100_chain_verification.sql`).
+It reaches the same verdict as the phone's core on every vector. What it adds:
+
+- **One status per device**, the worst that applies: broken, gapped, refused (a stub is held and
+  every link holds), intact. Every refused number is listed whatever the status.
+- **The verdict counts from seq 1** (owner decision at #62's pickup), as this document does. A
+  phone's events from before its admission never reach shore (#64), so a real phone's chain reads
+  gapped there. Beside the verdict, each device reports the lowest and highest numbers held and how
+  many between them are missing, which is what tells a hole from those first events. The phone's
+  committee log counts from the lowest held instead ("What a phone shows", below).
+- **Attribution per event** (groom decision G44): each event with the admission it was written
+  under, and that admission's role and race area. The chain stays per device.
+- **Who reads it:** a phone admitted to the race day, and service_role. Anyone else is refused.
 
 ## What a phone shows (#67)
 
@@ -123,7 +141,8 @@ Every refusal is listed as its own line, with its reason, whatever the status.
   it, or against a copy already on shore.
 - **A rewritten tail.** Someone who alters an event and then rewrites every link after it, on the
   one phone, leaves a consistent chain. It shows against the shore copy, which holds the original
-  links (#62).
+  links. #62's verifier does not compare a phone's copy with the shore's; it verifies what shore
+  holds.
 - **Events written before #28.** They carry no `prev_hash`, so their chain verifies as broken from
   its first event. The pilot's field test (#8) has not run, so no committee's log predates the chain.
 
@@ -134,8 +153,11 @@ Every refusal is listed as its own line, with its reason, whatever the status.
 - intact, a gap in the middle and a missing start;
 - an altered payload byte, a removal re-linked in the middle and at the start, a first link that
   is not genesis, and a fork;
-- a handoff to a new device.
+- a handoff to a new device, and a re-admission on one device (#62);
+- refusal stubs (#62): one filling its number, one read once with its held event, and a forged
+  hash, a fork against a held event and two stubs forking each other.
 
-Each file lists every event's hash and canonical text, then the expected verdict for each device.
+Each file lists every event's hash and canonical text, any refusal stubs, then the expected verdict
+for each device.
 Expected verdicts are written by hand from this document. `fixtures/chain/README.md` states the
 format and the direction of the set.

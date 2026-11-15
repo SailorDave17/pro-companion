@@ -12,7 +12,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(16);
 
 insert into public.club (id, name) values ('00000000-0000-0000-0000-000000000c01', 'Hoover (fixture)');
 select public.create_event('00000000-0000-0000-0000-000000000c01', 'Club night', date '2026-09-27',
@@ -172,6 +172,157 @@ select is(pg_temp.check_vector($vector${
 $vector$),
           '{"stored": 6, "hash_matches": 6}'::jsonb,
           'broken-payload: all 6 events stored, each hashing to its recorded hash');
+
+-- fixtures/chain/broken-refusal-forged.json
+select is(pg_temp.check_vector($vector${
+  "format": "pro-companion-chain-vector/1",
+  "name": "broken-refusal-forged",
+  "description": "Seq 3's stub carries a hash that is not the refused event's. Seq 4 is checked against the stub as against any event, so the chain breaks at seq 4, after seq 3.",
+  "events": [
+    {
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "refusals": [
+    {
+      "device_id": "01J8Z0D0000000000000000001",
+      "seq": 3,
+      "hash": "078b264985303025efde2979761a78c3f94ec26e547b3556c36cc55285ea1b3f",
+      "reason": "kind_not_permitted"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "broken",
+      "at_seq": 4,
+      "at_ulid": "01J8Z0E0000000000000000004",
+      "after_seq": 3
+    }
+  }
+}
+$vector$),
+          '{"stored": 5, "hash_matches": 5}'::jsonb,
+          'broken-refusal-forged: all 5 events stored, each hashing to its recorded hash');
+
+-- fixtures/chain/broken-refusal-fork.json
+select is(pg_temp.check_vector($vector${
+  "format": "pro-companion-chain-vector/1",
+  "name": "broken-refusal-fork",
+  "description": "Seq 3 is held, and a stub of another text also holds seq 3: a fork, named by the held event, since at one number a stub is read before an event.",
+  "events": [
+    {
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+    },
+    {
+      "hash": "055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "refusals": [
+    {
+      "device_id": "01J8Z0D0000000000000000001",
+      "seq": 3,
+      "hash": "078b264985303025efde2979761a78c3f94ec26e547b3556c36cc55285ea1b3f",
+      "reason": "kind_not_permitted"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "broken",
+      "at_seq": 3,
+      "at_ulid": "01J8Z0E0000000000000000003"
+    }
+  }
+}
+$vector$),
+          '{"stored": 6, "hash_matches": 6}'::jsonb,
+          'broken-refusal-fork: all 6 events stored, each hashing to its recorded hash');
+
+-- fixtures/chain/broken-refusal-twice.json
+select is(pg_temp.check_vector($vector${
+  "format": "pro-companion-chain-vector/1",
+  "name": "broken-refusal-twice",
+  "description": "Two stubs of two texts hold seq 3 and no event does: a fork with no text to name it by.",
+  "events": [
+    {
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "refusals": [
+    {
+      "device_id": "01J8Z0D0000000000000000001",
+      "seq": 3,
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "reason": "kind_not_permitted"
+    },
+    {
+      "device_id": "01J8Z0D0000000000000000001",
+      "seq": 3,
+      "hash": "078b264985303025efde2979761a78c3f94ec26e547b3556c36cc55285ea1b3f",
+      "reason": "kind_not_permitted"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "broken",
+      "at_seq": 3
+    }
+  }
+}
+$vector$),
+          '{"stored": 5, "hash_matches": 5}'::jsonb,
+          'broken-refusal-twice: all 5 events stored, each hashing to its recorded hash');
 
 -- fixtures/chain/broken-relinked-start.json
 select is(pg_temp.check_vector($vector${
@@ -350,6 +501,43 @@ $vector$),
           '{"stored": 5, "hash_matches": 5}'::jsonb,
           'handoff: all 5 events stored, each hashing to its recorded hash');
 
+-- fixtures/chain/intact-readmitted.json
+select is(pg_temp.check_vector($vector${
+  "format": "pro-companion-chain-vector/1",
+  "name": "intact-readmitted",
+  "description": "Device A's PRO phone re-admitted as the scorer after seq 2: the marker at seq 3 under the first admission, then seq 4 and 5 under the second. A chain is per device, so it runs on across the change of admission.",
+  "events": [
+    {
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "2b15dc47f0f747dca08acdc521b0934f7d6c70e565998164efe636208354e14f",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190021000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"admission.superseded\",\"payload\":{\"superseded_by\":\"00000000-0000-0000-0000-0000000000a2\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"core\",\"ulid\":\"01J8Z0E0000000000000000021\"}"
+    },
+    {
+      "hash": "78559c584608e370577fb20d6b887c8242d40473ab48273f8cd18963b2899173",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a2\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190022000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Scoring from here\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"2b15dc47f0f747dca08acdc521b0934f7d6c70e565998164efe636208354e14f\",\"role\":\"scorer\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000022\"}"
+    },
+    {
+      "hash": "9f121a874455d5aa6fb7bf6f82f92fd565249c8132570625cf77c7da7a872f0c",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a2\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190023000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Race 1 provisional\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"78559c584608e370577fb20d6b887c8242d40473ab48273f8cd18963b2899173\",\"role\":\"scorer\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000023\"}"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "intact"
+    }
+  }
+}
+$vector$),
+          '{"stored": 5, "hash_matches": 5}'::jsonb,
+          'intact-readmitted: all 5 events stored, each hashing to its recorded hash');
+
 -- fixtures/chain/intact.json
 select is(pg_temp.check_vector($vector${
   "format": "pro-companion-chain-vector/1",
@@ -390,6 +578,100 @@ select is(pg_temp.check_vector($vector${
 $vector$),
           '{"stored": 6, "hash_matches": 6}'::jsonb,
           'intact: all 6 events stored, each hashing to its recorded hash');
+
+-- fixtures/chain/refused-held.json
+select is(pg_temp.check_vector($vector${
+  "format": "pro-companion-chain-vector/1",
+  "name": "refused-held",
+  "description": "The phone's own log holds seq 3, and the server's stub of it has the same hash: the stub is that event, refused, and is read once.",
+  "events": [
+    {
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190003000,\"gps\":{\"accuracy_m\":5,\"age_ms\":1500,\"lat\":33.4012,\"lon\":-86.8123},\"gps_reason\":null,\"kind\":\"finish\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107\",\"role\":\"overall_pro\",\"seq\":3,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000003\"}"
+    },
+    {
+      "hash": "055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "refusals": [
+    {
+      "device_id": "01J8Z0D0000000000000000001",
+      "seq": 3,
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "reason": "kind_not_permitted"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "intact"
+    }
+  }
+}
+$vector$),
+          '{"stored": 6, "hash_matches": 6}'::jsonb,
+          'refused-held: all 6 events stored, each hashing to its recorded hash');
+
+-- fixtures/chain/refused-middle.json
+select is(pg_temp.check_vector($vector${
+  "format": "pro-companion-chain-vector/1",
+  "name": "refused-middle",
+  "description": "The server refused seq 3, so it is not among the events, and its stub carries the refused text's hash. Seq 4 links to that hash, so the stub fills the number and the chain holds.",
+  "events": [
+    {
+      "hash": "709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190001000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"fleet.defined\",\"payload\":{\"class\":\"ILCA 7\",\"name\":\"Lasers\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"role\":\"overall_pro\",\"seq\":1,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000001\"}"
+    },
+    {
+      "hash": "8b4d8f151d8ad8a4ef3ef1817a93f15214f6f4ca02b203b987c9cbae8fec3107",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190002000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start\",\"payload\":{\"fleet\":\"01J8Z0E0000000000000000001\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"709574ae528bae1d9c1b7f787b0590340f7ff99099ca73558893a5ee8db25ec1\",\"role\":\"overall_pro\",\"seq\":2,\"source\":\"race-timer\",\"ulid\":\"01J8Z0E0000000000000000002\"}"
+    },
+    {
+      "hash": "055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190004000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"finish.sail\",\"payload\":{\"finish\":\"01J8Z0E0000000000000000003\",\"sail\":\"12345\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4\",\"role\":\"overall_pro\",\"seq\":4,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000004\"}"
+    },
+    {
+      "hash": "4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":null,\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190005000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"note\",\"payload\":{\"text\":\"Mark 2 — hold; wind 10° right\"},\"payload_version\":1,\"person\":null,\"prev_hash\":\"055f9da24332fe1689d130886f5bc28da7ef2b6931aeccae67b1e8d8403da6f4\",\"role\":\"overall_pro\",\"seq\":5,\"source\":\"tap\",\"ulid\":\"01J8Z0E0000000000000000005\"}"
+    },
+    {
+      "hash": "b9b33c657aaec752a774077856eff6ce78ce5b011eb65d2965ab488374abbdb1",
+      "canonical": "{\"admission_id\":\"00000000-0000-0000-0000-0000000000a1\",\"corrects_ulid\":\"01J8Z0E0000000000000000002\",\"device_id\":\"01J8Z0D0000000000000000001\",\"device_ts\":1727190006000,\"gps\":null,\"gps_reason\":\"no_fix\",\"kind\":\"start.time_corrected\",\"payload\":{\"time\":1727190065000},\"payload_version\":1,\"person\":null,\"prev_hash\":\"4e31f0ff097da263b973fe6afb6b146448c338fe5e1328433e85bbc58eb8ef63\",\"role\":\"overall_pro\",\"seq\":6,\"source\":\"manual\",\"ulid\":\"01J8Z0E0000000000000000006\"}"
+    }
+  ],
+  "refusals": [
+    {
+      "device_id": "01J8Z0D0000000000000000001",
+      "seq": 3,
+      "hash": "3ef0d93cc9dea8e066fad4ac76f93913fd31391b931375b43aca2c3e947f4af4",
+      "reason": "kind_not_permitted"
+    }
+  ],
+  "expected": {
+    "01J8Z0D0000000000000000001": {
+      "verdict": "intact"
+    }
+  }
+}
+$vector$),
+          '{"stored": 5, "hash_matches": 5}'::jsonb,
+          'refused-middle: all 5 events stored, each hashing to its recorded hash');
 
 select is((select count(*) from public.event_log), 0::bigint, 'every vector was rolled back, so each went into an empty log');
 
