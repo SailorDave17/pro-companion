@@ -249,7 +249,7 @@ class SyncEngine {
 
   // The loop ----------------------------------------------------------------
 
-  /// Starts syncing: a run now, then a run after every [nudge] and, while
+  /// Starts syncing: a run now, then a run after every [nudge] and [resume] and, while
   /// anything remains, on a backoff that grows to [maxBackoff]; once nothing
   /// remains, every [pullInterval], to pull, unless every race day has
   /// revoked the phone (#53).
@@ -264,6 +264,17 @@ class SyncEngine {
   void nudge() {
     if (!_started || _closed) return;
     if (_timer != null && _failures > 0) return;
+    _runNow();
+  }
+
+  /// The phone's network came back (#52): CoreService's network callback says so through the core
+  /// host. Unlike [nudge], it runs now even while a run waits out a failure, and starts the backoff
+  /// over: the failures it counted were the network's, and a run made the moment a network comes
+  /// up may still find it not ready, so the next try comes a second later, not at the cap. A run
+  /// already going joins this call and goes round once more ([syncOnce]), so nothing is sent twice.
+  /// Before [start], or after [close], it runs nothing: [_runNow] holds that, for this and [nudge].
+  void resume() {
+    _failures = 0;
     _runNow();
   }
 

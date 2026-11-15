@@ -130,8 +130,9 @@ class CoreHostBinding extends BindingBase with SchedulerBinding, ServicesBinding
 /// carry a current position. Then it tells the service it is ready, which
 /// releases the appends that arrived while the engine started: a call sent
 /// before its handler exists is dropped (ADR 003 decision 4). Last it starts
-/// sync, which from then on runs on its own: after every append, and on its
-/// timers while anything waits or another phone may have written.
+/// sync, which from then on runs on its own: after every append, on its
+/// timers while anything waits or another phone may have written, and at once
+/// when the phone's network comes back (#52), whatever the activity is doing.
 @pragma('vm:entry-point')
 Future<void> coreMain(List<String> args) async {
   CoreHostBinding.ensureInitialized();
@@ -146,7 +147,8 @@ Future<void> coreMain(List<String> args) async {
   final core = PortCoreClient(port, closesCore: false);
   forwardLocation(const PlatformLocationFeed(), core);
   final confirmation = ConfirmationService(const PlatformConfirmationDevice());
-  coreHostChannel.setMethodCallHandler((call) => handleHostCall(core, call, confirmation: confirmation));
+  coreHostChannel.setMethodCallHandler(
+      (call) => handleHostCall(core, call, confirmation: confirmation, online: sync?.resume));
   await coreHostChannel.invokeMethod<void>('ready');
   sync?.start();
 }
@@ -162,7 +164,15 @@ Future<void> coreMain(List<String> args) async {
 /// here, once the event is committed, and only when this call stored it, so a
 /// PRO with the phone in a pocket feels each signal and never a retry's echo.
 /// A failure throws, and CoreService tells race-timer `no_core`.
-Future<Object?> handleHostCall(CoreClient core, MethodCall call, {ConfirmationService? confirmation}) async {
+///
+/// `online` carries nothing: CoreService's network callback says the phone has a network again
+/// (#52), and [online] runs, which in the host is sync's resume. With no sync it does nothing.
+Future<Object?> handleHostCall(CoreClient core, MethodCall call,
+    {ConfirmationService? confirmation, void Function()? online}) async {
+  if (call.method == 'online') {
+    online?.call();
+    return null;
+  }
   if (call.method == 'link') {
     final arguments = call.arguments as Map;
     final answer =

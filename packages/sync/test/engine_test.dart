@@ -600,6 +600,39 @@ void main() {
       }
     });
 
+    test('#52 criterion 2: the network coming back while a run is sending joins that run, and each '
+        'event is sent exactly once, keyed by its ULID', () async {
+      final server = FakeServer();
+      final (phone, engine, _) = await admittedPhone(server, alice, dayOne);
+      final ulids = phone.log(5);
+      // The first append is held in flight, so the resume below lands while a run is sending.
+      final release = Completer<void>();
+      final held = Completer<void>();
+      server.hooks.add((r) async {
+        if (!r.isAppend || held.isCompleted) return null;
+        held.complete();
+        await release.future;
+        return null;
+      });
+      engine.start();
+      await held.future;
+      expect(server.appends.length, 1, reason: 'control: one append is in flight');
+
+      engine.resume();
+      engine.resume();
+      release.complete();
+      await pumpEventQueue(times: 200);
+
+      expect(phone.store.uploadStatus().accepted, 5);
+      expect(server.log.keys, unorderedEquals(ulids));
+      for (final u in ulids) {
+        expect(server.appendsOf(u), 1, reason: u);
+      }
+      expect(server.appends.where((r) => r.appendsInFlight > 0), isEmpty,
+          reason: 'no append went out while another was in flight: the resumes joined the run');
+      await engine.close();
+    });
+
     test('an error nothing classifies fails the run, is recorded, and does not stop sync', () async {
       final server = FakeServer();
       final (phone, engine, _) = await admittedPhone(server, alice, dayOne);

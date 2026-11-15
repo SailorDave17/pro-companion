@@ -187,6 +187,7 @@ jobs:
           arch: x86_64
           script: |
             sh integration_test/sync_flow.sh emulator-5554
+            sh integration_test/background_upload.sh emulator-5554
             sh integration_test/second_emulator.sh 5556
             sh integration_test/two_phones.sh emulator-5554 emulator-5556
 

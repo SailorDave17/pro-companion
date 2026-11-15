@@ -211,6 +211,85 @@ void main() {
     });
   });
 
+  /// Elapses until the next try goes out and fails, and returns its time: the moment the capped
+  /// backoff is furthest from its next run.
+  DateTime justAfterAFailedTry(FakeAsync async, FakeServer server) {
+    final seen = server.requests.length;
+    while (server.requests.length == seen) {
+      async.elapse(const Duration(milliseconds: 100));
+    }
+    async.elapse(const Duration(milliseconds: 100));
+    return server.requests.last.at;
+  }
+
+  test('#52: signal back mid-backoff, a tap\'s nudge waits the backoff out, and the network coming '
+      'back (resume) runs at once', () {
+    fakeAsync((async) {
+      final server = FakeServer()..offline = true;
+      final (phone, engine) = startedPhone(server);
+      async.elapse(const Duration(minutes: 2));
+      final failed = justAfterAFailedTry(async, server);
+      final tries = [for (final r in server.requests) r.at];
+      expect(tries.last.difference(tries[tries.length - 2]), const Duration(seconds: 15),
+          reason: 'control: the backoff is at its cap, so its next run is 15 s away');
+
+      server.offline = false;
+      engine.nudge();
+      async.elapse(const Duration(seconds: 2));
+      expect(server.appends, isEmpty, reason: 'control: a nudge mid-backoff waits the backoff out');
+
+      final resumed = clock.now();
+      engine.resume();
+      async.elapse(const Duration(seconds: 1));
+      expect(server.appends, isNotEmpty, reason: 'the resume ran at once');
+      expect(firstAppendAfter(server, resumed), lessThan(const Duration(seconds: 1)));
+      expect(resumed.difference(failed), lessThan(const Duration(seconds: 13)),
+          reason: 'the resume came well before the backoff\'s own run would have');
+      expect(phone.store.uploadStatus().accepted, 1);
+      closeIn(async, engine);
+    });
+  });
+
+  test('#52: a resume that finds no network yet starts the backoff over: the next try is a second '
+      'later, not at the cap', () {
+    fakeAsync((async) {
+      final server = FakeServer()..offline = true;
+      final (_, engine) = startedPhone(server);
+      async.elapse(const Duration(minutes: 2));
+      justAfterAFailedTry(async, server);
+
+      engine.resume();
+      async.elapse(const Duration(seconds: 2));
+      final afterResume = server.requests.reversed.take(2).toList().reversed.map((r) => r.at).toList();
+      expect(afterResume[1].difference(afterResume[0]), const Duration(seconds: 1),
+          reason: "the resume's run failed, and the next try came 1 s after it");
+      closeIn(async, engine);
+    });
+  });
+
+  test('#52: a resume before sync has started, or after it closed, runs nothing', () {
+    fakeAsync((async) {
+      final server = FakeServer();
+      final phone = TestPhone(admission: server.admitDirectly(alice, dayOne));
+      phone.keepSession(server.session(alice, validFor: const Duration(hours: 3)));
+      phone.log(1);
+      final engine = phone.engine(server);
+      // CoreService's callback fires as it registers, before the host starts sync.
+      engine.resume();
+      async.elapse(const Duration(seconds: 5));
+      expect(server.requests, isEmpty, reason: 'not started: nothing runs');
+
+      engine.start();
+      async.elapse(const Duration(seconds: 5));
+      expect(phone.store.uploadStatus().accepted, 1, reason: 'control: started, it uploads');
+      closeIn(async, engine);
+      final closed = server.requests.length;
+      engine.resume();
+      async.elapse(const Duration(minutes: 1));
+      expect(server.requests.length, closed, reason: 'closed: nothing runs');
+    });
+  });
+
   test('an event appended while the loop is idle goes at once', () {
     fakeAsync((async) {
       final server = FakeServer();
