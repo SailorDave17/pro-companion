@@ -40,8 +40,8 @@ abstract final class FleetRaceFlags {
 abstract final class FinishTimeFlags {
   /// No gun is held for its race: the gun has not been pulled to this phone,
   /// or the finish came before the fleet's first gun that day (owner decision
-  /// at #69's pickup). Until #113 starts sync in the app, that is every finish
-  /// a mark phone reads of its own, since it fires no gun.
+  /// at #69's pickup). A mark phone fires no gun, so that is every finish it
+  /// reads of its own until sync (#113) has pulled the PRO's guns down.
   static const noGun = 'no_gun';
 
   static const all = {...CrossPhoneFlags.all, noGun};

@@ -21,10 +21,17 @@
 # and since #104 the mail server. Auth refuses a magic-link request with a 500 ("Error sending magic
 # link email") while the mail server is stopped (measured on #104), and a test reads the link it
 # mailed from there.
+#
+# A start that failed because a container could not bind a host port still fails at once, but first
+# names the port and runs scripts/probe_port.sh on it, which prints who holds it (#113, PR #188).
+# On run 42956155985 the database could not bind 54422 on a fresh runner, and the runner was gone
+# before what held it could be asked.
 # START_STACK_BACKOFF_S (default 30) scales the backoff; the script's test sets it to 0.
+# STACK_PORT_PROBE replaces the probe; the script's test points it at a stand-in.
 
 exclude=studio,imgproxy,edge-runtime,logflare,vector,supavisor,storage-api,realtime,postgres-meta
 cli="${SUPABASE_CLI:-npx --yes supabase@2.117.0}"
+probe="${STACK_PORT_PROBE:-sh $(dirname "$0")/probe_port.sh}"
 backoff="${START_STACK_BACKOFF_S:-30}"
 first="${SUPABASE_INTERNAL_IMAGE_REGISTRY:-public.ecr.aws}"
 registries="$first"
@@ -32,6 +39,16 @@ for other in public.ecr.aws ghcr.io docker.io; do
   [ "$other" = "$first" ] || registries="$registries $other"
 done
 log=$(mktemp)
+
+# The host port a container could not bind, in either of the two ways Docker says so: its own
+# networking ("failed to bind host port"), or another container holding it ("port is already
+# allocated"). Empty when the start failed for any other reason.
+busy_port() {
+  sed -n \
+    -e 's/.*failed to bind host port [^ ]*:\([0-9][0-9]*\)\/[a-z]*: address already in use.*/\1/p' \
+    -e 's/.*Bind for [^ ]*:\([0-9][0-9]*\) failed: port is already allocated.*/\1/p' \
+    "$log" | head -n 1
+}
 
 for registry in $registries; do
   for attempt in 1 2 3; do
@@ -47,6 +64,11 @@ for registry in $registries; do
       exit 0
     fi
     if ! grep -q 'failed to pull docker image' "$log"; then
+      port=$(busy_port)
+      if [ -n "$port" ]; then
+        echo "supabase start: host port $port was already bound; what holds it now:"
+        $probe "$port"
+      fi
       echo "supabase start failed (exit $status), and not on an image pull: not retrying"
       exit "$status"
     fi

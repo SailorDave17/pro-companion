@@ -73,10 +73,12 @@ SendPort serveCore(String dbPath, {JoinHandler? join, SignInHandlers? signIn}) =
     serveStore(EventStore.open(dbPath), join: join, signIn: signIn);
 
 /// [serveCore] over a store the host already opened, so the host can build
-/// sync on the same store and hand its join in as [join] (#71, #113) and its
-/// magic-link sign-in as [signIn] (#104, #113).
-SendPort serveStore(EventStore store, {JoinHandler? join, SignInHandlers? signIn}) {
-  final server = CoreServer(store, closable: false, join: join, signIn: signIn);
+/// sync on the same store and hand its join in as [join] (#71, #113), its
+/// magic-link sign-in as [signIn] (#104, #113), and its nudge as
+/// [onAppended], which runs after every request that committed one of this
+/// phone's own events ([CoreServer.onAppended], #113).
+SendPort serveStore(EventStore store, {JoinHandler? join, SignInHandlers? signIn, void Function()? onAppended}) {
+  final server = CoreServer(store, closable: false, join: join, signIn: signIn, onAppended: onAppended);
   final requests = ReceivePort();
   requests.listen(server.handle);
   return requests.sendPort;

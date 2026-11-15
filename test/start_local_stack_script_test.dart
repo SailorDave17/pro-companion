@@ -26,8 +26,18 @@ case "$outcome" in
   datalimit) echo "failed to pull docker image from all registries: $reg/supabase/kong:2.8.1 attempt 3: Error response from daemon: error from registry: Data limit exceeded"; exit 1 ;;
   rate) echo "failed to pull docker image from all registries: $reg/supabase/kong:2.8.1 attempt 3: toomanyrequests: Rate exceeded"; exit 1 ;;
   migration) echo "ERROR: division by zero (SQLSTATE 22012)"; exit 1 ;;
+  portbusy) echo 'failed to start docker container "supabase_db_pro_companion": Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint supabase_db_pro_companion (3965): failed to bind host port 0.0.0.0:54422/tcp: address already in use'; exit 1 ;;
+  allocated) echo 'failed to start docker container "supabase_kong_pro_companion": Error response from daemon: driver failed programming external connectivity on endpoint supabase_kong_pro_companion (07ab): Bind for 0.0.0.0:54421 failed: port is already allocated'; exit 1 ;;
   *) echo "no scripted outcome for $reg start $n"; exit 3 ;;
 esac
+''';
+
+/// The stand-in port probe (#113, PR #188). It records `probe <port>` among the CLI's calls, so a
+/// case's call list also shows whether the probe ran and on which port.
+const _fakeProbe = r'''
+#!/bin/sh
+echo "probe $1" >>"$FAKE_DIR/calls"
+echo "held by the stand-in"
 ''';
 
 typedef _Run = ({int exitCode, String out, String err, List<String> calls, String githubEnv});
@@ -38,10 +48,12 @@ Future<_Run> _run(Map<String, List<String>> outcomes,
   addTearDown(() => dir.deleteSync(recursive: true));
   final p = dir.path.replaceAll(r'\', '/');
   File('$p/fake_supabase.sh').writeAsStringSync(_fakeCli);
+  File('$p/fake_probe.sh').writeAsStringSync(_fakeProbe);
   outcomes.forEach((registry, lines) => File('$p/$registry').writeAsStringSync('${lines.join('\n')}\n'));
   final githubEnv = File('$p/github_env')..writeAsStringSync('');
   final result = await Process.run('sh', ['scripts/start_local_stack.sh'], environment: {
     'SUPABASE_CLI': 'sh $p/fake_supabase.sh',
+    'STACK_PORT_PROBE': 'sh $p/fake_probe.sh',
     'FAKE_DIR': p,
     'START_STACK_BACKOFF_S': '0',
     'SUPABASE_INTERNAL_IMAGE_REGISTRY': firstRegistry,
@@ -150,5 +162,64 @@ void main() {
     expect(r.exitCode, 0, reason: r.out);
     expect(r.calls, ['ghcr.io start', 'ghcr.io stop', 'public.ecr.aws start']);
     expect(r.githubEnv, 'SUPABASE_INTERNAL_IMAGE_REGISTRY=public.ecr.aws\n');
+  });
+
+  // #113, PR #188: run 42956155985's database could not bind 54422 on a fresh runner, and the
+  // runner was gone before what held the port could be asked. The start still fails at once; it
+  // names the port and probes it first. Criterion 3's case above, whose call list holds no probe,
+  // is the control: a failure that names no port is not probed.
+  test('a host port already bound is probed by number, and the start still stops at once', () async {
+    final r = await _run({
+      'public.ecr.aws': ['portbusy'],
+      'ghcr.io': ['ok'],
+    });
+    expect(r.exitCode, 1, reason: r.out);
+    expect(r.calls, ['public.ecr.aws start', 'probe 54422']);
+    expect(r.out, contains('host port 54422 was already bound'));
+    expect(r.out, contains('held by the stand-in'));
+    expect(r.out, contains('not on an image pull: not retrying'));
+    expect(r.githubEnv, '');
+  });
+
+  test("a port another container holds, in Docker's other wording, is probed too", () async {
+    final r = await _run({
+      'public.ecr.aws': ['allocated'],
+    });
+    expect(r.exitCode, 1, reason: r.out);
+    expect(r.calls, ['public.ecr.aws start', 'probe 54421']);
+  });
+
+  // The real probe, scripts/probe_port.sh, on ports this test holds. It runs only when a start has
+  // already failed, about one CI run in forty, so a probe that printed nothing useful would spend
+  // the one chance to see the holder. These prove on Linux (CI's flutter job) that it names a
+  // listener and an outgoing connection, the two holders it exists to tell apart.
+  group('scripts/probe_port.sh', () {
+    Future<String> probe(int port) async {
+      final result = await Process.run('sh', ['scripts/probe_port.sh', '$port']);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+      return result.stdout as String;
+    }
+
+    test('names a listener on the port', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+      final out = await probe(server.port);
+      expect(out, matches(RegExp(r'ephemeral range \d+\s+\d+')));
+      expect(out, contains(':${server.port}'));
+      expect(out, anyOf(contains('LISTEN'), contains(' 0A ')));
+    }, skip: Platform.isLinux ? false : 'reads Linux sockets');
+
+    test("names an outgoing connection whose local end is the port", () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(server.close);
+      final accepted = server.first;
+      final client = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+      addTearDown(client.destroy);
+      addTearDown(() async => (await accepted).destroy());
+      final out = await probe(client.port);
+      expect(out, contains(':${client.port}'));
+      expect(out, anyOf(contains('ESTAB'), contains(' 01 ')));
+      expect(out, isNot(contains('LISTEN')));
+    }, skip: Platform.isLinux ? false : 'reads Linux sockets');
   });
 }

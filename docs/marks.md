@@ -98,9 +98,9 @@ pickup, 2026-10-14.
   needs the gun, which another phone logs, and a clock reference across phones (G10). The clock
   reference exists since #55: a `clock.offset` event, the phone's clock against satellite time,
   which the core appends itself just before the phone's first finish here in each race whose gun it
-  knows of, or once per fleet per day while it knows none (ADR 001, "Two clocks"). Today a mark
-  phone knows no gun: its home fires none and sync is not started in the app (#113), so it is once
-  per fleet per day, with another after the phone's clock is set.
+  knows of, or once per fleet per day while it knows none (ADR 001, "Two clocks"). A mark phone's
+  home fires no gun, so it knows the PRO's guns once sync has pulled them down (#113); before then,
+  or with no signal all day, it is once per fleet per day, with another after the clock is set.
 - **The core times a finish here across phones since #69**, for scoring and export to read; nothing
   reads it yet. `CoreClient.raceTimes()` gives every fleet race the phone holds. A finish at the
   line or at a mark, taken on another phone than the gun's, is timed from the race's gun through
@@ -134,9 +134,9 @@ The mark boat taps each boat as she rounds its station. Owner's choices at picku
   - `payload.race`: the gun the fleet's race began with, as the phone knows the guns, or null when it
     knows none. The same rule as a clock offset's race (ADR 001, "Two clocks").
   - `payload.lap`: one more than this phone's roundings of that boat, at this mark, for this fleet,
-    in that race, not undone. So the count runs from the gun, else from the start of the day. **Until
-    a mark-boat phone learns the guns (#113), a second race on the same day counts on from the
-    first.** An unidentified boat's lap is null.
+    in that race, not undone. So the count runs from the gun, else from the start of the day. **A
+    mark-boat phone that has not pulled the guns down (no signal since the day began) counts a
+    second race on from the first.** An unidentified boat's lap is null.
 - **A sail number named later, or corrected, is a `rounding.sail`** naming the rounding in
   `corrects_ulid`, with `payload.sail`; the latest wins, and the rounding itself is never edited.
   **UNDO LAST is a `rounding.undo`** naming the rounding, with no confirm.
@@ -149,7 +149,8 @@ The mark boat taps each boat as she rounds its station. Owner's choices at picku
 - **The fleets are the PRO's.** The rounding screen reads the day's fleet definitions from every
   phone, pulled down by sync, beside its own events (owner decision on #54's review, 2026-10-27). A
   mark-boat phone names none of its own, so without them a day of several fleets would log every
-  rounding with no fleet. Until sync runs in the app (#113), it sees only fleets it named itself.
+  rounding with no fleet. Sync runs in the app since #113, so it sees them once it has pulled them
+  down; with no signal yet, it sees only fleets it named itself.
 - **A log that cannot be read** shows that and RETRY, and nothing to log into: an empty grid would
   read as no boats yet.
 - A rounding brings its race's clock offset just before it, as a finish does (#55), so a gate's two

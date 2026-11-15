@@ -26,7 +26,9 @@ const uiForbidden = [
   Rule('package:http/', 'the UI never calls the network'),
   Rule('package:supabase', 'the UI never calls the server; sync is the core\'s'),
   Rule('package:sqlite3/', 'the UI never touches the store'),
-  Rule('package:pro_companion_core/store.dart', 'the UI never touches the store'),
+  // The core host opens the store to build sync on it (#113, ADR 006 decision 4).
+  Rule('package:pro_companion_core/store.dart', 'the UI never touches the store',
+      exempt: {'lib/core_host.dart'}),
   Rule('package:pro_companion_core/src/', 'the UI sees only the core\'s public interface'),
   // ADR 006 decision 4: the package:supabase rule above does not catch sync, which reaches the
   // network one package removed. Only the composition root (#32's core host) wires it.
@@ -41,6 +43,15 @@ const coreForbidden = [
   Rule('package:http/', 'the core makes no network calls; sync does, in its own package (ADR 006)'),
   Rule('package:supabase', 'the core makes no network calls; sync does, in its own package (ADR 006)'),
   Rule('package:pro_companion_sync', 'sync depends on the core, never the reverse (ADR 006)'),
+];
+
+/// ADR 006 decision 4's row for lib/core_host.dart (#113 criterion 6): the core host may import the
+/// core, sync and its method channel, and never widgets, since its engine has no widget tree.
+const hostFile = 'lib/core_host.dart';
+const hostForbidden = [
+  Rule('package:flutter/widgets.dart', 'the core host has no widget tree (ADR 006 decision 4)'),
+  Rule('package:flutter/material.dart', 'material is widgets (ADR 006 decision 4)'),
+  Rule('package:flutter/cupertino.dart', 'cupertino is widgets (ADR 006 decision 4)'),
 ];
 
 /// ADR 006 decision 4: sync may import the network and the core, and never Flutter, so it runs in
@@ -118,6 +129,23 @@ void main() {
           reason: 'the exemption names one file, not a file name');
     });
 
+    test('the core host may open the store, and may not import widgets (#113)', () {
+      const importsStore = "import 'package:pro_companion_core/store.dart';";
+      expect(violations(hostFile, importsStore, uiForbidden), isEmpty);
+      expect(violations('lib/main.dart', importsStore, uiForbidden), hasLength(1),
+          reason: 'the exemption is the host\'s alone');
+      expect(violations(hostFile, "import 'package:flutter/widgets.dart';", hostForbidden), hasLength(1));
+      expect(violations(hostFile, "import 'package:flutter/material.dart';", hostForbidden), hasLength(1));
+      expect(violations(hostFile, "import 'package:flutter/cupertino.dart';", hostForbidden), hasLength(1));
+      const hostOk = '''
+import 'package:flutter/foundation.dart' show BindingBase;
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
+import 'package:flutter/services.dart';
+import 'package:pro_companion_sync/sync.dart';
+''';
+      expect(violations(hostFile, hostOk, hostForbidden), isEmpty);
+    });
+
     test('lets through what the UI and the core legitimately import', () {
       const uiOk = '''
 import 'package:flutter/material.dart';
@@ -151,6 +179,13 @@ import 'package:pro_companion_core/store.dart';
     final found = [
       for (final f in files) ...violations(f.path, f.readAsStringSync(), uiForbidden),
     ];
+    expect(found, isEmpty, reason: found.join('\n'));
+  });
+
+  test('the core host imports no widgets (#113 criterion 6)', () {
+    final host = File(hostFile);
+    expect(host.existsSync(), isTrue, reason: 'the scan must actually reach the core host');
+    final found = violations(hostFile, host.readAsStringSync(), hostForbidden);
     expect(found, isEmpty, reason: found.join('\n'));
   });
 

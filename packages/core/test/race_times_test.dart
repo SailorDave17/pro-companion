@@ -113,7 +113,7 @@ void main() {
       expect(race.finishes.single.flags, [CrossPhoneFlags.gunPhoneNoOffset]);
     });
 
-    test('no gun held, as on every mark phone until #113: each finish flagged no_gun, and the race unreconciled '
+    test('no gun held, as on a mark phone before sync pulls the guns: each finish flagged no_gun, and the race unreconciled '
         '(owner decision at #69\'s pickup), until the gun is pulled', () {
       final pro = _Phone(water, skewMs: 0)..fix();
       final gunAt = water.now;

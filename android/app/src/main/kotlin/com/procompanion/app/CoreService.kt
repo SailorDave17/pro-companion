@@ -121,8 +121,11 @@ class CoreService : Service() {
             }
         }
         // By library as well as name: in an integration test the root library is the test's file.
+        // Its one argument is where sync keeps its session (#113): the no-backup directory, so a
+        // restore or a device transfer never brings back a refresh token many rotations old (ADR 006).
         e.dartExecutor.executeDartEntrypoint(
             DartExecutor.DartEntrypoint(loader.findAppBundlePath(), ENTRY_LIBRARY, ENTRY_POINT),
+            listOf(noBackupFilesDir.absolutePath),
         )
         engine = e
         channel = ch

@@ -1,11 +1,18 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:path/path.dart' as p;
 import 'package:pro_companion/confirmation.dart';
 import 'package:pro_companion/core_host.dart';
 import 'package:pro_companion_core/core.dart';
+import 'package:pro_companion_core/host.dart';
+import 'package:pro_companion_core/store.dart';
 import 'package:pro_companion_core/testing.dart';
+import 'package:pro_companion_sync/sync.dart';
 
 import 'support/fake_confirmation.dart';
 
@@ -118,6 +125,109 @@ void main() {
       final core = FakeCore();
       expect(await handleHostCall(core, link(contract('evt-1'))), LinkContract.accepted);
       expect((await core.readAll()).where((e) => e.source == raceTimerSource), hasLength(1));
+    });
+  });
+
+  // #113: where sync's project comes from, and what the host does without one. The host with sync
+  // running against a real server is test/sync_test.dart's #113 case; on a phone, sync_flow.sh.
+  const url = 'http://127.0.0.1:54421';
+  const key = 'sb_publishable_test';
+
+  group('the project sync sends to (#113 criterion 2)', () {
+    test('a build with neither define syncs nothing', () {
+      expect(SyncConfig.of('', ''), isNull);
+      expect(SyncConfig.compiled, isNull, reason: 'this test build was given no defines file');
+    });
+
+    test('a build with both syncs to that project', () {
+      final config = SyncConfig.of(url, key)!;
+      expect([config.url, config.publishableKey], [url, key]);
+    });
+
+    test('a defines file with one of the two is refused, naming the one it lacks', () {
+      // Both names are in either message, so each is held to the one it says is missing (#113's review).
+      expect(() => SyncConfig.of(url, ''),
+          throwsA(isA<ArgumentError>().having((e) => '${e.message}', 'message', contains('without ${SyncConfig.keyName}'))));
+      expect(() => SyncConfig.of('', key),
+          throwsA(isA<ArgumentError>().having((e) => '${e.message}', 'message', contains('without ${SyncConfig.urlName}'))));
+    });
+  });
+
+  group('the host with sync off, or unable to open (#113 criterion 2)', () {
+    late EventStore store;
+    late String dir;
+    late List<String> logged;
+
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('pc_host_').path;
+      store = EventStore.open(p.join(dir, 'core.db'));
+      logged = [];
+      addTearDown(() {
+        store.close();
+        try {
+          Directory(dir).deleteSync(recursive: true);
+        } on FileSystemException {
+          // Windows can hold the WAL briefly.
+        }
+      });
+    });
+
+    SyncEngine? open(SyncConfig? Function() config, {String? sessionDir}) =>
+        openSync(store, config: config, sessionDir: sessionDir, log: logged.add);
+
+    test('no project: sync is off, and says why', () {
+      expect(open(() => null, sessionDir: dir), isNull);
+      expect(logged, ['SYNC OFF this build names no project']);
+    });
+
+    test('no session directory: sync is off rather than keeping a session somewhere backed up', () {
+      expect(open(() => const SyncConfig(url, 'sb_publishable_test')), isNull);
+      expect(logged.single, startsWith('SYNC OFF'));
+    });
+
+    test('a broken defines file or a secret key: sync is off, the log names neither key', () {
+      const secret = 'sb_secret_DO_NOT_SHIP';
+      expect(open(() => SyncConfig.of(url, ''), sessionDir: dir), isNull);
+      expect(open(() => const SyncConfig(url, secret), sessionDir: dir), isNull, reason: 'the control: refused');
+      expect(logged, hasLength(2));
+      expect(logged.every((l) => l.startsWith('SYNC OFF')), isTrue, reason: '$logged');
+      expect(logged.join('\n'), isNot(contains(secret)));
+    });
+
+    test('with sync off the core works as before: appends land, join and sign-in answer no_server', () async {
+      final core = PortCoreClient(serveHost(store, null), closesCore: false);
+      expect((await core.append(FleetEvents.define('Lasers'))).seq, 1);
+      await expectLater(core.join('ABCD-2345'),
+          throwsA(isA<CoreException>().having((e) => e.code, 'code', JoinCodes.noServer)));
+      await expectLater(core.requestSignInLink('volunteer@example.com'),
+          throwsA(isA<CoreException>().having((e) => e.code, 'code', SignInCodes.noServer)));
+    });
+
+    test("with sync, join and both sign-in calls reach sync's engine (criterion 5's wiring)", () async {
+      final paths = <String>[];
+      final engine = SyncEngine.open(
+        url: url,
+        publishableKey: key,
+        store: store,
+        sessionDir: dir,
+        // No server: every request is recorded and refused, which is all the wiring needs.
+        transport: MockClient((request) async {
+          paths.add(request.url.path);
+          return http.Response('{"code":"test_refusal","msg":"no server here"}', 400);
+        }),
+        log: logged.add,
+      );
+      addTearDown(engine.close);
+      final core = PortCoreClient(serveHost(store, engine), closesCore: false);
+      // Each refusal is the engine's, never the core's no_server (#113's review: any CoreException
+      // passed, so a call left unwired looked wired).
+      final reachedSync = isA<CoreException>()
+          .having((e) => e.code, 'code', isNot(anyOf(SignInCodes.noServer, JoinCodes.noServer)));
+      await expectLater(core.requestSignInLink('volunteer@example.com'), throwsA(reachedSync));
+      await expectLater(core.completeSignInLink('one-time-code'), throwsA(reachedSync));
+      await expectLater(core.join('ABCD-2345'), throwsA(reachedSync));
+      expect(paths, containsAllInOrder(['/auth/v1/otp', '/auth/v1/signup']),
+          reason: 'the request mailed through gotrue, then the join signing in by device handoff');
     });
   });
 }

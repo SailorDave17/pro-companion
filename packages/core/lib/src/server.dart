@@ -22,7 +22,7 @@ typedef JoinHandler = Future<Admission> Function(String code);
 /// core: the foreground service's engine in the app (#32), or an isolate
 /// spawned for a test. The protocol is the same in both.
 class CoreServer {
-  CoreServer(this.store, {this.closable = true, this.join, this.signIn});
+  CoreServer(this.store, {this.closable = true, this.join, this.signIn, this.onAppended});
 
   final EventStore store;
 
@@ -39,11 +39,39 @@ class CoreServer {
   /// wired to, which refuses both sign-in requests as `no_server`.
   final SignInHandlers? signIn;
 
+  /// What runs once a request has committed one or more of this phone's own
+  /// events (#113): in the app, sync's nudge, so an append goes up without
+  /// waiting for a timer. Called after the reply is sent, once per request
+  /// however many events it appended, and never for a request that appended
+  /// none: a read, a refusal, a pull's stored events. A handler that throws
+  /// is the host's failure and never the request's, whose reply has gone.
+  final void Function()? onAppended;
+
   /// Handles one request, `[replyPort, command, args]`, and sends the reply.
   /// Returns false once the core has been asked to close. A `join` or a
   /// sign-in replies later, when its handler answers; everything else replies
   /// before this returns.
+  ///
+  /// A `join` appends its role-change marker after this returns, inside its
+  /// handler; in the app that handler is sync's own, which runs once it is
+  /// done, so [onAppended] has nothing to add there.
   bool handle(Object? message) {
+    final before = store.lastOwnSeq;
+    try {
+      return _handle(message);
+    } finally {
+      final hook = onAppended;
+      if (hook != null && store.lastOwnSeq != before) {
+        try {
+          hook();
+        } catch (_) {
+          // The reply has gone; a failing nudge must not turn into a crash of the core.
+        }
+      }
+    }
+  }
+
+  bool _handle(Object? message) {
     if (message is! List || message.length != 3 || message[0] is! SendPort) {
       return true; // Not a request. Nothing to reply to.
     }
